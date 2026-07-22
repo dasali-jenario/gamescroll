@@ -29,6 +29,27 @@ const BRIDGE = `
       if (t === 'gamescroll:start') GS.begin()
       if (t === 'gamescroll:pause') GS.halt()
     })
+    // Forward committed vertical flings to the host so swiping between games
+    // works even though this iframe captures all pointer events. Thresholds are
+    // high (long + fast + steep) so in-game taps, drags and short swipes never
+    // trigger navigation.
+    ;(function () {
+      let sx = 0, sy = 0, st = 0, tracking = false
+      addEventListener('pointerdown', (e) => {
+        sx = e.clientX; sy = e.clientY; st = performance.now(); tracking = true
+      }, true)
+      addEventListener('pointerup', (e) => {
+        if (!tracking) return
+        tracking = false
+        const dx = Math.abs(e.clientX - sx)
+        const dy = e.clientY - sy
+        const dt = performance.now() - st
+        const minDist = Math.max(140, innerHeight * 0.22)
+        if (dt > 350 || Math.abs(dy) < minDist || Math.abs(dy) < dx * 2.2) return
+        GS.post(dy < 0 ? 'gamescroll:swipe-next' : 'gamescroll:swipe-prev')
+      }, true)
+      addEventListener('pointercancel', () => { tracking = false }, true)
+    })()
     GS.post('gamescroll:ready')
 `
 

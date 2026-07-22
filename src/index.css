@@ -293,27 +293,56 @@ body {
   animation: tip-in 0.45s var(--ease) both;
 }
 
-.swipe-edge {
+.swipe-rail {
   position: fixed;
-  left: 0;
+  top: var(--chrome-top);
   right: 0;
-  bottom: 0;
+  bottom: env(safe-area-inset-bottom);
   z-index: 45;
-  height: calc(2.25rem + env(safe-area-inset-bottom));
+  width: 3rem;
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding-bottom: calc(0.45rem + env(safe-area-inset-bottom));
+  gap: 0.6rem;
   touch-action: none;
-  background: linear-gradient(to top, rgba(15, 20, 25, 0.28), transparent);
+  background: linear-gradient(to left, rgba(15, 20, 25, 0.3), transparent);
 }
 
-.swipe-edge-bar {
-  width: 2.75rem;
-  height: 0.28rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
+.swipe-rail-dot {
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.swipe-rail-chevron {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid rgba(255, 255, 255, 0.6);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
   animation: swipe-bar-pulse 1.6s var(--ease) infinite;
+}
+
+.swipe-rail-chevron.up {
+  transform: rotate(-135deg);
+}
+
+.swipe-rail-chevron.down {
+  transform: rotate(45deg);
+}
+
+.stats .nav-btn {
+  pointer-events: auto;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 0.28rem 0.55rem;
+  background: rgba(15, 20, 25, 0.4);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .nudge-chevron {
@@ -347,8 +376,8 @@ body {
 }
 
 @keyframes swipe-bar-pulse {
-  0%, 100% { opacity: 0.4; transform: scaleX(1); }
-  50% { opacity: 0.9; transform: scaleX(1.08); }
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.95; }
 }
 
 @media (prefers-reduced-motion: reduce) {

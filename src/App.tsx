@@ -65,6 +65,20 @@ export default function App() {
     scrollToIndex(activeIndex + 1)
   }, [activeIndex, scrollToIndex])
 
+  const goToPrevGame = useCallback(() => {
+    setPlayingKey(null)
+    setNudgeVisible(false)
+    scrollToIndex(activeIndex - 1)
+  }, [activeIndex, scrollToIndex])
+
+  const onGameSwipe = useCallback(
+    (direction: 'next' | 'prev') => {
+      if (direction === 'next') goToNextGame()
+      else goToPrevGame()
+    },
+    [goToNextGame, goToPrevGame],
+  )
+
   const onPlaying = useCallback(
     (key: string) => {
       const snap = session.recordGamePlayed(key)
@@ -80,9 +94,11 @@ export default function App() {
       if (!start) return
       const dy = start.y - clientY
       const dx = Math.abs(clientX - start.x)
-      if (dy >= SWIPE_MIN_DY && dy >= dx * 1.25) goToNextGame()
+      if (Math.abs(dy) < SWIPE_MIN_DY || Math.abs(dy) < dx * 1.25) return
+      if (dy > 0) goToNextGame()
+      else goToPrevGame()
     },
-    [goToNextGame],
+    [goToNextGame, goToPrevGame],
   )
 
   useEffect(() => {
@@ -124,19 +140,18 @@ export default function App() {
         pausePlay()
         return
       }
-      if (playingKey) return
       if (e.key === 'ArrowDown' || e.key === 'j') {
         e.preventDefault()
         goToNextGame()
       }
       if (e.key === 'ArrowUp' || e.key === 'k') {
         e.preventDefault()
-        scrollToIndex(activeIndex - 1)
+        goToPrevGame()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [playingKey, activeIndex, pausePlay, goToNextGame, scrollToIndex])
+  }, [playingKey, pausePlay, goToNextGame, goToPrevGame])
 
   // After pause: swipe up anywhere from the lower part of the screen advances.
   useEffect(() => {
@@ -176,9 +191,27 @@ export default function App() {
           <span className="mode">{playingKey ? 'Playing' : 'Browse'}</span>
           <span className="visits">v{visits}</span>
           {playingKey && (
-            <button type="button" className="pause-btn" onClick={pausePlay}>
-              Pause
-            </button>
+            <>
+              <button
+                type="button"
+                className="nav-btn"
+                aria-label="Previous game"
+                onClick={goToPrevGame}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className="nav-btn"
+                aria-label="Next game"
+                onClick={goToNextGame}
+              >
+                ↓
+              </button>
+              <button type="button" className="pause-btn" onClick={pausePlay}>
+                Pause
+              </button>
+            </>
           )}
         </div>
       </header>
@@ -198,6 +231,7 @@ export default function App() {
             liked={!!liked[item.game.id]}
             onPlay={() => enterPlay(item.key)}
             onPlaying={onPlaying}
+            onSwipe={onGameSwipe}
             onLike={() => {
               setLiked((prev) => ({
                 ...prev,
@@ -208,11 +242,12 @@ export default function App() {
         ))}
       </div>
 
-      {/* While playing, iframe eats touches — thin bottom edge captures swipe-up. */}
+      {/* While playing, the iframe eats touches — this host-owned right-edge
+          rail stays above it so vertical swipes there always switch games. */}
       {playingKey && (
         <div
-          className="swipe-edge"
-          aria-label="Swipe up for next game"
+          className="swipe-rail"
+          aria-label="Swipe up or down to switch games"
           onPointerDown={(e) => {
             swipeStart.current = { x: e.clientX, y: e.clientY }
             e.currentTarget.setPointerCapture(e.pointerId)
@@ -222,7 +257,9 @@ export default function App() {
             swipeStart.current = null
           }}
         >
-          <span className="swipe-edge-bar" aria-hidden="true" />
+          <span className="swipe-rail-chevron up" aria-hidden="true" />
+          <span className="swipe-rail-dot" aria-hidden="true" />
+          <span className="swipe-rail-chevron down" aria-hidden="true" />
         </div>
       )}
 

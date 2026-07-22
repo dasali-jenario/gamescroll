@@ -7,4 +7,4 @@ npm install
 npm run dev
 ```
 
-Open the local URL. The first game autoplays. **Pause** (or Esc) freezes play. Swipe up from the bottom (or ↓ / J) for the next game, then tap Play.
+Open the local URL. The first game autoplays. **Pause** (or Esc) freezes play. Switch games while playing with a big vertical fling anywhere, the right-edge rail, the ↑ / ↓ buttons in the top bar, or ↓ / J and ↑ / K.

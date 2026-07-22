@@ -10,6 +10,7 @@ type Props = {
   onPlay: () => void
   onLike: () => void
   onPlaying: (feedKey: string) => void
+  onSwipe: (direction: 'next' | 'prev') => void
 }
 
 function postToFrame(
@@ -28,6 +29,7 @@ export function GameCard({
   onPlay,
   onLike,
   onPlaying,
+  onSwipe,
 }: Props) {
   const frameRef = useRef<HTMLIFrameElement>(null)
   const readyRef = useRef(false)
@@ -36,7 +38,6 @@ export function GameCard({
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       const type = event.data?.type
-      if (type !== 'gamescroll:ready' && type !== 'gamescroll:playing') return
       if (event.source !== frameRef.current?.contentWindow) return
 
       if (type === 'gamescroll:ready') {
@@ -46,10 +47,16 @@ export function GameCard({
       if (type === 'gamescroll:playing' && isPlaying) {
         onPlaying(feedKey)
       }
+      if (type === 'gamescroll:swipe-next' && isPlaying) {
+        onSwipe('next')
+      }
+      if (type === 'gamescroll:swipe-prev' && isPlaying) {
+        onSwipe('prev')
+      }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [feedKey, isPlaying, onPlaying])
+  }, [feedKey, isPlaying, onPlaying, onSwipe])
 
   useEffect(() => {
     if (!shouldLoad) {
