@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -131,14 +132,15 @@
       ctx.fill()
     }
     function draw() {
-      ctx.fillStyle = '#003049'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#001d3d', '#003049', '#00243b')
+      PF.dots(ctx, W, H, '#fcbf49', 16, 0.5)
       for (const g of gates) {
-        ctx.fillStyle = '#fcbf49'
-        ctx.fillRect(0, g.y, W, 24)
+        PF.block(ctx, 0, g.y, W, 24, '#ffd166', '#fcbf49', 4)
         ctx.globalCompositeOperation = 'destination-out'
         drawShape(g.s, W * 0.5, g.y + 12, 22, '#000')
         ctx.globalCompositeOperation = 'source-over'
       }
+      PF.soft(ctx, W * 0.5, H * 0.7, 26, 'rgba(247,127,0,0.35)', 'rgba(247,127,0,0)')
       drawShape(shape, W * 0.5, H * 0.7, 16, '#f77f00')
     }
     addEventListener('pointerdown', () => { if (!GS.paused) shape = (shape + 1) % 3 })
@@ -158,6 +160,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

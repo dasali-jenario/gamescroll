@@ -9,6 +9,7 @@ export type Game = {
 export const games: Game[] = [
   { id: 'pong', title: 'Pocket Pong', tip: 'Drag to keep the ball bouncing', src: '/games/pong.html', accent: '#1b4332' },
   { id: 'flappy', title: 'Flappy', tip: 'Tap to stay airborne', src: '/games/flappy.html', accent: '#2d6a4f' },
+  { id: 'fish', title: 'Tiny Fish', tip: 'Hold to swim up through coral, release to dive', src: '/games/fish.html', accent: '#0077b6' },
   { id: 'lanes', title: 'Lane Switch', tip: 'Tap to switch lanes', src: '/games/lanes.html', accent: '#1d3557' },
   { id: 'stack', title: 'Falling Stack', tip: 'Tap to drop the moving block', src: '/games/stack.html', accent: '#7b2d26' },
   { id: 'orbit', title: 'Orbit Jump', tip: 'Tap to leap to the next planet', src: '/games/orbit.html', accent: '#22223b' },
@@ -28,7 +29,6 @@ export const games: Game[] = [
   { id: 'catch', title: 'Catch or Dodge', tip: 'Catch friends, dodge threats', src: '/games/catch.html', accent: '#3c096c' },
   { id: 'ridge', title: 'Rolling Ridge', tip: 'Steer along the narrow ridge', src: '/games/ridge.html', accent: '#582f0e' },
   { id: 'wall', title: 'Wall Bounce', tip: 'Tap to bounce between walls', src: '/games/wall.html', accent: '#bc4749' },
-  { id: 'fish', title: 'Tiny Fish', tip: 'Hold to swim up, release to sink', src: '/games/fish.html', accent: '#0077b6' },
   { id: 'dance', title: 'Two-Dot Dance', tip: 'Tap to reverse the spin', src: '/games/dance.html', accent: '#7209b7' },
   { id: 'balance', title: 'Keep It Balanced', tip: 'Tilt to keep the ball on', src: '/games/balance.html', accent: '#b08968' },
   { id: 'shapes', title: 'Shape Squeeze', tip: 'Tap to match the next hole', src: '/games/shapes.html', accent: '#d62828' },

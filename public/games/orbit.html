@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -102,6 +103,10 @@
     if (window.Juice) Juice.init({ accent: "#22223b" })
 
     let planets = [], idx = 0, ang = 0, flying = null
+    let landScale = 1
+    const PCOLORS = ['#f2a6b3', '#a6d8f2', '#c7f2a6', '#f2d9a6', '#c9a6f2']
+    function diePos() { return flying ? [flying.cx != null ? flying.cx : flying.x, flying.cy != null ? flying.cy : flying.y] : [W * 0.5, H * 0.5] }
+    function scorePos() { const p = planets[idx]; return p ? [p.x, p.y] : [W * 0.5, H * 0.5] }
     function makePlanets() {
       planets = []
       let x = W * 0.35, y = H * 0.55
@@ -111,7 +116,7 @@
         y = H * (0.35 + Math.random() * 0.35)
       }
     }
-    function reset() { makePlanets(); idx = 0; ang = 0; flying = null; setScore(0) }
+    function reset() { makePlanets(); idx = 0; ang = 0; flying = null; landScale = 1; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
     function jump() {
@@ -130,29 +135,31 @@
         if (t >= 1) {
           const n = planets[idx + 1]
           const d = Math.hypot(x - n.x, y - n.y)
-          if (d < n.r + 14) { idx++; bump(); flying = null; ang = 0 }
+          if (d < n.r + 14) { idx++; bump(); flying = null; ang = 0; landScale = 1.4 }
           else die()
         } else { flying.cx = x; flying.cy = y }
         return
       }
       ang += dt * 2.4
+      landScale += (1 - landScale) * Math.min(1, dt * 8)
     }
     function draw() {
-      ctx.fillStyle = '#22223b'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#10102a', '#22223b', '#4a4e69')
+      PF.dots(ctx, W, H, '#ffffff', 26, 1.2)
+      PF.blobs(ctx, W, H, '#9a8c98', 4)
       for (let i = 0; i < planets.length; i++) {
         const p = planets[i]
-        ctx.fillStyle = i === idx ? '#9a8c98' : '#4a4e69'
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill()
+        const c = PCOLORS[i % PCOLORS.length]
+        PF.soft(ctx, p.x, p.y, p.r, i === idx ? '#ffffff' : c, i === idx ? c : '#4a4e69')
       }
       let dx, dy
-      if (flying) { dx = flying.cx; dy = flying.cy }
+      if (flying) { dx = flying.cx != null ? flying.cx : flying.x; dy = flying.cy != null ? flying.cy : flying.y }
       else {
         const p = planets[idx]
         dx = p.x + Math.cos(ang) * (p.r + 10)
         dy = p.y + Math.sin(ang) * (p.r + 10)
       }
-      ctx.fillStyle = '#f2e9e4'
-      ctx.beginPath(); ctx.arc(dx, dy, 8, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, dx, dy, 10 * landScale, '#fff3b0', '#f2e9e4', { lookX: Math.cos(ang), lookY: Math.sin(ang), blush: true })
     }
     addEventListener('pointerdown', jump)
     reset()
@@ -171,6 +178,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

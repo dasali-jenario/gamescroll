@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -102,6 +103,8 @@
     if (window.Juice) Juice.init({ accent: "#582f0e" })
 
     let x = 0.5, path = [], scroll = 0
+    function diePos() { return [x * W, H * 0.7] }
+    function scorePos() { return [x * W, H * 0.7] }
     function reset() {
       x = 0.5; path = []; scroll = 0
       for (let i = 0; i < 30; i++) path.push(0.5)
@@ -121,17 +124,20 @@
       if (Math.abs(x - c) > 0.12) die()
     }
     function draw() {
-      ctx.fillStyle = '#283618'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#3a1f0a', '#582f0e', '#7f4f24')
+      PF.dots(ctx, W, H, '#dda15e', 16, 0.5)
       const rowH = H / (path.length - 1)
-      ctx.strokeStyle = '#dda15e'; ctx.lineWidth = 18; ctx.lineJoin = 'round'
+      ctx.strokeStyle = '#dda15e'; ctx.lineWidth = 20; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
       ctx.beginPath()
       for (let i = 0; i < path.length; i++) {
         const px = path[i] * W, py = i * rowH
         if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py)
       }
       ctx.stroke()
-      ctx.fillStyle = '#bc6c25'
-      ctx.beginPath(); ctx.arc(x * W, H * 0.7, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 6
+      ctx.stroke()
+      const target = path[Math.floor(path.length * 0.7)]
+      PF.buddy(ctx, x * W, H * 0.7, 15, '#ffd6a5', '#bc6c25', { lookX: (target - x) * 4 })
     }
     addEventListener('pointermove', e => { if (!GS.paused) x = e.clientX / W })
     addEventListener('pointerdown', e => { if (!GS.paused) x = e.clientX / W })
@@ -151,6 +157,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

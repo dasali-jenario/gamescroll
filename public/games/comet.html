@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -102,6 +103,8 @@
     if (window.Juice) Juice.init({ accent: "#3a0ca3" })
 
     let x, y, trail = [], t = 0
+    function diePos() { return [x, y] }
+    function scorePos() { return [x, y] }
     function reset() { x = W * 0.5; y = H * 0.5; trail = []; t = 0; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -118,14 +121,14 @@
       if (scoreAcc > 0.4) { scoreAcc = 0; bump() }
     }
     function draw() {
-      ctx.fillStyle = '#10002b'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#10002b', '#240046', '#3a0ca3')
+      PF.dots(ctx, W, H, '#4cc9f0', 20, 0.7)
       for (let i = trail.length - 1; i >= 0; i--) {
         const p = trail[i], a = 1 - i / trail.length
-        ctx.fillStyle = `rgba(76,201,240,${a * 0.8})`
+        ctx.fillStyle = 'rgba(76,201,240,' + (a * 0.8) + ')'
         ctx.beginPath(); ctx.arc(p.x, p.y, 4 + a * 4, 0, Math.PI * 2); ctx.fill()
       }
-      ctx.fillStyle = '#f72585'
-      ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, x, y, 13, '#ff8fa3', '#f72585')
     }
     addEventListener('pointermove', e => { if (!GS.paused) { x = e.clientX; y = e.clientY } })
     addEventListener('pointerdown', e => { if (!GS.paused) { x = e.clientX; y = e.clientY } })
@@ -146,6 +149,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

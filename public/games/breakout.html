@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -108,6 +109,8 @@
         bricks.push({ x: 20 + c * ((W - 40) / 8), y: 80 + r * 28, w: (W - 40) / 8 - 6, h: 18, alive: true })
       }
     }
+    function diePos() { return [px, H - 44] }
+    function scorePos() { return [ball.x, ball.y] }
     function reset() {
       pw = Math.min(120, W * 0.28); px = W * 0.5
       ball = { x: W * 0.5, y: H * 0.6, vx: 160, vy: -220, r: 8 }
@@ -133,11 +136,13 @@
       if (bricks.every(b => !b.alive)) buildBricks()
     }
     function draw() {
-      ctx.fillStyle = '#264653'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#7f5539', '#e9c46a', '#f4a261')
+      PF.dots(ctx, W, H, '#ffffff', 14, 0.4)
       for (const b of bricks) if (b.alive) {
-        ctx.fillStyle = '#e76f51'; ctx.fillRect(b.x, b.y, b.w, b.h)
+        PF.block(ctx, b.x, b.y, b.w, b.h, '#ff9770', '#e76f51', 5)
       }
-      ctx.fillStyle = '#e9c46a'; ctx.fillRect(px - pw * 0.5, H - 50, pw, 12)
+      PF.block(ctx, px - pw * 0.5, H - 50, pw, 12, '#ffe8a1', '#e9c46a', 6)
+      PF.soft(ctx, ball.x, ball.y, ball.r + 3, 'rgba(255,255,255,0.9)', 'rgba(255,255,255,0.15)')
       ctx.fillStyle = '#fff'
       ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill()
     }
@@ -159,6 +164,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

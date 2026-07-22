@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -102,6 +103,8 @@
     if (window.Juice) Juice.init({ accent: "#bc4749" })
 
     let side = -1, y, v, spikes = [], spawn = 0, x
+    function diePos() { return [x, y] }
+    function scorePos() { return [x, y] }
     function reset() { side = -1; y = H * 0.5; v = 0; x = 40; spikes = []; spawn = 0.3; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -126,19 +129,15 @@
       })
     }
     function draw() {
-      ctx.fillStyle = '#6a040f'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#370617'; ctx.fillRect(0, 0, 28, H); ctx.fillRect(W - 28, 0, 28, H)
+      PF.sky(ctx, W, H, '#6a040f', '#9d0208', '#bc4749')
+      PF.dots(ctx, W, H, '#ffba08', 14, 0.6)
+      PF.block(ctx, 0, 0, 28, H, '#370617', '#5a0210', 0)
+      PF.block(ctx, W - 28, 0, 28, H, '#370617', '#5a0210', 0)
       for (const s of spikes) {
-        ctx.fillStyle = '#ffba08'
-        const sx = s.side < 0 ? 28 : W - 28
-        ctx.beginPath()
-        ctx.moveTo(sx, s.y)
-        ctx.lineTo(sx + (s.side < 0 ? 22 : -22), s.y - 12)
-        ctx.lineTo(sx + (s.side < 0 ? 22 : -22), s.y + 12)
-        ctx.fill()
+        const tipX = s.side < 0 ? 50 : W - 50
+        PF.spike(ctx, tipX, s.y, s.side < 0 ? 'right' : 'left', '#ffba08')
       }
-      ctx.fillStyle = '#f8f9fa'
-      ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, x, y, 14, '#fff3b0', '#f8f9fa', { lookX: side })
     }
     addEventListener('pointerdown', () => { if (!GS.paused) side *= -1 })
     reset()
@@ -157,6 +156,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

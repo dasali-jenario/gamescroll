@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -128,20 +129,17 @@
       })
     }
     function draw() {
-      ctx.fillStyle = '#3a0ca3'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#240046', '#3a0ca3', '#560bad')
+      PF.blobs(ctx, W, H, '#7209b7', 5)
+      PF.dots(ctx, W, H, '#f72585', 16, 0.6)
       const cx = W * 0.5, cy = H * 0.55, R = 50
       for (const g of gaps) {
-        ctx.fillStyle = '#f72585'
-        ctx.fillRect(40, g.y, W - 80, 14)
-        ctx.fillStyle = '#3a0ca3'
+        PF.block(ctx, 40, g.y, W - 80, 14, '#ff5c8a', '#f72585', 6)
         const gx = cx + Math.cos(g.open) * 40
-        ctx.clearRect?.(0,0,0,0)
-        ctx.fillRect(gx - 36, g.y - 1, 72, 16)
+        ctx.clearRect(gx - 36, g.y - 2, 72, 18)
       }
-      ctx.fillStyle = '#4cc9f0'
-      ctx.beginPath(); ctx.arc(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R, 12, 0, Math.PI * 2); ctx.fill()
-      ctx.fillStyle = '#b5179e'
-      ctx.beginPath(); ctx.arc(cx + Math.cos(ang + Math.PI) * R, cy + Math.sin(ang + Math.PI) * R, 12, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, cx + Math.cos(ang) * R, cy + Math.sin(ang) * R, 13, '#7bdff2', '#4cc9f0')
+      PF.buddy(ctx, cx + Math.cos(ang + Math.PI) * R, cy + Math.sin(ang + Math.PI) * R, 13, '#ff8fe0', '#b5179e')
     }
     addEventListener('pointerdown', () => { if (!GS.paused) dir *= -1 })
     reset()
@@ -160,6 +158,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

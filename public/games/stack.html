@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -102,10 +103,13 @@
     if (window.Juice) Juice.init({ accent: "#7b2d26" })
 
     let pieces = [], cur, dir = 1, speed = 180, baseW
+    let wobble = 0
+    function diePos() { return cur ? [cur.x, cur.y] : [W * 0.5, H * 0.5] }
+    function scorePos() { return cur ? [cur.x, cur.y] : [W * 0.5, H * 0.5] }
     function reset() {
       baseW = Math.min(200, W * 0.55)
       pieces = [{ x: W * 0.5, w: baseW, y: H - 40 }]
-      spawn(); setScore(0); speed = 180
+      spawn(); setScore(0); speed = 180; wobble = 0
     }
     function spawn() {
       const prev = pieces[pieces.length - 1]
@@ -125,6 +129,7 @@
       cur = { x: (left + right) * 0.5, w, y: cur.y, moving: false }
       pieces.push(cur)
       bump()
+      wobble = 1
       if (pieces.length > 12) {
         const shift = pieces[1].y - pieces[0].y
         pieces.shift()
@@ -134,21 +139,26 @@
       spawn()
     }
     function tick(dt) {
+      if (wobble > 0) wobble = Math.max(0, wobble - dt * 3)
       if (!cur || !cur.moving) return
       cur.x += dir * speed * dt
       if (cur.x < cur.w * 0.5 || cur.x > W - cur.w * 0.5) dir *= -1
     }
     function draw() {
-      const g = ctx.createLinearGradient(0, 0, 0, H)
-      g.addColorStop(0, '#7b2d26'); g.addColorStop(1, '#e09f3e')
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
-      for (const p of pieces) {
-        ctx.fillStyle = '#f4d35e'
-        ctx.fillRect(p.x - p.w * 0.5, p.y, p.w, 28)
+      PF.sky(ctx, W, H, '#3d1f14', '#7b2d26', '#e09f3e')
+      PF.blobs(ctx, W, H, '#e09f3e', 4)
+      PF.dots(ctx, W, H, '#ffe8a3', 14, 0.6)
+      for (let i = 0; i < pieces.length; i++) {
+        const p = pieces[i]
+        const wob = i === pieces.length - 1 ? wobble : 0
+        PF.block(ctx, p.x - p.w * 0.5, p.y - wob * 4, p.w, 28 + wob * 4, '#ffe066', '#f4d35e', 8)
       }
       if (cur) {
-        ctx.fillStyle = '#fff'
-        ctx.fillRect(cur.x - cur.w * 0.5, cur.y, cur.w, 28)
+        PF.block(ctx, cur.x - cur.w * 0.5, cur.y, cur.w, 28, '#ffffff', '#e9ecef', 8)
+        const er = Math.min(5, cur.w * 0.12)
+        ctx.fillStyle = '#1b1b1b'
+        ctx.beginPath(); ctx.arc(cur.x - cur.w * 0.18, cur.y + 14, er, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(cur.x + cur.w * 0.18, cur.y + 14, er, 0, Math.PI * 2); ctx.fill()
       }
     }
     addEventListener('pointerdown', () => { if (!GS.paused) place() })
@@ -168,6 +178,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

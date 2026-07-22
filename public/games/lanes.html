@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -103,7 +104,13 @@
 
     const LANES = [0.28, 0.72]
     let lane = 0, blocks = [], spawn = 0, py
-    function reset() { lane = 0; blocks = []; spawn = 0.5; setScore(0); py = H * 0.78 }
+    let laneX = 0, squash = 1, stretch = 1
+    function diePos() { return [laneX, py] }
+    function scorePos() { return [laneX, py] }
+    function reset() {
+      lane = 0; blocks = []; spawn = 0.5; setScore(0); py = H * 0.78
+      laneX = W * LANES[0]; squash = 1; stretch = 1
+    }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
@@ -122,19 +129,23 @@
       for (const b of blocks) {
         if (b.lane === lane && Math.abs(b.y + b.h * 0.5 - py) < b.h * 0.5 + 18) die()
       }
+      laneX += (px - laneX) * Math.min(1, dt * 16)
+      squash += (1 - squash) * Math.min(1, dt * 10)
+      stretch += (1 - stretch) * Math.min(1, dt * 10)
     }
     function draw() {
-      ctx.fillStyle = '#1d3557'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = 'rgba(255,255,255,0.08)'
+      PF.sky(ctx, W, H, '#0d1b2a', '#1d3557', '#457b9d')
+      PF.blobs(ctx, W, H, '#457b9d', 5)
+      PF.dots(ctx, W, H, '#a8dadc', 16, 0.8)
+      ctx.fillStyle = 'rgba(255,255,255,0.1)'
       ctx.fillRect(W * 0.5 - 2, 0, 4, H)
       for (const b of blocks) {
-        ctx.fillStyle = '#e63946'
-        ctx.fillRect(W * LANES[b.lane] - 28, b.y, 56, b.h)
+        PF.block(ctx, W * LANES[b.lane] - 28, b.y, 56, b.h, '#ff8fa3', '#e63946', 12)
       }
-      ctx.fillStyle = '#a8dadc'
-      ctx.beginPath(); ctx.arc(W * LANES[lane], py, 18, 0, Math.PI * 2); ctx.fill()
+      const bob = PF.bob(4, 5, 0)
+      PF.buddy(ctx, laneX, py + bob, 20, '#a8dadc', '#48cae4', { lookY: -0.3, squash, stretch, blush: true })
     }
-    addEventListener('pointerdown', () => { if (!GS.paused) lane = 1 - lane })
+    addEventListener('pointerdown', () => { if (!GS.paused) { lane = 1 - lane; squash = 0.75; stretch = 1.25 } })
     reset()
 
     if (typeof die === 'function') {
@@ -151,6 +162,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

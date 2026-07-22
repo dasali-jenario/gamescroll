@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -128,6 +129,11 @@
         }
       }
     }
+    function diePos() {
+      const rowH = H / lanes.length
+      return [(player.c / cols) * W + (W / cols) * 0.5, H - (player.r + 1) * rowH + rowH * 0.5]
+    }
+    function scorePos() { return diePos() }
     function draw() {
       const rowH = H / lanes.length
       for (let i = 0; i < lanes.length; i++) {
@@ -135,12 +141,14 @@
         ctx.fillStyle = L.kind === 'safe' ? '#a98467' : L.kind === 'river' ? '#4cc9f0' : L.kind === 'rail' ? '#495057' : '#343a40'
         ctx.fillRect(0, H - (i + 1) * rowH, W, rowH)
         for (const c of L.cars) {
-          ctx.fillStyle = L.kind === 'river' ? '#0077b6' : '#ef476f'
-          ctx.fillRect((c.x / cols) * W, H - (i + 1) * rowH + 8, W / cols - 8, rowH - 16)
+          const cw = W / cols - 8, ch = rowH - 16
+          if (L.kind === 'river') PF.block(ctx, (c.x / cols) * W, H - (i + 1) * rowH + 8, cw, ch, '#48cae4', '#0077b6', 8)
+          else PF.block(ctx, (c.x / cols) * W, H - (i + 1) * rowH + 8, cw, ch, '#ff8fa3', '#ef476f', 6)
         }
       }
-      ctx.fillStyle = '#ffd166'
-      ctx.fillRect((player.c / cols) * W + 6, H - (player.r + 1) * rowH + 10, W / cols - 12, rowH - 20)
+      PF.dots(ctx, W, H, '#ffffff', 14, 0.4)
+      const [px, py] = diePos()
+      PF.buddy(ctx, px, py, Math.min(W / cols, rowH) * 0.32, '#ffe066', '#ffba08')
     }
     addEventListener('pointerdown', () => {
       if (GS.paused) return
@@ -167,6 +175,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

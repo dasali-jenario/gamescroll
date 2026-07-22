@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -102,6 +103,12 @@
     if (window.Juice) Juice.init({ accent: "#b08968" })
 
     let tilt = 0, ball = 0, noise = 0
+    function ballWorldPos() {
+      const cx = W * 0.5, cy = H * 0.55, lx = ball, ly = -20
+      return [cx + lx * Math.cos(tilt) - ly * Math.sin(tilt), cy + lx * Math.sin(tilt) + ly * Math.cos(tilt)]
+    }
+    function diePos() { return ballWorldPos() }
+    function scorePos() { return ballWorldPos() }
     function reset() { tilt = 0; ball = 0; noise = 0; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -115,13 +122,14 @@
       if (scoreAcc > 0.5) { scoreAcc = 0; bump() }
     }
     function draw() {
-      ctx.fillStyle = '#ddb892'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#7f5539', '#b08968', '#ddb892')
+      PF.dots(ctx, W, H, '#ffe8d6', 14, 0.4)
       const cx = W * 0.5, cy = H * 0.55
       ctx.save(); ctx.translate(cx, cy); ctx.rotate(tilt)
-      ctx.fillStyle = '#7f5539'; ctx.fillRect(-120, -8, 240, 16)
-      ctx.fillStyle = '#e6ccb2'
-      ctx.beginPath(); ctx.arc(ball, -20, 14, 0, Math.PI * 2); ctx.fill()
+      PF.block(ctx, -120, -8, 240, 16, '#9c6644', '#7f5539', 8)
       ctx.restore()
+      const [bxw, byw] = ballWorldPos()
+      PF.buddy(ctx, bxw, byw, 15, '#ffe8d6', '#e6ccb2', { lookX: tilt * 3 })
     }
     addEventListener('pointermove', e => { if (!GS.paused) tilt = (e.clientX / W - 0.5) * 0.9 })
     addEventListener('pointerdown', e => { if (!GS.paused) tilt = (e.clientX / W - 0.5) * 0.9 })
@@ -142,6 +150,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

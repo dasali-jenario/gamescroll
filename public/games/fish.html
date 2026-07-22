@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -101,39 +102,310 @@
     resize()
     if (window.Juice) Juice.init({ accent: "#0077b6" })
 
-    let y, holding = false, rocks = [], spawn = 0
-    function reset() { y = H * 0.5; rocks = []; spawn = 0.2; setScore(0) }
+    let y, v = 0, holding = false, rocks = [], spawn = 0
+    let bubbles = [], kelp = [], rays = [], sandX = 0, kelpX = 0, rayT = 0
+    let fin = 0, squash = 1, stretch = 1, pulse = 0, tAcc = 0
+    const SCROLL = 170, SAND_H = 64, FISH_RX = 16, FISH_RY = 10
+    const fx = () => W * 0.28
+    function diePos() { return [fx(), y] }
+    function scorePos() { return [fx(), y] }
+    function seedWorld() {
+      kelp = []
+      for (let i = 0; i < 8; i++) {
+        kelp.push({
+          x: i * W * 0.28 + Math.random() * 40,
+          h: H * (0.22 + Math.random() * 0.28),
+          w: 10 + Math.random() * 10,
+          sway: Math.random() * Math.PI * 2,
+          shade: i % 2 === 0 ? '#1b4332' : '#2d6a4f',
+        })
+      }
+      rays = []
+      for (let i = 0; i < 5; i++) {
+        rays.push({
+          x: Math.random() * W,
+          w: 28 + Math.random() * 40,
+          a: 0.04 + Math.random() * 0.06,
+          speed: 12 + Math.random() * 18,
+        })
+      }
+      bubbles = []
+      for (let i = 0; i < 14; i++) {
+        bubbles.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: 1.5 + Math.random() * 3.5,
+          vy: 18 + Math.random() * 36,
+          drift: (Math.random() - 0.5) * 20,
+          a: 0.2 + Math.random() * 0.35,
+        })
+      }
+      sandX = 0; kelpX = 0; rayT = 0
+    }
+    function reset() {
+      y = H * 0.5; v = 0; holding = false
+      rocks = []; spawn = 0.35
+      fin = 0; squash = 1; stretch = 1; pulse = 0; tAcc = 0
+      seedWorld(); setScore(0)
+    }
     function onHostStart() { reset() }
     function die() { reset() }
+    function startHold() {
+      if (GS.paused) return
+      holding = true
+      squash = 1.22
+      stretch = 0.78
+      pulse = 0.22
+      if (window.Juice) Juice.burst(fx() - 8, y + 2, '#90e0ef', 8)
+    }
+    function endHold() { holding = false }
     function tick(dt) {
-      y += (holding ? -160 : 160) * dt
-      if (y < 20 || y > H - 20) die()
+      tAcc += dt
+      const target = holding ? -175 : 175
+      v += (target - v) * Math.min(1, dt * 6)
+      y += v * dt
+      const floorY = H - SAND_H - 6
+      if (y < 18 || y > floorY) die()
       spawn -= dt
       if (spawn <= 0) {
-        rocks.push({ x: W + 30, y: 40 + Math.random() * (H - 80), r: 16 + Math.random() * 20 })
-        spawn = 0.5 + Math.random() * 0.35
+        const kind = Math.random()
+        rocks.push({
+          x: W + 40,
+          y: 50 + Math.random() * (floorY - 90),
+          r: 15 + Math.random() * 22,
+          kind: kind < 0.45 ? 'coral' : kind < 0.75 ? 'rock' : 'anemone',
+          spin: Math.random() * Math.PI * 2,
+          hue: Math.random(),
+        })
+        spawn = 0.48 + Math.random() * 0.38
       }
-      for (const r of rocks) r.x -= 170 * dt
+      for (const r of rocks) {
+        r.x -= SCROLL * dt
+        r.spin += dt * 0.4
+      }
       rocks = rocks.filter(r => {
-        if (r.x < -40) { bump(); return false }
-        if (Math.hypot(r.x - W * 0.28, r.y - y) < r.r + 12) die()
+        if (r.x < -50) { bump(); return false }
+        const hitR = r.kind === 'anemone' ? r.r * 0.72 : r.r * 0.85
+        if (Math.hypot(r.x - fx(), r.y - y) < hitR + 11) die()
         return true
       })
+      sandX = (sandX + SCROLL * dt) % 40
+      kelpX = (kelpX + SCROLL * 0.28 * dt) % (W * 0.28)
+      rayT += dt
+      for (const b of bubbles) {
+        b.y -= b.vy * dt
+        b.x += Math.sin(tAcc * 2 + b.y * 0.02) * b.drift * dt
+        if (b.y < -10) {
+          b.y = H + 10
+          b.x = Math.random() * W
+        }
+      }
+      if (holding && pulse <= 0 && Math.random() < dt * 4) {
+        if (window.Juice) Juice.burst(fx() - 10, y + 4, '#caf0f8', 3)
+      }
+      if (pulse > 0) pulse -= dt
+      const flapSpeed = holding ? 14 : 5
+      fin += (Math.sin(tAcc * flapSpeed) * (holding ? 0.7 : 0.35) - fin) * Math.min(1, dt * 12)
+      squash += (1 - squash) * Math.min(1, dt * 9)
+      stretch += (1 - stretch) * Math.min(1, dt * 9)
+    }
+    function drawSand() {
+      const gy = H - SAND_H
+      const floor = ctx.createLinearGradient(0, gy - 20, 0, H)
+      floor.addColorStop(0, 'rgba(2,62,138,0)')
+      floor.addColorStop(0.35, '#0077b6')
+      floor.addColorStop(0.7, '#c9a227')
+      floor.addColorStop(1, '#8b5e34')
+      ctx.fillStyle = floor
+      ctx.fillRect(0, gy - 20, W, SAND_H + 20)
+      ctx.fillStyle = '#e9c46a'
+      ctx.beginPath()
+      ctx.moveTo(0, gy + 8)
+      for (let i = -1; i < W / 40 + 3; i++) {
+        const sx = i * 40 - sandX
+        ctx.quadraticCurveTo(sx + 20, gy - 4 - (i % 3) * 3, sx + 40, gy + 8)
+      }
+      ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill()
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'
+      for (let i = -1; i < W / 28 + 2; i++) {
+        ctx.beginPath()
+        ctx.arc(i * 28 - sandX * 0.6, gy + 18 + (i % 4) * 6, 2 + (i % 3), 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+    function drawKelp() {
+      const baseY = H - SAND_H + 4
+      for (const k of kelp) {
+        const kx = ((k.x - kelpX) % (W * 2.4) + W * 2.4) % (W * 2.4) - W * 0.3
+        const sway = Math.sin(tAcc * 1.4 + k.sway) * 18
+        ctx.strokeStyle = k.shade
+        ctx.lineWidth = k.w
+        ctx.lineCap = 'round'
+        ctx.beginPath()
+        ctx.moveTo(kx, baseY)
+        ctx.quadraticCurveTo(kx + sway * 0.4, baseY - k.h * 0.45, kx + sway, baseY - k.h)
+        ctx.stroke()
+        ctx.strokeStyle = 'rgba(82,183,136,0.45)'
+        ctx.lineWidth = k.w * 0.35
+        ctx.beginPath()
+        ctx.moveTo(kx - 2, baseY)
+        ctx.quadraticCurveTo(kx + sway * 0.4 - 2, baseY - k.h * 0.45, kx + sway - 2, baseY - k.h)
+        ctx.stroke()
+      }
+    }
+    function drawRays() {
+      for (const r of rays) {
+        const rx = ((r.x + rayT * r.speed) % (W + 80)) - 40
+        ctx.fillStyle = 'rgba(202,240,248,' + r.a + ')'
+        ctx.beginPath()
+        ctx.moveTo(rx, 0)
+        ctx.lineTo(rx + r.w, 0)
+        ctx.lineTo(rx + r.w * 1.6, H * 0.7)
+        ctx.lineTo(rx - r.w * 0.3, H * 0.7)
+        ctx.closePath(); ctx.fill()
+      }
+    }
+    function drawBubbles() {
+      for (const b of bubbles) {
+        ctx.strokeStyle = 'rgba(255,255,255,' + b.a + ')'
+        ctx.lineWidth = 1.2
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke()
+        ctx.fillStyle = 'rgba(255,255,255,' + (b.a * 0.35) + ')'
+        ctx.beginPath(); ctx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.35, 0, Math.PI * 2); ctx.fill()
+      }
+    }
+    function drawRock(r) {
+      ctx.save()
+      ctx.translate(r.x, r.y)
+      if (r.kind === 'coral') {
+        const g = ctx.createRadialGradient(-4, -6, 2, 0, 0, r.r)
+        g.addColorStop(0, '#ff85a1'); g.addColorStop(0.45, '#e63946'); g.addColorStop(1, '#9d0208')
+        ctx.fillStyle = g
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2 + r.spin * 0.2
+          const br = r.r * (0.45 + (i % 2) * 0.2)
+          ctx.beginPath()
+          ctx.ellipse(Math.cos(a) * r.r * 0.35, Math.sin(a) * r.r * 0.35, br * 0.55, br, a, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.2)'
+        ctx.beginPath(); ctx.ellipse(-r.r * 0.2, -r.r * 0.25, r.r * 0.25, r.r * 0.18, -0.4, 0, Math.PI * 2); ctx.fill()
+      } else if (r.kind === 'anemone') {
+        const petals = 7
+        for (let i = 0; i < petals; i++) {
+          const a = (i / petals) * Math.PI * 2 + Math.sin(tAcc * 3 + i) * 0.15
+          const len = r.r * (0.9 + Math.sin(tAcc * 4 + i) * 0.08)
+          ctx.strokeStyle = r.hue > 0.5 ? '#c77dff' : '#ff6d00'
+          ctx.lineWidth = 4
+          ctx.lineCap = 'round'
+          ctx.beginPath()
+          ctx.moveTo(0, 0)
+          ctx.quadraticCurveTo(Math.cos(a) * len * 0.5, Math.sin(a) * len * 0.5, Math.cos(a) * len, Math.sin(a) * len)
+          ctx.stroke()
+        }
+        ctx.fillStyle = '#ffba08'
+        ctx.beginPath(); ctx.arc(0, 0, r.r * 0.28, 0, Math.PI * 2); ctx.fill()
+      } else {
+        const g = ctx.createRadialGradient(-r.r * 0.3, -r.r * 0.35, 2, 0, 0, r.r)
+        g.addColorStop(0, '#95d5b2'); g.addColorStop(0.4, '#40916c'); g.addColorStop(1, '#1b4332')
+        ctx.fillStyle = g
+        ctx.beginPath(); ctx.ellipse(0, 0, r.r * 0.72, r.r, -0.2, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = 'rgba(0,0,0,0.18)'
+        ctx.beginPath(); ctx.ellipse(r.r * 0.15, r.r * 0.1, r.r * 0.35, r.r * 0.45, 0.3, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = 'rgba(255,255,255,0.15)'
+        ctx.beginPath(); ctx.ellipse(-r.r * 0.25, -r.r * 0.3, r.r * 0.22, r.r * 0.14, -0.5, 0, Math.PI * 2); ctx.fill()
+      }
+      ctx.restore()
+    }
+    function drawFish() {
+      const ang = Math.max(-0.55, Math.min(0.7, v * 0.0035))
+      ctx.save()
+      ctx.translate(fx(), y)
+      ctx.rotate(ang)
+      ctx.scale(squash, stretch)
+      // soft shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.2)'
+      ctx.beginPath(); ctx.ellipse(2, 14, 14, 5, 0, 0, Math.PI * 2); ctx.fill()
+      // tail
+      ctx.save()
+      ctx.translate(-14, 0)
+      ctx.rotate(fin * 0.55)
+      const tail = ctx.createLinearGradient(-12, 0, 0, 0)
+      tail.addColorStop(0, '#f48c06'); tail.addColorStop(1, '#ffba08')
+      ctx.fillStyle = tail
+      ctx.beginPath()
+      ctx.moveTo(0, 0)
+      ctx.quadraticCurveTo(-6, -12 - fin * 4, -16, -8)
+      ctx.quadraticCurveTo(-10, 0, -16, 8)
+      ctx.quadraticCurveTo(-6, 12 + fin * 4, 0, 0)
+      ctx.fill()
+      ctx.restore()
+      // body
+      const body = ctx.createRadialGradient(-3, -4, 2, 0, 0, 18)
+      body.addColorStop(0, '#ffe066'); body.addColorStop(0.5, '#ffba08'); body.addColorStop(1, '#e85d04')
+      ctx.fillStyle = body
+      ctx.beginPath(); ctx.ellipse(0, 0, FISH_RX, FISH_RY, 0, 0, Math.PI * 2); ctx.fill()
+      // belly stripe
+      ctx.fillStyle = 'rgba(255,243,191,0.85)'
+      ctx.beginPath(); ctx.ellipse(2, 3, 10, 5, 0, 0, Math.PI * 2); ctx.fill()
+      // dorsal fin
+      ctx.fillStyle = '#f48c06'
+      ctx.beginPath()
+      ctx.moveTo(-2, -FISH_RY + 1)
+      ctx.quadraticCurveTo(2, -FISH_RY - 10 - fin * 2, 8, -FISH_RY + 2)
+      ctx.quadraticCurveTo(2, -FISH_RY - 2, -2, -FISH_RY + 1)
+      ctx.fill()
+      // pectoral fin
+      ctx.save()
+      ctx.translate(2, 2)
+      ctx.rotate(0.4 + fin * 0.8)
+      ctx.fillStyle = '#fb8500'
+      ctx.beginPath(); ctx.ellipse(0, 4, 7, 3.5, 0.2, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
+      // eye
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.ellipse(8, -3, 4.2, 4.4, 0, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#1b1b1b'
+      ctx.beginPath(); ctx.arc(9.2, -2.6, 1.9, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.arc(9.8, -3.4, 0.7, 0, Math.PI * 2); ctx.fill()
+      // smile / gill hint
+      ctx.strokeStyle = 'rgba(232,93,4,0.55)'
+      ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.arc(6, 2, 4, 0.15, 1.1); ctx.stroke()
+      // nose highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'
+      ctx.beginPath(); ctx.ellipse(11, -1, 2.2, 1.4, 0.2, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
+    }
+    function drawCaustics() {
+      ctx.save()
+      ctx.globalCompositeOperation = 'lighter'
+      for (let i = 0; i < 6; i++) {
+        const cx = ((i * W * 0.22 + tAcc * (8 + i * 3)) % (W + 60)) - 30
+        const cy = H * (0.15 + (i % 3) * 0.18) + Math.sin(tAcc * 1.2 + i) * 18
+        ctx.fillStyle = 'rgba(144,224,239,0.045)'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy, 50 + i * 8, 18 + (i % 2) * 8, Math.sin(tAcc + i) * 0.4, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.restore()
     }
     function draw() {
       const g = ctx.createLinearGradient(0, 0, 0, H)
-      g.addColorStop(0, '#023e8a'); g.addColorStop(1, '#48cae4')
+      g.addColorStop(0, '#012a4a'); g.addColorStop(0.35, '#014f86'); g.addColorStop(0.7, '#0077b6'); g.addColorStop(1, '#00b4d8')
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
-      for (const r of rocks) {
-        ctx.fillStyle = '#2d6a4f'
-        ctx.beginPath(); ctx.ellipse(r.x, r.y, 10, r.r, 0, 0, Math.PI * 2); ctx.fill()
-      }
-      ctx.fillStyle = '#ffba08'
-      ctx.beginPath(); ctx.ellipse(W * 0.28, y, 16, 10, 0, 0, Math.PI * 2); ctx.fill()
+      drawRays()
+      drawCaustics()
+      drawKelp()
+      for (const r of rocks) drawRock(r)
+      drawSand()
+      drawBubbles()
+      drawFish()
     }
-    addEventListener('pointerdown', () => { holding = true })
-    addEventListener('pointerup', () => { holding = false })
-    addEventListener('pointercancel', () => { holding = false })
+    addEventListener('pointerdown', startHold)
+    addEventListener('pointerup', endHold)
+    addEventListener('pointercancel', endHold)
     reset()
 
     if (typeof die === 'function') {
@@ -150,6 +422,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

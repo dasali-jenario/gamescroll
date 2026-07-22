@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -102,6 +103,8 @@
     if (window.Juice) Juice.init({ accent: "#3c096c" })
 
     let bx, items = [], spawn = 0
+    function diePos() { return [bx, H - 58] }
+    function scorePos() { return [bx, H - 58] }
     function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -121,13 +124,14 @@
       })
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#240046', '#3c096c', '#5a189a')
+      PF.blobs(ctx, W, H, '#c77dff', 5)
+      PF.dots(ctx, W, H, '#e0aaff', 18, 0.6)
       for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+        if (it.good) PF.soft(ctx, it.x, it.y, 13, '#b9fbc0', '#38b000')
+        else PF.soft(ctx, it.x, it.y, 13, '#ffb3c1', '#ef476f')
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      PF.buddy(ctx, bx, H - 58, 26, '#e0aaff', '#9d4edd', { lookY: -0.4 })
     }
     addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
     addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
@@ -147,6 +151,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

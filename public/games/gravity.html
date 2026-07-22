@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -102,7 +103,10 @@
     if (window.Juice) Juice.init({ accent: "#3d405b" })
 
     let onCeil = false, obstacles = [], spawn = 0, y
-    function reset() { onCeil = false; obstacles = []; spawn = 0.4; setScore(0); y = H - 60 }
+    let flip = 0
+    function diePos() { return [W * 0.22, y] }
+    function scorePos() { return [W * 0.22, y] }
+    function reset() { onCeil = false; obstacles = []; spawn = 0.4; setScore(0); y = H - 60; flip = 0 }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
@@ -124,19 +128,25 @@
         }
         return true
       })
+      if (flip > 0) flip -= dt * 3
     }
     function draw() {
-      ctx.fillStyle = '#3d405b'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#81b29a'
-      ctx.fillRect(0, 0, W, 36); ctx.fillRect(0, H - 36, W, 36)
+      PF.sky(ctx, W, H, '#20233d', '#3d405b', '#5c6291')
+      PF.dots(ctx, W, H, '#f2cc8f', 16, 1)
+      PF.blobs(ctx, W, H, '#81b29a', 4)
+      PF.block(ctx, 0, 0, W, 36, '#a3d9c9', '#81b29a', 0)
+      PF.block(ctx, 0, H - 36, W, 36, '#81b29a', '#5f9482', 0)
       for (const o of obstacles) {
-        ctx.fillStyle = '#e07a5f'
-        ctx.fillRect(o.x, o.ceil ? 36 : H - 36 - o.h, o.w, o.h)
+        const oy = o.ceil ? 36 : H - 36 - o.h
+        PF.block(ctx, o.x, oy, o.w, o.h, '#f2957a', '#e07a5f', 8)
+        const tipY = o.ceil ? oy + o.h : oy
+        PF.spike(ctx, o.x + o.w * 0.5, tipY, o.ceil ? 'down' : 'up', '#ffba08')
       }
-      ctx.fillStyle = '#f2cc8f'
-      ctx.beginPath(); ctx.arc(W * 0.22, y, 14, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, W * 0.22, y, 15, '#ffe8b0', '#f2cc8f', {
+        lookY: onCeil ? 1 : -1, squash: 1 + flip * 0.3, stretch: 1 - flip * 0.2, blush: true
+      })
     }
-    addEventListener('pointerdown', () => { if (!GS.paused) onCeil = !onCeil })
+    addEventListener('pointerdown', () => { if (!GS.paused) { onCeil = !onCeil; flip = 1 } })
     reset()
 
     if (typeof die === 'function') {
@@ -153,6 +163,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -124,13 +125,18 @@
       const row = walls[Math.floor(walls.length * 0.65)]
       if (Math.abs(x - row.c) > row.w * 0.5 - 0.03) die()
     }
+    function diePos() { return [x * W, H * 0.65] }
+    function scorePos() { return [x * W, H * 0.65] }
     function draw() {
-      ctx.fillStyle = '#03045e'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#020a35', '#023e8a', '#0077b6')
+      PF.dots(ctx, W, H, '#caf0f8', 24, 1.2)
       const rowH = H / (walls.length - 1)
-      ctx.fillStyle = '#0077b6'
       for (let i = 0; i < walls.length - 1; i++) {
         const a = walls[i], b = walls[i + 1]
         const y0 = i * rowH, y1 = (i + 1) * rowH
+        const g = ctx.createLinearGradient(0, y0, 0, y1)
+        g.addColorStop(0, '#0077b6'); g.addColorStop(1, '#0096c7')
+        ctx.fillStyle = g
         ctx.beginPath()
         ctx.moveTo(0, y0); ctx.lineTo((a.c - a.w * 0.5) * W, y0)
         ctx.lineTo((b.c - b.w * 0.5) * W, y1); ctx.lineTo(0, y1); ctx.fill()
@@ -138,8 +144,7 @@
         ctx.moveTo(W, y0); ctx.lineTo((a.c + a.w * 0.5) * W, y0)
         ctx.lineTo((b.c + b.w * 0.5) * W, y1); ctx.lineTo(W, y1); ctx.fill()
       }
-      ctx.fillStyle = '#caf0f8'
-      ctx.beginPath(); ctx.arc(x * W, H * 0.65, 10, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, x * W, H * 0.65, 14, '#caf0f8', '#90e0ef', { lookX: Math.sin(PF.t * 2) * 0.3, blush: true })
     }
     addEventListener('pointermove', e => { if (!GS.paused) x = e.clientX / W })
     addEventListener('pointerdown', e => { if (!GS.paused) x = e.clientX / W })
@@ -159,6 +164,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

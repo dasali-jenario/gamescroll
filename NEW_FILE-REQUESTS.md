@@ -1,5 +1,20 @@
 # New file requests
 
+## 2026-07-22 — Playful shared canvas kit
+
+### Requested files
+- `public/lib/playful.js` — shared Canvas helpers (`PF.sky`, `PF.buddy`, `PF.block`, dots/blobs) used by all iframe games
+- Updates: `scripts/generate-games.mjs` loads the kit in `wrap()` and upgrades every game’s draw style
+
+### Duplicate search
+- Grep `playful|PF\.buddy|PF\.sky` under `/Users/dasali/gamescroll` → **none** before this change
+- Existing shared game libs: only `public/lib/juice.js`, `gsap.min.js`, `proton.min.js` (particles/FX, not character/world drawing)
+- Glob `public/lib/*` → no playful/draw helper module
+- Flappy/Tiny Fish already had inline polish; other games used flat fills — no shared draw toolkit to extend
+
+### Rationale
+One vendored helper avoids duplicating cute character/gradient drawing across 30 generated HTML games.
+
 ## 2026-07-22 — Capacitor Android sideload APK
 
 ### Requested files

@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -102,26 +103,29 @@
     if (window.Juice) Juice.init({ accent: "#0077b6" })
 
     let bubbles = [], spawn = 0
-    function reset() { bubbles = []; spawn = 0.1; setScore(0) }
+    let lastPop = null
+    const BCOLORS = [['#ffd6e8', '#ff8fa3'], ['#caf0f8', '#48cae4'], ['#d0f4de', '#74c69d'], ['#fff3b0', '#ffca3a']]
+    function diePos() { return lastPop || [W * 0.5, H * 0.5] }
+    function scorePos() { return lastPop || [W * 0.5, H * 0.5] }
+    function reset() { bubbles = []; spawn = 0.1; setScore(0); lastPop = null }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
       spawn -= dt
       if (spawn <= 0) {
-        bubbles.push({ x: 40 + Math.random() * (W - 80), y: H + 20, r: 18 + Math.random() * 16, v: 70 + Math.random() * 50 })
+        bubbles.push({ x: 40 + Math.random() * (W - 80), y: H + 20, r: 18 + Math.random() * 16, v: 70 + Math.random() * 50, hue: Math.random() })
         spawn = 0.45 + Math.random() * 0.35
       }
       for (const b of bubbles) b.y -= b.v * dt
-      for (const b of bubbles) if (b.y + b.r < 0) { die(); return }
+      for (const b of bubbles) if (b.y + b.r < 0) { lastPop = [b.x, 0]; die(); return }
     }
     function draw() {
-      const g = ctx.createLinearGradient(0, 0, 0, H)
-      g.addColorStop(0, '#023e8a'); g.addColorStop(1, '#90e0ef')
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#023e8a', '#0077b6', '#90e0ef')
+      PF.dots(ctx, W, H, '#caf0f8', 18, 1)
+      PF.blobs(ctx, W, H, '#48cae4', 5)
       for (const b of bubbles) {
-        ctx.strokeStyle = '#caf0f8'; ctx.lineWidth = 3
-        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke()
-        ctx.fillStyle = 'rgba(202,240,248,0.25)'; ctx.fill()
+        const c = BCOLORS[Math.floor(b.hue * BCOLORS.length) % BCOLORS.length]
+        PF.buddy(ctx, b.x, b.y, b.r, c[0], c[1], { lookY: -0.4, blush: true })
       }
     }
     addEventListener('pointerdown', e => {
@@ -129,6 +133,7 @@
       for (let i = bubbles.length - 1; i >= 0; i--) {
         const b = bubbles[i]
         if (Math.hypot(e.clientX - b.x, e.clientY - b.y) < b.r + 8) {
+          lastPop = [b.x, b.y]
           bubbles.splice(i, 1); bump(); return
         }
       }
@@ -149,6 +154,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

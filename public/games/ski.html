@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -102,7 +103,10 @@
     if (window.Juice) Juice.init({ accent: "#457b9d" })
 
     let x, trees = [], spawn = 0
-    function reset() { x = 0.5; trees = []; spawn = 0.2; setScore(0) }
+    let lean = 0
+    function diePos() { return [x * W, H * 0.72] }
+    function scorePos() { return [x * W, H * 0.72] }
+    function reset() { x = 0.5; trees = []; spawn = 0.2; setScore(0); lean = 0 }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
@@ -119,23 +123,28 @@
         if (Math.hypot(t.x * W - px, t.y - py) < 22) die()
         return true
       })
+      lean += ((x - 0.5) * 1.4 - lean) * Math.min(1, dt * 8)
     }
     function draw() {
-      const g = ctx.createLinearGradient(0, 0, 0, H)
-      g.addColorStop(0, '#a8dadc'); g.addColorStop(1, '#457b9d')
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#caf0f8', '#a8dadc', '#457b9d')
+      PF.blobs(ctx, W, H, '#ffffff', 5)
+      PF.dots(ctx, W, H, '#ffffff', 20, 0.5)
       for (const t of trees) {
         if (t.kind === 't') {
-          ctx.fillStyle = '#1d3557'
+          PF.block(ctx, t.x * W - 4, t.y - 6, 8, 20, '#7f5539', '#4a2c14', 3)
+          ctx.fillStyle = '#2d6a4f'
+          ctx.beginPath(); ctx.moveTo(t.x * W, t.y - 34)
+          ctx.lineTo(t.x * W - 16, t.y - 4); ctx.lineTo(t.x * W + 16, t.y - 4); ctx.closePath(); ctx.fill()
+          ctx.fillStyle = '#40916c'
           ctx.beginPath(); ctx.moveTo(t.x * W, t.y - 22)
-          ctx.lineTo(t.x * W - 14, t.y + 12); ctx.lineTo(t.x * W + 14, t.y + 12); ctx.fill()
+          ctx.lineTo(t.x * W - 12, t.y + 8); ctx.lineTo(t.x * W + 12, t.y + 8); ctx.closePath(); ctx.fill()
         } else {
-          ctx.fillStyle = '#6c757d'
-          ctx.beginPath(); ctx.arc(t.x * W, t.y, 12, 0, Math.PI * 2); ctx.fill()
+          PF.soft(ctx, t.x * W, t.y, 12, '#e9ecef', '#adb5bd')
         }
       }
-      ctx.fillStyle = '#e63946'
-      ctx.beginPath(); ctx.arc(x * W, H * 0.72, 12, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, x * W, H * 0.72, 16, '#ff8fa3', '#e63946', {
+        lookX: lean, lookY: -0.2, squash: 1 - Math.abs(lean) * 0.06, stretch: 1 + Math.abs(lean) * 0.06, blush: true
+      })
     }
     addEventListener('pointermove', e => { if (!GS.paused) x = Math.max(0.08, Math.min(0.92, e.clientX / W)) })
     addEventListener('pointerdown', e => { if (!GS.paused) x = Math.max(0.08, Math.min(0.92, e.clientX / W)) })
@@ -155,6 +164,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

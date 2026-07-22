@@ -89,6 +89,7 @@ function wrap(title, bg, body, accent) {
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 ${BRIDGE}
     const canvas = document.getElementById('c')
@@ -130,6 +131,7 @@ ${body}
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()
@@ -148,12 +150,16 @@ const games = {
     bg: '#1b4332',
     body: `
     let px, pw, ball, vx, vy
+    let padSquash = 1, ballSquish = 1
+    function diePos() { return [px, H - 41] }
+    function scorePos() { return ball ? [ball.x, ball.y] : [px, H - 41] }
     function reset() {
       pw = Math.min(140, W * 0.32); px = W * 0.5
       ball = { x: W * 0.5, y: H * 0.4, r: 10 }
       const a = -Math.PI * 0.75 + Math.random() * Math.PI * 0.5
       const sp = 280 + Math.random() * 60
       vx = Math.cos(a) * sp; vy = Math.abs(Math.sin(a) * sp)
+      padSquash = 1; ballSquish = 1
       setScore(0)
     }
     function onHostStart() { reset() }
@@ -169,16 +175,21 @@ const games = {
         vx = hit * 320; vy = -Math.abs(vy) * 1.02
         ball.y = py - ball.r
         bump()
+        padSquash = 1.35; ballSquish = 1.3
       }
       if (ball.y > H + 20) die()
+      padSquash += (1 - padSquash) * Math.min(1, dt * 8)
+      ballSquish += (1 - ballSquish) * Math.min(1, dt * 8)
     }
     function draw() {
-      const g = ctx.createLinearGradient(0, 0, 0, H)
-      g.addColorStop(0, '#1b4332'); g.addColorStop(1, '#52b788')
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#d8f3dc'; ctx.fillRect(px - pw * 0.5, H - 48, pw, 14)
-      ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2)
-      ctx.fillStyle = '#ffba08'; ctx.fill()
+      PF.sky(ctx, W, H, '#134e33', '#2d8659', '#74c69d')
+      PF.blobs(ctx, W, H, '#40916c', 5)
+      PF.dots(ctx, W, H, '#d8f3dc', 16, 0.8)
+      const py = H - 48
+      PF.block(ctx, px - pw * 0.5, py, pw, 14 * padSquash, '#eafff3', '#95d5b2', 8)
+      PF.buddy(ctx, ball.x, ball.y, ball.r + 4, '#ffd60a', '#ffba08', {
+        lookX: vx / 300, lookY: vy > 0 ? 0.6 : -0.6, squash: ballSquish, stretch: 1 / ballSquish, blush: true
+      })
     }
     function move(x) { px = Math.max(pw * 0.5, Math.min(W - pw * 0.5, x)) }
     addEventListener('pointermove', e => { if (!GS.paused) move(e.clientX) })
@@ -401,7 +412,13 @@ const games = {
     body: `
     const LANES = [0.28, 0.72]
     let lane = 0, blocks = [], spawn = 0, py
-    function reset() { lane = 0; blocks = []; spawn = 0.5; setScore(0); py = H * 0.78 }
+    let laneX = 0, squash = 1, stretch = 1
+    function diePos() { return [laneX, py] }
+    function scorePos() { return [laneX, py] }
+    function reset() {
+      lane = 0; blocks = []; spawn = 0.5; setScore(0); py = H * 0.78
+      laneX = W * LANES[0]; squash = 1; stretch = 1
+    }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
@@ -420,19 +437,23 @@ const games = {
       for (const b of blocks) {
         if (b.lane === lane && Math.abs(b.y + b.h * 0.5 - py) < b.h * 0.5 + 18) die()
       }
+      laneX += (px - laneX) * Math.min(1, dt * 16)
+      squash += (1 - squash) * Math.min(1, dt * 10)
+      stretch += (1 - stretch) * Math.min(1, dt * 10)
     }
     function draw() {
-      ctx.fillStyle = '#1d3557'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = 'rgba(255,255,255,0.08)'
+      PF.sky(ctx, W, H, '#0d1b2a', '#1d3557', '#457b9d')
+      PF.blobs(ctx, W, H, '#457b9d', 5)
+      PF.dots(ctx, W, H, '#a8dadc', 16, 0.8)
+      ctx.fillStyle = 'rgba(255,255,255,0.1)'
       ctx.fillRect(W * 0.5 - 2, 0, 4, H)
       for (const b of blocks) {
-        ctx.fillStyle = '#e63946'
-        ctx.fillRect(W * LANES[b.lane] - 28, b.y, 56, b.h)
+        PF.block(ctx, W * LANES[b.lane] - 28, b.y, 56, b.h, '#ff8fa3', '#e63946', 12)
       }
-      ctx.fillStyle = '#a8dadc'
-      ctx.beginPath(); ctx.arc(W * LANES[lane], py, 18, 0, Math.PI * 2); ctx.fill()
+      const bob = PF.bob(4, 5, 0)
+      PF.buddy(ctx, laneX, py + bob, 20, '#a8dadc', '#48cae4', { lookY: -0.3, squash, stretch, blush: true })
     }
-    addEventListener('pointerdown', () => { if (!GS.paused) lane = 1 - lane })
+    addEventListener('pointerdown', () => { if (!GS.paused) { lane = 1 - lane; squash = 0.75; stretch = 1.25 } })
     reset()
 `,
   },
@@ -442,10 +463,13 @@ const games = {
     bg: '#7b2d26',
     body: `
     let pieces = [], cur, dir = 1, speed = 180, baseW
+    let wobble = 0
+    function diePos() { return cur ? [cur.x, cur.y] : [W * 0.5, H * 0.5] }
+    function scorePos() { return cur ? [cur.x, cur.y] : [W * 0.5, H * 0.5] }
     function reset() {
       baseW = Math.min(200, W * 0.55)
       pieces = [{ x: W * 0.5, w: baseW, y: H - 40 }]
-      spawn(); setScore(0); speed = 180
+      spawn(); setScore(0); speed = 180; wobble = 0
     }
     function spawn() {
       const prev = pieces[pieces.length - 1]
@@ -465,6 +489,7 @@ const games = {
       cur = { x: (left + right) * 0.5, w, y: cur.y, moving: false }
       pieces.push(cur)
       bump()
+      wobble = 1
       if (pieces.length > 12) {
         const shift = pieces[1].y - pieces[0].y
         pieces.shift()
@@ -474,21 +499,26 @@ const games = {
       spawn()
     }
     function tick(dt) {
+      if (wobble > 0) wobble = Math.max(0, wobble - dt * 3)
       if (!cur || !cur.moving) return
       cur.x += dir * speed * dt
       if (cur.x < cur.w * 0.5 || cur.x > W - cur.w * 0.5) dir *= -1
     }
     function draw() {
-      const g = ctx.createLinearGradient(0, 0, 0, H)
-      g.addColorStop(0, '#7b2d26'); g.addColorStop(1, '#e09f3e')
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
-      for (const p of pieces) {
-        ctx.fillStyle = '#f4d35e'
-        ctx.fillRect(p.x - p.w * 0.5, p.y, p.w, 28)
+      PF.sky(ctx, W, H, '#3d1f14', '#7b2d26', '#e09f3e')
+      PF.blobs(ctx, W, H, '#e09f3e', 4)
+      PF.dots(ctx, W, H, '#ffe8a3', 14, 0.6)
+      for (let i = 0; i < pieces.length; i++) {
+        const p = pieces[i]
+        const wob = i === pieces.length - 1 ? wobble : 0
+        PF.block(ctx, p.x - p.w * 0.5, p.y - wob * 4, p.w, 28 + wob * 4, '#ffe066', '#f4d35e', 8)
       }
       if (cur) {
-        ctx.fillStyle = '#fff'
-        ctx.fillRect(cur.x - cur.w * 0.5, cur.y, cur.w, 28)
+        PF.block(ctx, cur.x - cur.w * 0.5, cur.y, cur.w, 28, '#ffffff', '#e9ecef', 8)
+        const er = Math.min(5, cur.w * 0.12)
+        ctx.fillStyle = '#1b1b1b'
+        ctx.beginPath(); ctx.arc(cur.x - cur.w * 0.18, cur.y + 14, er, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(cur.x + cur.w * 0.18, cur.y + 14, er, 0, Math.PI * 2); ctx.fill()
       }
     }
     addEventListener('pointerdown', () => { if (!GS.paused) place() })
@@ -501,6 +531,10 @@ const games = {
     bg: '#22223b',
     body: `
     let planets = [], idx = 0, ang = 0, flying = null
+    let landScale = 1
+    const PCOLORS = ['#f2a6b3', '#a6d8f2', '#c7f2a6', '#f2d9a6', '#c9a6f2']
+    function diePos() { return flying ? [flying.cx != null ? flying.cx : flying.x, flying.cy != null ? flying.cy : flying.y] : [W * 0.5, H * 0.5] }
+    function scorePos() { const p = planets[idx]; return p ? [p.x, p.y] : [W * 0.5, H * 0.5] }
     function makePlanets() {
       planets = []
       let x = W * 0.35, y = H * 0.55
@@ -510,7 +544,7 @@ const games = {
         y = H * (0.35 + Math.random() * 0.35)
       }
     }
-    function reset() { makePlanets(); idx = 0; ang = 0; flying = null; setScore(0) }
+    function reset() { makePlanets(); idx = 0; ang = 0; flying = null; landScale = 1; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
     function jump() {
@@ -529,29 +563,31 @@ const games = {
         if (t >= 1) {
           const n = planets[idx + 1]
           const d = Math.hypot(x - n.x, y - n.y)
-          if (d < n.r + 14) { idx++; bump(); flying = null; ang = 0 }
+          if (d < n.r + 14) { idx++; bump(); flying = null; ang = 0; landScale = 1.4 }
           else die()
         } else { flying.cx = x; flying.cy = y }
         return
       }
       ang += dt * 2.4
+      landScale += (1 - landScale) * Math.min(1, dt * 8)
     }
     function draw() {
-      ctx.fillStyle = '#22223b'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#10102a', '#22223b', '#4a4e69')
+      PF.dots(ctx, W, H, '#ffffff', 26, 1.2)
+      PF.blobs(ctx, W, H, '#9a8c98', 4)
       for (let i = 0; i < planets.length; i++) {
         const p = planets[i]
-        ctx.fillStyle = i === idx ? '#9a8c98' : '#4a4e69'
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill()
+        const c = PCOLORS[i % PCOLORS.length]
+        PF.soft(ctx, p.x, p.y, p.r, i === idx ? '#ffffff' : c, i === idx ? c : '#4a4e69')
       }
       let dx, dy
-      if (flying) { dx = flying.cx; dy = flying.cy }
+      if (flying) { dx = flying.cx != null ? flying.cx : flying.x; dy = flying.cy != null ? flying.cy : flying.y }
       else {
         const p = planets[idx]
         dx = p.x + Math.cos(ang) * (p.r + 10)
         dy = p.y + Math.sin(ang) * (p.r + 10)
       }
-      ctx.fillStyle = '#f2e9e4'
-      ctx.beginPath(); ctx.arc(dx, dy, 8, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, dx, dy, 10 * landScale, '#fff3b0', '#f2e9e4', { lookX: Math.cos(ang), lookY: Math.sin(ang), blush: true })
     }
     addEventListener('pointerdown', jump)
     reset()
@@ -563,7 +599,10 @@ const games = {
     bg: '#457b9d',
     body: `
     let x, trees = [], spawn = 0
-    function reset() { x = 0.5; trees = []; spawn = 0.2; setScore(0) }
+    let lean = 0
+    function diePos() { return [x * W, H * 0.72] }
+    function scorePos() { return [x * W, H * 0.72] }
+    function reset() { x = 0.5; trees = []; spawn = 0.2; setScore(0); lean = 0 }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
@@ -580,23 +619,28 @@ const games = {
         if (Math.hypot(t.x * W - px, t.y - py) < 22) die()
         return true
       })
+      lean += ((x - 0.5) * 1.4 - lean) * Math.min(1, dt * 8)
     }
     function draw() {
-      const g = ctx.createLinearGradient(0, 0, 0, H)
-      g.addColorStop(0, '#a8dadc'); g.addColorStop(1, '#457b9d')
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#caf0f8', '#a8dadc', '#457b9d')
+      PF.blobs(ctx, W, H, '#ffffff', 5)
+      PF.dots(ctx, W, H, '#ffffff', 20, 0.5)
       for (const t of trees) {
         if (t.kind === 't') {
-          ctx.fillStyle = '#1d3557'
+          PF.block(ctx, t.x * W - 4, t.y - 6, 8, 20, '#7f5539', '#4a2c14', 3)
+          ctx.fillStyle = '#2d6a4f'
+          ctx.beginPath(); ctx.moveTo(t.x * W, t.y - 34)
+          ctx.lineTo(t.x * W - 16, t.y - 4); ctx.lineTo(t.x * W + 16, t.y - 4); ctx.closePath(); ctx.fill()
+          ctx.fillStyle = '#40916c'
           ctx.beginPath(); ctx.moveTo(t.x * W, t.y - 22)
-          ctx.lineTo(t.x * W - 14, t.y + 12); ctx.lineTo(t.x * W + 14, t.y + 12); ctx.fill()
+          ctx.lineTo(t.x * W - 12, t.y + 8); ctx.lineTo(t.x * W + 12, t.y + 8); ctx.closePath(); ctx.fill()
         } else {
-          ctx.fillStyle = '#6c757d'
-          ctx.beginPath(); ctx.arc(t.x * W, t.y, 12, 0, Math.PI * 2); ctx.fill()
+          PF.soft(ctx, t.x * W, t.y, 12, '#e9ecef', '#adb5bd')
         }
       }
-      ctx.fillStyle = '#e63946'
-      ctx.beginPath(); ctx.arc(x * W, H * 0.72, 12, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, x * W, H * 0.72, 16, '#ff8fa3', '#e63946', {
+        lookX: lean, lookY: -0.2, squash: 1 - Math.abs(lean) * 0.06, stretch: 1 + Math.abs(lean) * 0.06, blush: true
+      })
     }
     addEventListener('pointermove', e => { if (!GS.paused) x = Math.max(0.08, Math.min(0.92, e.clientX / W)) })
     addEventListener('pointerdown', e => { if (!GS.paused) x = Math.max(0.08, Math.min(0.92, e.clientX / W)) })
@@ -609,7 +653,10 @@ const games = {
     bg: '#3d405b',
     body: `
     let onCeil = false, obstacles = [], spawn = 0, y
-    function reset() { onCeil = false; obstacles = []; spawn = 0.4; setScore(0); y = H - 60 }
+    let flip = 0
+    function diePos() { return [W * 0.22, y] }
+    function scorePos() { return [W * 0.22, y] }
+    function reset() { onCeil = false; obstacles = []; spawn = 0.4; setScore(0); y = H - 60; flip = 0 }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
@@ -631,19 +678,25 @@ const games = {
         }
         return true
       })
+      if (flip > 0) flip -= dt * 3
     }
     function draw() {
-      ctx.fillStyle = '#3d405b'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#81b29a'
-      ctx.fillRect(0, 0, W, 36); ctx.fillRect(0, H - 36, W, 36)
+      PF.sky(ctx, W, H, '#20233d', '#3d405b', '#5c6291')
+      PF.dots(ctx, W, H, '#f2cc8f', 16, 1)
+      PF.blobs(ctx, W, H, '#81b29a', 4)
+      PF.block(ctx, 0, 0, W, 36, '#a3d9c9', '#81b29a', 0)
+      PF.block(ctx, 0, H - 36, W, 36, '#81b29a', '#5f9482', 0)
       for (const o of obstacles) {
-        ctx.fillStyle = '#e07a5f'
-        ctx.fillRect(o.x, o.ceil ? 36 : H - 36 - o.h, o.w, o.h)
+        const oy = o.ceil ? 36 : H - 36 - o.h
+        PF.block(ctx, o.x, oy, o.w, o.h, '#f2957a', '#e07a5f', 8)
+        const tipY = o.ceil ? oy + o.h : oy
+        PF.spike(ctx, o.x + o.w * 0.5, tipY, o.ceil ? 'down' : 'up', '#ffba08')
       }
-      ctx.fillStyle = '#f2cc8f'
-      ctx.beginPath(); ctx.arc(W * 0.22, y, 14, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, W * 0.22, y, 15, '#ffe8b0', '#f2cc8f', {
+        lookY: onCeil ? 1 : -1, squash: 1 + flip * 0.3, stretch: 1 - flip * 0.2, blush: true
+      })
     }
-    addEventListener('pointerdown', () => { if (!GS.paused) onCeil = !onCeil })
+    addEventListener('pointerdown', () => { if (!GS.paused) { onCeil = !onCeil; flip = 1 } })
     reset()
 `,
   },
@@ -653,26 +706,29 @@ const games = {
     bg: '#0077b6',
     body: `
     let bubbles = [], spawn = 0
-    function reset() { bubbles = []; spawn = 0.1; setScore(0) }
+    let lastPop = null
+    const BCOLORS = [['#ffd6e8', '#ff8fa3'], ['#caf0f8', '#48cae4'], ['#d0f4de', '#74c69d'], ['#fff3b0', '#ffca3a']]
+    function diePos() { return lastPop || [W * 0.5, H * 0.5] }
+    function scorePos() { return lastPop || [W * 0.5, H * 0.5] }
+    function reset() { bubbles = []; spawn = 0.1; setScore(0); lastPop = null }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
       spawn -= dt
       if (spawn <= 0) {
-        bubbles.push({ x: 40 + Math.random() * (W - 80), y: H + 20, r: 18 + Math.random() * 16, v: 70 + Math.random() * 50 })
+        bubbles.push({ x: 40 + Math.random() * (W - 80), y: H + 20, r: 18 + Math.random() * 16, v: 70 + Math.random() * 50, hue: Math.random() })
         spawn = 0.45 + Math.random() * 0.35
       }
       for (const b of bubbles) b.y -= b.v * dt
-      for (const b of bubbles) if (b.y + b.r < 0) { die(); return }
+      for (const b of bubbles) if (b.y + b.r < 0) { lastPop = [b.x, 0]; die(); return }
     }
     function draw() {
-      const g = ctx.createLinearGradient(0, 0, 0, H)
-      g.addColorStop(0, '#023e8a'); g.addColorStop(1, '#90e0ef')
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#023e8a', '#0077b6', '#90e0ef')
+      PF.dots(ctx, W, H, '#caf0f8', 18, 1)
+      PF.blobs(ctx, W, H, '#48cae4', 5)
       for (const b of bubbles) {
-        ctx.strokeStyle = '#caf0f8'; ctx.lineWidth = 3
-        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke()
-        ctx.fillStyle = 'rgba(202,240,248,0.25)'; ctx.fill()
+        const c = BCOLORS[Math.floor(b.hue * BCOLORS.length) % BCOLORS.length]
+        PF.buddy(ctx, b.x, b.y, b.r, c[0], c[1], { lookY: -0.4, blush: true })
       }
     }
     addEventListener('pointerdown', e => {
@@ -680,6 +736,7 @@ const games = {
       for (let i = bubbles.length - 1; i >= 0; i--) {
         const b = bubbles[i]
         if (Math.hypot(e.clientX - b.x, e.clientY - b.y) < b.r + 8) {
+          lastPop = [b.x, b.y]
           bubbles.splice(i, 1); bump(); return
         }
       }
@@ -720,18 +777,30 @@ const games = {
       }
       if (ballY > H - 40) { ballY = 80; ballV = 0; rebuild(); bump(2) }
     }
+    function diePos() { return [W * 0.5, ballY] }
+    function scorePos() { return [W * 0.5, ballY] }
     function draw() {
-      ctx.fillStyle = '#6a4c93'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#38215e', '#6a4c93', '#a084ca')
+      PF.dots(ctx, W, H, '#ffffff', 22, 1)
+      PF.blobs(ctx, W, H, '#c9a8ff', 5)
       const cx = W * 0.5, R = Math.min(W * 0.38, 140)
       for (const s of segs) {
+        ctx.save()
         ctx.strokeStyle = s.bad ? '#ef476f' : '#ffd166'
-        ctx.lineWidth = 10
+        ctx.lineWidth = 12
+        ctx.lineCap = 'round'
+        ctx.shadowColor = s.bad ? 'rgba(239,71,111,0.55)' : 'rgba(255,209,102,0.55)'
+        ctx.shadowBlur = 10
         ctx.beginPath()
         ctx.arc(cx, s.y, R, rot + s.gap + 1.1, rot + s.gap + Math.PI * 2)
         ctx.stroke()
+        ctx.restore()
       }
-      ctx.fillStyle = '#fff'
-      ctx.beginPath(); ctx.arc(cx, ballY, 10, 0, Math.PI * 2); ctx.fill()
+      const sq = 1 + Math.max(-0.22, Math.min(0.22, ballV * 0.0007))
+      PF.buddy(ctx, cx, ballY, 13, '#ffffff', '#ffe6a7', {
+        squash: 1 / Math.max(0.7, sq), stretch: sq,
+        lookY: Math.max(-1, Math.min(1, ballV * 0.01)), blush: true,
+      })
     }
     let dragging = false, lastX = 0
     addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX })
@@ -774,22 +843,31 @@ const games = {
       const near = road[Math.floor(road.length * 0.72)]
       if (Math.abs(carX - near.c) > near.w * 0.5 - 0.02) die()
     }
+    function diePos() { return [carX * W, H * 0.72] }
+    function scorePos() { return [carX * W, H * 0.72] }
     function draw() {
-      ctx.fillStyle = '#2a9d8f'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#0b3d3a', '#2a9d8f', '#57cc99')
+      PF.dots(ctx, W, H, '#ffffff', 16, 0.7)
       const rowH = H / (road.length - 1)
       for (let i = 0; i < road.length - 1; i++) {
         const a = road[i], b = road[i + 1]
         const y0 = i * rowH, y1 = (i + 1) * rowH
-        ctx.fillStyle = '#264653'
+        const g = ctx.createLinearGradient(0, y0, 0, y1)
+        g.addColorStop(0, '#264653'); g.addColorStop(1, '#2f5d63')
+        ctx.fillStyle = g
         ctx.beginPath()
         ctx.moveTo((a.c - a.w * 0.5) * W, y0)
         ctx.lineTo((a.c + a.w * 0.5) * W, y0)
         ctx.lineTo((b.c + b.w * 0.5) * W, y1)
         ctx.lineTo((b.c - b.w * 0.5) * W, y1)
         ctx.closePath(); ctx.fill()
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+        ctx.lineWidth = 3
+        ctx.beginPath()
+        ctx.moveTo(a.c * W, y0); ctx.lineTo(b.c * W, y1)
+        ctx.stroke()
       }
-      ctx.fillStyle = '#e9c46a'
-      ctx.fillRect(carX * W - 12, H * 0.72 - 18, 24, 36)
+      PF.buddy(ctx, carX * W, H * 0.72, 20, '#e9c46a', '#f4a261', { lookY: -0.3, blush: true })
     }
     addEventListener('pointermove', e => { if (!GS.paused) carX = Math.max(0.05, Math.min(0.95, e.clientX / W)) })
     addEventListener('pointerdown', e => { if (!GS.paused) carX = Math.max(0.05, Math.min(0.95, e.clientX / W)) })
@@ -823,18 +901,23 @@ Object.assign(games, {
         return true
       })
     }
+    function diePos() { return [bx, by] }
+    function scorePos() { return [bx, by] }
     function draw() {
-      ctx.fillStyle = '#264653'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#7a2e1d', '#e76f51', '#f4a261')
+      PF.dots(ctx, W, H, '#ffe8d6', 18, 0.8)
+      PF.blobs(ctx, W, H, '#ffffff', 4)
       for (const s of spikes) {
-        ctx.fillStyle = '#e9c46a'
-        ctx.beginPath()
-        ctx.moveTo(s.x, s.y)
-        ctx.lineTo(s.x - 10, s.y + (s.up ? -24 : 24))
-        ctx.lineTo(s.x + 10, s.y + (s.up ? -24 : 24))
-        ctx.fill()
+        PF.spike(ctx, s.x, s.y, s.up ? 'down' : 'up', '#e9c46a')
       }
-      ctx.fillStyle = '#e76f51'
-      ctx.beginPath(); ctx.ellipse(bx, by, 18, 24, 0, 0, Math.PI * 2); ctx.fill()
+      const sq = 1 + Math.max(-0.16, Math.min(0.16, -bv * 0.0011))
+      PF.buddy(ctx, bx, by, 20, '#f8a7a0', '#e76f51', {
+        stretch: sq, squash: 1 / Math.max(0.75, sq),
+        lookY: bv > 0 ? 0.4 : -0.4, blush: true,
+      })
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+      ctx.lineWidth = 2
+      ctx.beginPath(); ctx.moveTo(bx, by + 22); ctx.lineTo(bx, by + 34); ctx.stroke()
     }
     addEventListener('pointerdown', () => { if (!GS.paused) bv = -220 })
     reset()
@@ -866,14 +949,15 @@ Object.assign(games, {
         return g.y < H + 40
       })
     }
+    function diePos() { return [W * 0.5, ballY] }
+    function scorePos() { return [W * 0.5, ballY] }
     function draw() {
-      ctx.fillStyle = '#9b2226'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#5c1113', '#9b2226', '#c1444a')
+      PF.dots(ctx, W, H, '#ffd8a8', 16, 0.7)
       for (const g of gates) {
-        ctx.fillStyle = COLORS[g.c]
-        ctx.fillRect(W * 0.15, g.y, W * 0.7, 18)
+        PF.block(ctx, W * 0.15, g.y, W * 0.7, 18, COLORS[g.c], COLORS[g.c], 8)
       }
-      ctx.fillStyle = COLORS[color]
-      ctx.beginPath(); ctx.arc(W * 0.5, ballY, 16, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, W * 0.5, ballY, 18, COLORS[color], COLORS[color], { blush: true })
     }
     addEventListener('pointerdown', () => { if (!GS.paused) color = (color + 1) % 3 })
     reset()
@@ -907,14 +991,19 @@ Object.assign(games, {
         plats.push({ x: 30 + Math.random() * (W - 110), y: top - 80 - Math.random() * 40, w: 60 + Math.random() * 30 })
       }
     }
+    function diePos() { return [x, y - cam] }
+    function scorePos() { return [x, y - cam] }
     function draw() {
-      ctx.fillStyle = '#264653'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#0b4a43', '#2a9d8f', '#7ae0b0')
+      PF.dots(ctx, W, H, '#ffffff', 20, 1)
       for (const p of plats) {
-        ctx.fillStyle = '#e9c46a'
-        ctx.fillRect(p.x, p.y - cam, p.w, 12)
+        PF.block(ctx, p.x, p.y - cam, p.w, 12, '#f4d35e', '#e9c46a', 6)
       }
-      ctx.fillStyle = '#e76f51'
-      ctx.beginPath(); ctx.arc(x, y - cam, 14, 0, Math.PI * 2); ctx.fill()
+      const sq = 1 + Math.max(-0.2, Math.min(0.2, -v * 0.00045))
+      PF.buddy(ctx, x, y - cam, 16, '#f4a261', '#e76f51', {
+        stretch: sq, squash: 1 / Math.max(0.75, sq),
+        lookY: v > 0 ? 0.3 : -0.3, blush: true,
+      })
     }
     addEventListener('pointermove', e => { if (!GS.paused) x = e.clientX })
     addEventListener('pointerdown', e => { if (!GS.paused) x = e.clientX })
@@ -949,13 +1038,18 @@ Object.assign(games, {
       const row = walls[Math.floor(walls.length * 0.65)]
       if (Math.abs(x - row.c) > row.w * 0.5 - 0.03) die()
     }
+    function diePos() { return [x * W, H * 0.65] }
+    function scorePos() { return [x * W, H * 0.65] }
     function draw() {
-      ctx.fillStyle = '#03045e'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#020a35', '#023e8a', '#0077b6')
+      PF.dots(ctx, W, H, '#caf0f8', 24, 1.2)
       const rowH = H / (walls.length - 1)
-      ctx.fillStyle = '#0077b6'
       for (let i = 0; i < walls.length - 1; i++) {
         const a = walls[i], b = walls[i + 1]
         const y0 = i * rowH, y1 = (i + 1) * rowH
+        const g = ctx.createLinearGradient(0, y0, 0, y1)
+        g.addColorStop(0, '#0077b6'); g.addColorStop(1, '#0096c7')
+        ctx.fillStyle = g
         ctx.beginPath()
         ctx.moveTo(0, y0); ctx.lineTo((a.c - a.w * 0.5) * W, y0)
         ctx.lineTo((b.c - b.w * 0.5) * W, y1); ctx.lineTo(0, y1); ctx.fill()
@@ -963,8 +1057,7 @@ Object.assign(games, {
         ctx.moveTo(W, y0); ctx.lineTo((a.c + a.w * 0.5) * W, y0)
         ctx.lineTo((b.c + b.w * 0.5) * W, y1); ctx.lineTo(W, y1); ctx.fill()
       }
-      ctx.fillStyle = '#caf0f8'
-      ctx.beginPath(); ctx.arc(x * W, H * 0.65, 10, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, x * W, H * 0.65, 14, '#caf0f8', '#90e0ef', { lookX: Math.sin(PF.t * 2) * 0.3, blush: true })
     }
     addEventListener('pointermove', e => { if (!GS.paused) x = e.clientX / W })
     addEventListener('pointerdown', e => { if (!GS.paused) x = e.clientX / W })
@@ -997,18 +1090,22 @@ Object.assign(games, {
         return true
       })
     }
+    function diePos() { return [W * 0.5, H * 0.5] }
+    function scorePos() { return [W * 0.5, H * 0.5] }
     function draw() {
-      ctx.fillStyle = '#22223b'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#1c1e3a', '#4a4e69', '#6b7099')
+      PF.dots(ctx, W, H, '#ffffff', 26, 1.4)
       const cx = W * 0.5, cy = H * 0.5
-      ctx.fillStyle = '#9a8c98'
-      ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI * 2); ctx.fill()
-      ctx.strokeStyle = '#f2e9e4'; ctx.lineWidth = 8
-      ctx.beginPath(); ctx.arc(cx, cy, 40, ang - 0.5, ang + 0.5); ctx.stroke()
+      PF.buddy(ctx, cx, cy, 24, '#c9c3d9', '#9a8c98', { blush: true })
+      ctx.save()
+      ctx.strokeStyle = '#f2e9e4'
+      ctx.lineWidth = 9
+      ctx.shadowColor = 'rgba(242,233,228,0.6)'
+      ctx.shadowBlur = 10
+      ctx.beginPath(); ctx.arc(cx, cy, 42, ang - 0.5, ang + 0.5); ctx.stroke()
+      ctx.restore()
       for (const s of shots) {
-        ctx.fillStyle = '#ef476f'
-        ctx.beginPath()
-        ctx.arc(cx + Math.cos(s.a) * s.r, cy + Math.sin(s.a) * s.r, 8, 0, Math.PI * 2)
-        ctx.fill()
+        PF.soft(ctx, cx + Math.cos(s.a) * s.r, cy + Math.sin(s.a) * s.r, 9, '#ff8fa3', '#ef476f')
       }
     }
     addEventListener('pointermove', e => {
@@ -1024,6 +1121,8 @@ Object.assign(games, {
     bg: '#5e548e',
     body: `
     let rings = [], spawn = 0, flash = 0
+    function diePos() { return [W * 0.5, H * 0.5] }
+    function scorePos() { return [W * 0.5, H * 0.5] }
     function reset() { rings = []; spawn = 0.2; flash = 0; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -1038,13 +1137,19 @@ Object.assign(games, {
       })
     }
     function draw() {
-      ctx.fillStyle = flash > 0 ? '#9f86c0' : '#231942'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#3a2a5e', '#5e548e', flash > 0 ? '#9f86c0' : '#231942')
+      PF.dots(ctx, W, H, '#e0aaff', 22, 0.7)
       const cx = W * 0.5, cy = H * 0.5
+      const near = rings[0] ? Math.max(0, 1 - Math.abs(rings[0].r - 36) / 60) : 0
       ctx.strokeStyle = '#e0aaff'; ctx.lineWidth = 3
-      ctx.beginPath(); ctx.arc(cx, cy, 36, 0, Math.PI * 2); ctx.stroke()
       for (const r of rings) {
+        ctx.globalAlpha = Math.max(0.25, Math.min(1, (Math.max(W, H) * 0.55 - r.r) / 80))
         ctx.beginPath(); ctx.arc(cx, cy, r.r, 0, Math.PI * 2); ctx.stroke()
       }
+      ctx.globalAlpha = 1
+      PF.buddy(ctx, cx, cy, 34 + near * 6, flash > 0 ? '#ffd6ff' : '#c8b6ff', '#7b5ea7', {
+        squash: 1 + flash * 0.3, stretch: 1 - flash * 0.2, blush: flash > 0,
+      })
     }
     addEventListener('pointerdown', () => {
       if (GS.paused || !rings.length) return
@@ -1087,11 +1192,16 @@ Object.assign(games, {
       }
     }
     function draw() {
-      ctx.fillStyle = '#14213d'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#fca311'
-      ctx.fillRect(food.x * CS, food.y * CS, CS - 2, CS - 2)
-      ctx.fillStyle = '#2a9d8f'
-      for (const p of body) ctx.fillRect(p.x * CS, p.y * CS, CS - 2, CS - 2)
+      PF.sky(ctx, W, H, '#0b1330', '#14213d', '#1b2a4a')
+      PF.dots(ctx, W, H, '#48cae4', 16, 0.5)
+      const half = CS * 0.5
+      PF.soft(ctx, food.x * CS + half, food.y * CS + half, half + 4, '#ffd166', '#fca311')
+      for (let i = body.length - 1; i >= 1; i--) {
+        const p = body[i]
+        PF.block(ctx, p.x * CS + 1, p.y * CS + 1, CS - 2, CS - 2, '#40916c', '#2a9d8f', 6)
+      }
+      const h = body[0]
+      PF.buddy(ctx, h.x * CS + half, h.y * CS + half, half + 2, '#52b788', '#2a9d8f', { lookX: dir.x, lookY: dir.y })
     }
     let sx, sy
     addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY })
@@ -1137,6 +1247,11 @@ Object.assign(games, {
         }
       }
     }
+    function diePos() {
+      const rowH = H / lanes.length
+      return [(player.c / cols) * W + (W / cols) * 0.5, H - (player.r + 1) * rowH + rowH * 0.5]
+    }
+    function scorePos() { return diePos() }
     function draw() {
       const rowH = H / lanes.length
       for (let i = 0; i < lanes.length; i++) {
@@ -1144,12 +1259,14 @@ Object.assign(games, {
         ctx.fillStyle = L.kind === 'safe' ? '#a98467' : L.kind === 'river' ? '#4cc9f0' : L.kind === 'rail' ? '#495057' : '#343a40'
         ctx.fillRect(0, H - (i + 1) * rowH, W, rowH)
         for (const c of L.cars) {
-          ctx.fillStyle = L.kind === 'river' ? '#0077b6' : '#ef476f'
-          ctx.fillRect((c.x / cols) * W, H - (i + 1) * rowH + 8, W / cols - 8, rowH - 16)
+          const cw = W / cols - 8, ch = rowH - 16
+          if (L.kind === 'river') PF.block(ctx, (c.x / cols) * W, H - (i + 1) * rowH + 8, cw, ch, '#48cae4', '#0077b6', 8)
+          else PF.block(ctx, (c.x / cols) * W, H - (i + 1) * rowH + 8, cw, ch, '#ff8fa3', '#ef476f', 6)
         }
       }
-      ctx.fillStyle = '#ffd166'
-      ctx.fillRect((player.c / cols) * W + 6, H - (player.r + 1) * rowH + 10, W / cols - 12, rowH - 20)
+      PF.dots(ctx, W, H, '#ffffff', 14, 0.4)
+      const [px, py] = diePos()
+      PF.buddy(ctx, px, py, Math.min(W / cols, rowH) * 0.32, '#ffe066', '#ffba08')
     }
     addEventListener('pointerdown', () => {
       if (GS.paused) return
@@ -1169,6 +1286,8 @@ Object.assign(games, {
     bg: '#3c096c',
     body: `
     let bx, items = [], spawn = 0
+    function diePos() { return [bx, H - 58] }
+    function scorePos() { return [bx, H - 58] }
     function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -1188,13 +1307,14 @@ Object.assign(games, {
       })
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#240046', '#3c096c', '#5a189a')
+      PF.blobs(ctx, W, H, '#c77dff', 5)
+      PF.dots(ctx, W, H, '#e0aaff', 18, 0.6)
       for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+        if (it.good) PF.soft(ctx, it.x, it.y, 13, '#b9fbc0', '#38b000')
+        else PF.soft(ctx, it.x, it.y, 13, '#ffb3c1', '#ef476f')
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      PF.buddy(ctx, bx, H - 58, 26, '#e0aaff', '#9d4edd', { lookY: -0.4 })
     }
     addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
     addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
@@ -1207,6 +1327,8 @@ Object.assign(games, {
     bg: '#582f0e',
     body: `
     let x = 0.5, path = [], scroll = 0
+    function diePos() { return [x * W, H * 0.7] }
+    function scorePos() { return [x * W, H * 0.7] }
     function reset() {
       x = 0.5; path = []; scroll = 0
       for (let i = 0; i < 30; i++) path.push(0.5)
@@ -1226,17 +1348,20 @@ Object.assign(games, {
       if (Math.abs(x - c) > 0.12) die()
     }
     function draw() {
-      ctx.fillStyle = '#283618'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#3a1f0a', '#582f0e', '#7f4f24')
+      PF.dots(ctx, W, H, '#dda15e', 16, 0.5)
       const rowH = H / (path.length - 1)
-      ctx.strokeStyle = '#dda15e'; ctx.lineWidth = 18; ctx.lineJoin = 'round'
+      ctx.strokeStyle = '#dda15e'; ctx.lineWidth = 20; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
       ctx.beginPath()
       for (let i = 0; i < path.length; i++) {
         const px = path[i] * W, py = i * rowH
         if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py)
       }
       ctx.stroke()
-      ctx.fillStyle = '#bc6c25'
-      ctx.beginPath(); ctx.arc(x * W, H * 0.7, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 6
+      ctx.stroke()
+      const target = path[Math.floor(path.length * 0.7)]
+      PF.buddy(ctx, x * W, H * 0.7, 15, '#ffd6a5', '#bc6c25', { lookX: (target - x) * 4 })
     }
     addEventListener('pointermove', e => { if (!GS.paused) x = e.clientX / W })
     addEventListener('pointerdown', e => { if (!GS.paused) x = e.clientX / W })
@@ -1251,6 +1376,8 @@ Object.assign(games, {
     bg: '#bc4749',
     body: `
     let side = -1, y, v, spikes = [], spawn = 0, x
+    function diePos() { return [x, y] }
+    function scorePos() { return [x, y] }
     function reset() { side = -1; y = H * 0.5; v = 0; x = 40; spikes = []; spawn = 0.3; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -1275,19 +1402,15 @@ Object.assign(games, {
       })
     }
     function draw() {
-      ctx.fillStyle = '#6a040f'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#370617'; ctx.fillRect(0, 0, 28, H); ctx.fillRect(W - 28, 0, 28, H)
+      PF.sky(ctx, W, H, '#6a040f', '#9d0208', '#bc4749')
+      PF.dots(ctx, W, H, '#ffba08', 14, 0.6)
+      PF.block(ctx, 0, 0, 28, H, '#370617', '#5a0210', 0)
+      PF.block(ctx, W - 28, 0, 28, H, '#370617', '#5a0210', 0)
       for (const s of spikes) {
-        ctx.fillStyle = '#ffba08'
-        const sx = s.side < 0 ? 28 : W - 28
-        ctx.beginPath()
-        ctx.moveTo(sx, s.y)
-        ctx.lineTo(sx + (s.side < 0 ? 22 : -22), s.y - 12)
-        ctx.lineTo(sx + (s.side < 0 ? 22 : -22), s.y + 12)
-        ctx.fill()
+        const tipX = s.side < 0 ? 50 : W - 50
+        PF.spike(ctx, tipX, s.y, s.side < 0 ? 'right' : 'left', '#ffba08')
       }
-      ctx.fillStyle = '#f8f9fa'
-      ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, x, y, 14, '#fff3b0', '#f8f9fa', { lookX: side })
     }
     addEventListener('pointerdown', () => { if (!GS.paused) side *= -1 })
     reset()
@@ -1298,39 +1421,310 @@ Object.assign(games, {
     title: 'Tiny Fish',
     bg: '#0077b6',
     body: `
-    let y, holding = false, rocks = [], spawn = 0
-    function reset() { y = H * 0.5; rocks = []; spawn = 0.2; setScore(0) }
+    let y, v = 0, holding = false, rocks = [], spawn = 0
+    let bubbles = [], kelp = [], rays = [], sandX = 0, kelpX = 0, rayT = 0
+    let fin = 0, squash = 1, stretch = 1, pulse = 0, tAcc = 0
+    const SCROLL = 170, SAND_H = 64, FISH_RX = 16, FISH_RY = 10
+    const fx = () => W * 0.28
+    function diePos() { return [fx(), y] }
+    function scorePos() { return [fx(), y] }
+    function seedWorld() {
+      kelp = []
+      for (let i = 0; i < 8; i++) {
+        kelp.push({
+          x: i * W * 0.28 + Math.random() * 40,
+          h: H * (0.22 + Math.random() * 0.28),
+          w: 10 + Math.random() * 10,
+          sway: Math.random() * Math.PI * 2,
+          shade: i % 2 === 0 ? '#1b4332' : '#2d6a4f',
+        })
+      }
+      rays = []
+      for (let i = 0; i < 5; i++) {
+        rays.push({
+          x: Math.random() * W,
+          w: 28 + Math.random() * 40,
+          a: 0.04 + Math.random() * 0.06,
+          speed: 12 + Math.random() * 18,
+        })
+      }
+      bubbles = []
+      for (let i = 0; i < 14; i++) {
+        bubbles.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          r: 1.5 + Math.random() * 3.5,
+          vy: 18 + Math.random() * 36,
+          drift: (Math.random() - 0.5) * 20,
+          a: 0.2 + Math.random() * 0.35,
+        })
+      }
+      sandX = 0; kelpX = 0; rayT = 0
+    }
+    function reset() {
+      y = H * 0.5; v = 0; holding = false
+      rocks = []; spawn = 0.35
+      fin = 0; squash = 1; stretch = 1; pulse = 0; tAcc = 0
+      seedWorld(); setScore(0)
+    }
     function onHostStart() { reset() }
     function die() { reset() }
+    function startHold() {
+      if (GS.paused) return
+      holding = true
+      squash = 1.22
+      stretch = 0.78
+      pulse = 0.22
+      if (window.Juice) Juice.burst(fx() - 8, y + 2, '#90e0ef', 8)
+    }
+    function endHold() { holding = false }
     function tick(dt) {
-      y += (holding ? -160 : 160) * dt
-      if (y < 20 || y > H - 20) die()
+      tAcc += dt
+      const target = holding ? -175 : 175
+      v += (target - v) * Math.min(1, dt * 6)
+      y += v * dt
+      const floorY = H - SAND_H - 6
+      if (y < 18 || y > floorY) die()
       spawn -= dt
       if (spawn <= 0) {
-        rocks.push({ x: W + 30, y: 40 + Math.random() * (H - 80), r: 16 + Math.random() * 20 })
-        spawn = 0.5 + Math.random() * 0.35
+        const kind = Math.random()
+        rocks.push({
+          x: W + 40,
+          y: 50 + Math.random() * (floorY - 90),
+          r: 15 + Math.random() * 22,
+          kind: kind < 0.45 ? 'coral' : kind < 0.75 ? 'rock' : 'anemone',
+          spin: Math.random() * Math.PI * 2,
+          hue: Math.random(),
+        })
+        spawn = 0.48 + Math.random() * 0.38
       }
-      for (const r of rocks) r.x -= 170 * dt
+      for (const r of rocks) {
+        r.x -= SCROLL * dt
+        r.spin += dt * 0.4
+      }
       rocks = rocks.filter(r => {
-        if (r.x < -40) { bump(); return false }
-        if (Math.hypot(r.x - W * 0.28, r.y - y) < r.r + 12) die()
+        if (r.x < -50) { bump(); return false }
+        const hitR = r.kind === 'anemone' ? r.r * 0.72 : r.r * 0.85
+        if (Math.hypot(r.x - fx(), r.y - y) < hitR + 11) die()
         return true
       })
+      sandX = (sandX + SCROLL * dt) % 40
+      kelpX = (kelpX + SCROLL * 0.28 * dt) % (W * 0.28)
+      rayT += dt
+      for (const b of bubbles) {
+        b.y -= b.vy * dt
+        b.x += Math.sin(tAcc * 2 + b.y * 0.02) * b.drift * dt
+        if (b.y < -10) {
+          b.y = H + 10
+          b.x = Math.random() * W
+        }
+      }
+      if (holding && pulse <= 0 && Math.random() < dt * 4) {
+        if (window.Juice) Juice.burst(fx() - 10, y + 4, '#caf0f8', 3)
+      }
+      if (pulse > 0) pulse -= dt
+      const flapSpeed = holding ? 14 : 5
+      fin += (Math.sin(tAcc * flapSpeed) * (holding ? 0.7 : 0.35) - fin) * Math.min(1, dt * 12)
+      squash += (1 - squash) * Math.min(1, dt * 9)
+      stretch += (1 - stretch) * Math.min(1, dt * 9)
+    }
+    function drawSand() {
+      const gy = H - SAND_H
+      const floor = ctx.createLinearGradient(0, gy - 20, 0, H)
+      floor.addColorStop(0, 'rgba(2,62,138,0)')
+      floor.addColorStop(0.35, '#0077b6')
+      floor.addColorStop(0.7, '#c9a227')
+      floor.addColorStop(1, '#8b5e34')
+      ctx.fillStyle = floor
+      ctx.fillRect(0, gy - 20, W, SAND_H + 20)
+      ctx.fillStyle = '#e9c46a'
+      ctx.beginPath()
+      ctx.moveTo(0, gy + 8)
+      for (let i = -1; i < W / 40 + 3; i++) {
+        const sx = i * 40 - sandX
+        ctx.quadraticCurveTo(sx + 20, gy - 4 - (i % 3) * 3, sx + 40, gy + 8)
+      }
+      ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill()
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'
+      for (let i = -1; i < W / 28 + 2; i++) {
+        ctx.beginPath()
+        ctx.arc(i * 28 - sandX * 0.6, gy + 18 + (i % 4) * 6, 2 + (i % 3), 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+    function drawKelp() {
+      const baseY = H - SAND_H + 4
+      for (const k of kelp) {
+        const kx = ((k.x - kelpX) % (W * 2.4) + W * 2.4) % (W * 2.4) - W * 0.3
+        const sway = Math.sin(tAcc * 1.4 + k.sway) * 18
+        ctx.strokeStyle = k.shade
+        ctx.lineWidth = k.w
+        ctx.lineCap = 'round'
+        ctx.beginPath()
+        ctx.moveTo(kx, baseY)
+        ctx.quadraticCurveTo(kx + sway * 0.4, baseY - k.h * 0.45, kx + sway, baseY - k.h)
+        ctx.stroke()
+        ctx.strokeStyle = 'rgba(82,183,136,0.45)'
+        ctx.lineWidth = k.w * 0.35
+        ctx.beginPath()
+        ctx.moveTo(kx - 2, baseY)
+        ctx.quadraticCurveTo(kx + sway * 0.4 - 2, baseY - k.h * 0.45, kx + sway - 2, baseY - k.h)
+        ctx.stroke()
+      }
+    }
+    function drawRays() {
+      for (const r of rays) {
+        const rx = ((r.x + rayT * r.speed) % (W + 80)) - 40
+        ctx.fillStyle = 'rgba(202,240,248,' + r.a + ')'
+        ctx.beginPath()
+        ctx.moveTo(rx, 0)
+        ctx.lineTo(rx + r.w, 0)
+        ctx.lineTo(rx + r.w * 1.6, H * 0.7)
+        ctx.lineTo(rx - r.w * 0.3, H * 0.7)
+        ctx.closePath(); ctx.fill()
+      }
+    }
+    function drawBubbles() {
+      for (const b of bubbles) {
+        ctx.strokeStyle = 'rgba(255,255,255,' + b.a + ')'
+        ctx.lineWidth = 1.2
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke()
+        ctx.fillStyle = 'rgba(255,255,255,' + (b.a * 0.35) + ')'
+        ctx.beginPath(); ctx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.35, 0, Math.PI * 2); ctx.fill()
+      }
+    }
+    function drawRock(r) {
+      ctx.save()
+      ctx.translate(r.x, r.y)
+      if (r.kind === 'coral') {
+        const g = ctx.createRadialGradient(-4, -6, 2, 0, 0, r.r)
+        g.addColorStop(0, '#ff85a1'); g.addColorStop(0.45, '#e63946'); g.addColorStop(1, '#9d0208')
+        ctx.fillStyle = g
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2 + r.spin * 0.2
+          const br = r.r * (0.45 + (i % 2) * 0.2)
+          ctx.beginPath()
+          ctx.ellipse(Math.cos(a) * r.r * 0.35, Math.sin(a) * r.r * 0.35, br * 0.55, br, a, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.2)'
+        ctx.beginPath(); ctx.ellipse(-r.r * 0.2, -r.r * 0.25, r.r * 0.25, r.r * 0.18, -0.4, 0, Math.PI * 2); ctx.fill()
+      } else if (r.kind === 'anemone') {
+        const petals = 7
+        for (let i = 0; i < petals; i++) {
+          const a = (i / petals) * Math.PI * 2 + Math.sin(tAcc * 3 + i) * 0.15
+          const len = r.r * (0.9 + Math.sin(tAcc * 4 + i) * 0.08)
+          ctx.strokeStyle = r.hue > 0.5 ? '#c77dff' : '#ff6d00'
+          ctx.lineWidth = 4
+          ctx.lineCap = 'round'
+          ctx.beginPath()
+          ctx.moveTo(0, 0)
+          ctx.quadraticCurveTo(Math.cos(a) * len * 0.5, Math.sin(a) * len * 0.5, Math.cos(a) * len, Math.sin(a) * len)
+          ctx.stroke()
+        }
+        ctx.fillStyle = '#ffba08'
+        ctx.beginPath(); ctx.arc(0, 0, r.r * 0.28, 0, Math.PI * 2); ctx.fill()
+      } else {
+        const g = ctx.createRadialGradient(-r.r * 0.3, -r.r * 0.35, 2, 0, 0, r.r)
+        g.addColorStop(0, '#95d5b2'); g.addColorStop(0.4, '#40916c'); g.addColorStop(1, '#1b4332')
+        ctx.fillStyle = g
+        ctx.beginPath(); ctx.ellipse(0, 0, r.r * 0.72, r.r, -0.2, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = 'rgba(0,0,0,0.18)'
+        ctx.beginPath(); ctx.ellipse(r.r * 0.15, r.r * 0.1, r.r * 0.35, r.r * 0.45, 0.3, 0, Math.PI * 2); ctx.fill()
+        ctx.fillStyle = 'rgba(255,255,255,0.15)'
+        ctx.beginPath(); ctx.ellipse(-r.r * 0.25, -r.r * 0.3, r.r * 0.22, r.r * 0.14, -0.5, 0, Math.PI * 2); ctx.fill()
+      }
+      ctx.restore()
+    }
+    function drawFish() {
+      const ang = Math.max(-0.55, Math.min(0.7, v * 0.0035))
+      ctx.save()
+      ctx.translate(fx(), y)
+      ctx.rotate(ang)
+      ctx.scale(squash, stretch)
+      // soft shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.2)'
+      ctx.beginPath(); ctx.ellipse(2, 14, 14, 5, 0, 0, Math.PI * 2); ctx.fill()
+      // tail
+      ctx.save()
+      ctx.translate(-14, 0)
+      ctx.rotate(fin * 0.55)
+      const tail = ctx.createLinearGradient(-12, 0, 0, 0)
+      tail.addColorStop(0, '#f48c06'); tail.addColorStop(1, '#ffba08')
+      ctx.fillStyle = tail
+      ctx.beginPath()
+      ctx.moveTo(0, 0)
+      ctx.quadraticCurveTo(-6, -12 - fin * 4, -16, -8)
+      ctx.quadraticCurveTo(-10, 0, -16, 8)
+      ctx.quadraticCurveTo(-6, 12 + fin * 4, 0, 0)
+      ctx.fill()
+      ctx.restore()
+      // body
+      const body = ctx.createRadialGradient(-3, -4, 2, 0, 0, 18)
+      body.addColorStop(0, '#ffe066'); body.addColorStop(0.5, '#ffba08'); body.addColorStop(1, '#e85d04')
+      ctx.fillStyle = body
+      ctx.beginPath(); ctx.ellipse(0, 0, FISH_RX, FISH_RY, 0, 0, Math.PI * 2); ctx.fill()
+      // belly stripe
+      ctx.fillStyle = 'rgba(255,243,191,0.85)'
+      ctx.beginPath(); ctx.ellipse(2, 3, 10, 5, 0, 0, Math.PI * 2); ctx.fill()
+      // dorsal fin
+      ctx.fillStyle = '#f48c06'
+      ctx.beginPath()
+      ctx.moveTo(-2, -FISH_RY + 1)
+      ctx.quadraticCurveTo(2, -FISH_RY - 10 - fin * 2, 8, -FISH_RY + 2)
+      ctx.quadraticCurveTo(2, -FISH_RY - 2, -2, -FISH_RY + 1)
+      ctx.fill()
+      // pectoral fin
+      ctx.save()
+      ctx.translate(2, 2)
+      ctx.rotate(0.4 + fin * 0.8)
+      ctx.fillStyle = '#fb8500'
+      ctx.beginPath(); ctx.ellipse(0, 4, 7, 3.5, 0.2, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
+      // eye
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.ellipse(8, -3, 4.2, 4.4, 0, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#1b1b1b'
+      ctx.beginPath(); ctx.arc(9.2, -2.6, 1.9, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.arc(9.8, -3.4, 0.7, 0, Math.PI * 2); ctx.fill()
+      // smile / gill hint
+      ctx.strokeStyle = 'rgba(232,93,4,0.55)'
+      ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.arc(6, 2, 4, 0.15, 1.1); ctx.stroke()
+      // nose highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'
+      ctx.beginPath(); ctx.ellipse(11, -1, 2.2, 1.4, 0.2, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
+    }
+    function drawCaustics() {
+      ctx.save()
+      ctx.globalCompositeOperation = 'lighter'
+      for (let i = 0; i < 6; i++) {
+        const cx = ((i * W * 0.22 + tAcc * (8 + i * 3)) % (W + 60)) - 30
+        const cy = H * (0.15 + (i % 3) * 0.18) + Math.sin(tAcc * 1.2 + i) * 18
+        ctx.fillStyle = 'rgba(144,224,239,0.045)'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy, 50 + i * 8, 18 + (i % 2) * 8, Math.sin(tAcc + i) * 0.4, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.restore()
     }
     function draw() {
       const g = ctx.createLinearGradient(0, 0, 0, H)
-      g.addColorStop(0, '#023e8a'); g.addColorStop(1, '#48cae4')
+      g.addColorStop(0, '#012a4a'); g.addColorStop(0.35, '#014f86'); g.addColorStop(0.7, '#0077b6'); g.addColorStop(1, '#00b4d8')
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
-      for (const r of rocks) {
-        ctx.fillStyle = '#2d6a4f'
-        ctx.beginPath(); ctx.ellipse(r.x, r.y, 10, r.r, 0, 0, Math.PI * 2); ctx.fill()
-      }
-      ctx.fillStyle = '#ffba08'
-      ctx.beginPath(); ctx.ellipse(W * 0.28, y, 16, 10, 0, 0, Math.PI * 2); ctx.fill()
+      drawRays()
+      drawCaustics()
+      drawKelp()
+      for (const r of rocks) drawRock(r)
+      drawSand()
+      drawBubbles()
+      drawFish()
     }
-    addEventListener('pointerdown', () => { holding = true })
-    addEventListener('pointerup', () => { holding = false })
-    addEventListener('pointercancel', () => { holding = false })
+    addEventListener('pointerdown', startHold)
+    addEventListener('pointerup', endHold)
+    addEventListener('pointercancel', endHold)
     reset()
 `,
   },
@@ -1366,20 +1760,17 @@ Object.assign(games, {
       })
     }
     function draw() {
-      ctx.fillStyle = '#3a0ca3'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#240046', '#3a0ca3', '#560bad')
+      PF.blobs(ctx, W, H, '#7209b7', 5)
+      PF.dots(ctx, W, H, '#f72585', 16, 0.6)
       const cx = W * 0.5, cy = H * 0.55, R = 50
       for (const g of gaps) {
-        ctx.fillStyle = '#f72585'
-        ctx.fillRect(40, g.y, W - 80, 14)
-        ctx.fillStyle = '#3a0ca3'
+        PF.block(ctx, 40, g.y, W - 80, 14, '#ff5c8a', '#f72585', 6)
         const gx = cx + Math.cos(g.open) * 40
-        ctx.clearRect?.(0,0,0,0)
-        ctx.fillRect(gx - 36, g.y - 1, 72, 16)
+        ctx.clearRect(gx - 36, g.y - 2, 72, 18)
       }
-      ctx.fillStyle = '#4cc9f0'
-      ctx.beginPath(); ctx.arc(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R, 12, 0, Math.PI * 2); ctx.fill()
-      ctx.fillStyle = '#b5179e'
-      ctx.beginPath(); ctx.arc(cx + Math.cos(ang + Math.PI) * R, cy + Math.sin(ang + Math.PI) * R, 12, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, cx + Math.cos(ang) * R, cy + Math.sin(ang) * R, 13, '#7bdff2', '#4cc9f0')
+      PF.buddy(ctx, cx + Math.cos(ang + Math.PI) * R, cy + Math.sin(ang + Math.PI) * R, 13, '#ff8fe0', '#b5179e')
     }
     addEventListener('pointerdown', () => { if (!GS.paused) dir *= -1 })
     reset()
@@ -1391,6 +1782,12 @@ Object.assign(games, {
     bg: '#b08968',
     body: `
     let tilt = 0, ball = 0, noise = 0
+    function ballWorldPos() {
+      const cx = W * 0.5, cy = H * 0.55, lx = ball, ly = -20
+      return [cx + lx * Math.cos(tilt) - ly * Math.sin(tilt), cy + lx * Math.sin(tilt) + ly * Math.cos(tilt)]
+    }
+    function diePos() { return ballWorldPos() }
+    function scorePos() { return ballWorldPos() }
     function reset() { tilt = 0; ball = 0; noise = 0; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -1404,13 +1801,14 @@ Object.assign(games, {
       if (scoreAcc > 0.5) { scoreAcc = 0; bump() }
     }
     function draw() {
-      ctx.fillStyle = '#ddb892'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#7f5539', '#b08968', '#ddb892')
+      PF.dots(ctx, W, H, '#ffe8d6', 14, 0.4)
       const cx = W * 0.5, cy = H * 0.55
       ctx.save(); ctx.translate(cx, cy); ctx.rotate(tilt)
-      ctx.fillStyle = '#7f5539'; ctx.fillRect(-120, -8, 240, 16)
-      ctx.fillStyle = '#e6ccb2'
-      ctx.beginPath(); ctx.arc(ball, -20, 14, 0, Math.PI * 2); ctx.fill()
+      PF.block(ctx, -120, -8, 240, 16, '#9c6644', '#7f5539', 8)
       ctx.restore()
+      const [bxw, byw] = ballWorldPos()
+      PF.buddy(ctx, bxw, byw, 15, '#ffe8d6', '#e6ccb2', { lookX: tilt * 3 })
     }
     addEventListener('pointermove', e => { if (!GS.paused) tilt = (e.clientX / W - 0.5) * 0.9 })
     addEventListener('pointerdown', e => { if (!GS.paused) tilt = (e.clientX / W - 0.5) * 0.9 })
@@ -1453,14 +1851,15 @@ Object.assign(games, {
       ctx.fill()
     }
     function draw() {
-      ctx.fillStyle = '#003049'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#001d3d', '#003049', '#00243b')
+      PF.dots(ctx, W, H, '#fcbf49', 16, 0.5)
       for (const g of gates) {
-        ctx.fillStyle = '#fcbf49'
-        ctx.fillRect(0, g.y, W, 24)
+        PF.block(ctx, 0, g.y, W, 24, '#ffd166', '#fcbf49', 4)
         ctx.globalCompositeOperation = 'destination-out'
         drawShape(g.s, W * 0.5, g.y + 12, 22, '#000')
         ctx.globalCompositeOperation = 'source-over'
       }
+      PF.soft(ctx, W * 0.5, H * 0.7, 26, 'rgba(247,127,0,0.35)', 'rgba(247,127,0,0)')
       drawShape(shape, W * 0.5, H * 0.7, 16, '#f77f00')
     }
     addEventListener('pointerdown', () => { if (!GS.paused) shape = (shape + 1) % 3 })
@@ -1473,6 +1872,8 @@ Object.assign(games, {
     bg: '#415a77',
     body: `
     let x = 0.5, drops = [], spawn = 0
+    function diePos() { return [x * W, H * 0.82] }
+    function scorePos() { return [x * W, H * 0.82] }
     function reset() { x = 0.5; drops = []; spawn = 0.05; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -1490,13 +1891,13 @@ Object.assign(games, {
       })
     }
     function draw() {
-      ctx.fillStyle = '#1b263b'; ctx.fillRect(0, 0, W, H)
-      ctx.strokeStyle = '#778da9'; ctx.lineWidth = 2
+      PF.sky(ctx, W, H, '#0d1b2a', '#1b263b', '#415a77')
+      PF.blobs(ctx, W, H, '#778da9', 4)
+      ctx.strokeStyle = '#a3b8cc'; ctx.lineWidth = 2
       for (const d of drops) {
         ctx.beginPath(); ctx.moveTo(d.x * W, d.y); ctx.lineTo(d.x * W, d.y + 14); ctx.stroke()
       }
-      ctx.fillStyle = '#e0e1dd'
-      ctx.beginPath(); ctx.arc(x * W, H * 0.82, 12, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, x * W, H * 0.82, 15, '#e0e1dd', '#a9b4c2', { lookY: 0.3 })
     }
     addEventListener('pointermove', e => { if (!GS.paused) x = e.clientX / W })
     addEventListener('pointerdown', e => { if (!GS.paused) x = e.clientX / W })
@@ -1509,6 +1910,8 @@ Object.assign(games, {
     bg: '#9d4edd',
     body: `
     let y, pol = 1, hazards = [], spawn = 0
+    function diePos() { return [W * 0.3, y] }
+    function scorePos() { return [W * 0.3, y] }
     function reset() { y = H * 0.5; pol = 1; hazards = []; spawn = 0.3; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -1528,14 +1931,12 @@ Object.assign(games, {
       })
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#ff6d00'; ctx.fillRect(0, 0, W, 36)
-      ctx.fillStyle = '#3a0ca3'; ctx.fillRect(0, H - 36, W, 36)
-      for (const h of hazards) {
-        ctx.fillStyle = '#e0aaff'; ctx.fillRect(h.x, h.y, 24, h.h)
-      }
-      ctx.fillStyle = pol > 0 ? '#ff6d00' : '#4cc9f0'
-      ctx.beginPath(); ctx.arc(W * 0.3, y, 12, 0, Math.PI * 2); ctx.fill()
+      PF.sky(ctx, W, H, '#240046', '#3c096c', '#5a189a')
+      PF.dots(ctx, W, H, '#e0aaff', 16, 0.5)
+      PF.block(ctx, 0, 0, W, 36, '#ff8500', '#ff6d00', 0)
+      PF.block(ctx, 0, H - 36, W, 36, '#4361ee', '#3a0ca3', 0)
+      for (const h of hazards) PF.block(ctx, h.x, h.y, 24, h.h, '#e0aaff', '#c77dff', 6)
+      PF.buddy(ctx, W * 0.3, y, 14, pol > 0 ? '#ffb703' : '#48cae4', pol > 0 ? '#ff6d00' : '#4cc9f0', { lookY: pol })
     }
     addEventListener('pointerdown', () => { if (!GS.paused) pol *= -1 })
     reset()
@@ -1547,6 +1948,8 @@ Object.assign(games, {
     bg: '#3a0ca3',
     body: `
     let x, y, trail = [], t = 0
+    function diePos() { return [x, y] }
+    function scorePos() { return [x, y] }
     function reset() { x = W * 0.5; y = H * 0.5; trail = []; t = 0; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -1563,14 +1966,14 @@ Object.assign(games, {
       if (scoreAcc > 0.4) { scoreAcc = 0; bump() }
     }
     function draw() {
-      ctx.fillStyle = '#10002b'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#10002b', '#240046', '#3a0ca3')
+      PF.dots(ctx, W, H, '#4cc9f0', 20, 0.7)
       for (let i = trail.length - 1; i >= 0; i--) {
         const p = trail[i], a = 1 - i / trail.length
-        ctx.fillStyle = \`rgba(76,201,240,\${a * 0.8})\`
+        ctx.fillStyle = 'rgba(76,201,240,' + (a * 0.8) + ')'
         ctx.beginPath(); ctx.arc(p.x, p.y, 4 + a * 4, 0, Math.PI * 2); ctx.fill()
       }
-      ctx.fillStyle = '#f72585'
-      ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill()
+      PF.buddy(ctx, x, y, 13, '#ff8fa3', '#f72585')
     }
     addEventListener('pointermove', e => { if (!GS.paused) { x = e.clientX; y = e.clientY } })
     addEventListener('pointerdown', e => { if (!GS.paused) { x = e.clientX; y = e.clientY } })
@@ -1584,6 +1987,8 @@ Object.assign(games, {
     bg: '#f4a261',
     body: `
     let px, py, target, dark = 0.35, spawnAt = 0
+    function diePos() { return [px, py] }
+    function scorePos() { return [target.x, target.y] }
     function place() {
       target = { x: 60 + Math.random() * (W - 120), y: 80 + Math.random() * (H - 160) }
     }
@@ -1597,15 +2002,14 @@ Object.assign(games, {
       if (Math.hypot(px - target.x, py - target.y) < 22) { bump(); place(); dark = Math.max(0.2, dark - 0.05) }
     }
     function draw() {
-      ctx.fillStyle = '#264653'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#1b1030', '#264653', '#2a9d8f')
+      PF.dots(ctx, W, H, '#ffffff', 30, 0.3)
       const limit = Math.min(W, H) * (0.55 - Math.min(0.35, dark * 0.4))
-      ctx.fillStyle = '#000'
+      ctx.fillStyle = '#05070d'
       ctx.beginPath(); ctx.rect(0, 0, W, H)
       ctx.arc(W * 0.5, H * 0.5, limit, 0, Math.PI * 2, true); ctx.fill('evenodd')
-      ctx.fillStyle = '#e9c46a'
-      ctx.beginPath(); ctx.arc(target.x, target.y, 14, 0, Math.PI * 2); ctx.fill()
-      ctx.fillStyle = '#f4a261'
-      ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI * 2); ctx.fill()
+      PF.soft(ctx, target.x, target.y, 18, '#ffe066', '#e9c46a')
+      PF.buddy(ctx, px, py, 13, '#ffd6a5', '#f4a261')
     }
     addEventListener('pointermove', e => { if (!GS.paused) { px = e.clientX; py = e.clientY } })
     addEventListener('pointerdown', e => { if (!GS.paused) { px = e.clientX; py = e.clientY } })
@@ -1624,6 +2028,8 @@ Object.assign(games, {
         bricks.push({ x: 20 + c * ((W - 40) / 8), y: 80 + r * 28, w: (W - 40) / 8 - 6, h: 18, alive: true })
       }
     }
+    function diePos() { return [px, H - 44] }
+    function scorePos() { return [ball.x, ball.y] }
     function reset() {
       pw = Math.min(120, W * 0.28); px = W * 0.5
       ball = { x: W * 0.5, y: H * 0.6, vx: 160, vy: -220, r: 8 }
@@ -1649,11 +2055,13 @@ Object.assign(games, {
       if (bricks.every(b => !b.alive)) buildBricks()
     }
     function draw() {
-      ctx.fillStyle = '#264653'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#7f5539', '#e9c46a', '#f4a261')
+      PF.dots(ctx, W, H, '#ffffff', 14, 0.4)
       for (const b of bricks) if (b.alive) {
-        ctx.fillStyle = '#e76f51'; ctx.fillRect(b.x, b.y, b.w, b.h)
+        PF.block(ctx, b.x, b.y, b.w, b.h, '#ff9770', '#e76f51', 5)
       }
-      ctx.fillStyle = '#e9c46a'; ctx.fillRect(px - pw * 0.5, H - 50, pw, 12)
+      PF.block(ctx, px - pw * 0.5, H - 50, pw, 12, '#ffe8a1', '#e9c46a', 6)
+      PF.soft(ctx, ball.x, ball.y, ball.r + 3, 'rgba(255,255,255,0.9)', 'rgba(255,255,255,0.15)')
       ctx.fillStyle = '#fff'
       ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill()
     }

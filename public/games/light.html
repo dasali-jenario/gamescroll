@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -102,6 +103,8 @@
     if (window.Juice) Juice.init({ accent: "#f4a261" })
 
     let px, py, target, dark = 0.35, spawnAt = 0
+    function diePos() { return [px, py] }
+    function scorePos() { return [target.x, target.y] }
     function place() {
       target = { x: 60 + Math.random() * (W - 120), y: 80 + Math.random() * (H - 160) }
     }
@@ -115,15 +118,14 @@
       if (Math.hypot(px - target.x, py - target.y) < 22) { bump(); place(); dark = Math.max(0.2, dark - 0.05) }
     }
     function draw() {
-      ctx.fillStyle = '#264653'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#1b1030', '#264653', '#2a9d8f')
+      PF.dots(ctx, W, H, '#ffffff', 30, 0.3)
       const limit = Math.min(W, H) * (0.55 - Math.min(0.35, dark * 0.4))
-      ctx.fillStyle = '#000'
+      ctx.fillStyle = '#05070d'
       ctx.beginPath(); ctx.rect(0, 0, W, H)
       ctx.arc(W * 0.5, H * 0.5, limit, 0, Math.PI * 2, true); ctx.fill('evenodd')
-      ctx.fillStyle = '#e9c46a'
-      ctx.beginPath(); ctx.arc(target.x, target.y, 14, 0, Math.PI * 2); ctx.fill()
-      ctx.fillStyle = '#f4a261'
-      ctx.beginPath(); ctx.arc(px, py, 10, 0, Math.PI * 2); ctx.fill()
+      PF.soft(ctx, target.x, target.y, 18, '#ffe066', '#e9c46a')
+      PF.buddy(ctx, px, py, 13, '#ffd6a5', '#f4a261')
     }
     addEventListener('pointermove', e => { if (!GS.paused) { px = e.clientX; py = e.clientY } })
     addEventListener('pointerdown', e => { if (!GS.paused) { px = e.clientX; py = e.clientY } })
@@ -143,6 +145,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

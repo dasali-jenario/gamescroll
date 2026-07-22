@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -122,18 +123,22 @@
         return true
       })
     }
+    function diePos() { return [W * 0.5, H * 0.5] }
+    function scorePos() { return [W * 0.5, H * 0.5] }
     function draw() {
-      ctx.fillStyle = '#22223b'; ctx.fillRect(0, 0, W, H)
+      PF.sky(ctx, W, H, '#1c1e3a', '#4a4e69', '#6b7099')
+      PF.dots(ctx, W, H, '#ffffff', 26, 1.4)
       const cx = W * 0.5, cy = H * 0.5
-      ctx.fillStyle = '#9a8c98'
-      ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI * 2); ctx.fill()
-      ctx.strokeStyle = '#f2e9e4'; ctx.lineWidth = 8
-      ctx.beginPath(); ctx.arc(cx, cy, 40, ang - 0.5, ang + 0.5); ctx.stroke()
+      PF.buddy(ctx, cx, cy, 24, '#c9c3d9', '#9a8c98', { blush: true })
+      ctx.save()
+      ctx.strokeStyle = '#f2e9e4'
+      ctx.lineWidth = 9
+      ctx.shadowColor = 'rgba(242,233,228,0.6)'
+      ctx.shadowBlur = 10
+      ctx.beginPath(); ctx.arc(cx, cy, 42, ang - 0.5, ang + 0.5); ctx.stroke()
+      ctx.restore()
       for (const s of shots) {
-        ctx.fillStyle = '#ef476f'
-        ctx.beginPath()
-        ctx.arc(cx + Math.cos(s.a) * s.r, cy + Math.sin(s.a) * s.r, 8, 0, Math.PI * 2)
-        ctx.fill()
+        PF.soft(ctx, cx + Math.cos(s.a) * s.r, cy + Math.sin(s.a) * s.r, 9, '#ff8fa3', '#ef476f')
       }
     }
     addEventListener('pointermove', e => {
@@ -156,6 +161,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()

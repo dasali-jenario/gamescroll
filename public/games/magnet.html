@@ -32,6 +32,7 @@
   <script src="/lib/gsap.min.js"></script>
   <script src="/lib/proton.min.js"></script>
   <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
   <script>
 
     const GS = {
@@ -102,6 +103,8 @@
     if (window.Juice) Juice.init({ accent: "#9d4edd" })
 
     let y, pol = 1, hazards = [], spawn = 0
+    function diePos() { return [W * 0.3, y] }
+    function scorePos() { return [W * 0.3, y] }
     function reset() { y = H * 0.5; pol = 1; hazards = []; spawn = 0.3; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -121,14 +124,12 @@
       })
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      ctx.fillStyle = '#ff6d00'; ctx.fillRect(0, 0, W, 36)
-      ctx.fillStyle = '#3a0ca3'; ctx.fillRect(0, H - 36, W, 36)
-      for (const h of hazards) {
-        ctx.fillStyle = '#e0aaff'; ctx.fillRect(h.x, h.y, 24, h.h)
-      }
-      ctx.fillStyle = pol > 0 ? '#ff6d00' : '#4cc9f0'
-      ctx.beginPath(); ctx.arc(W * 0.3, y, 12, 0, Math.PI * 2); ctx.fill()
+      PF.sky(ctx, W, H, '#240046', '#3c096c', '#5a189a')
+      PF.dots(ctx, W, H, '#e0aaff', 16, 0.5)
+      PF.block(ctx, 0, 0, W, 36, '#ff8500', '#ff6d00', 0)
+      PF.block(ctx, 0, H - 36, W, 36, '#4361ee', '#3a0ca3', 0)
+      for (const h of hazards) PF.block(ctx, h.x, h.y, 24, h.h, '#e0aaff', '#c77dff', 6)
+      PF.buddy(ctx, W * 0.3, y, 14, pol > 0 ? '#ffb703' : '#48cae4', pol > 0 ? '#ff6d00' : '#4cc9f0', { lookY: pol })
     }
     addEventListener('pointerdown', () => { if (!GS.paused) pol *= -1 })
     reset()
@@ -147,6 +148,7 @@
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
+      if (window.PF) PF.t += dt
       if (!GS.paused && typeof tick === 'function') tick(dt)
       if (typeof draw === 'function') draw(now)
       if (window.Juice) Juice.update()
