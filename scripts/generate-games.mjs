@@ -1128,7 +1128,7 @@ Object.assign(games, {
         if (L.t <= 0) {
           L.cars.push({ c: Math.random() < 0.5 ? -1 : cols, dir: Math.random() < 0.5 ? 1 : -1, x: Math.random() < 0.5 ? -1 : cols })
           L.cars[L.cars.length - 1].x = L.cars[L.cars.length - 1].dir > 0 ? -1 : cols
-          L.t = 0.8 + Math.random() * 0.8
+          L.t = 1.6 + Math.random() * 1.6
         }
         for (const c of L.cars) c.x += c.dir * (2 + score * 0.05) * dt
         L.cars = L.cars.filter(c => c.x > -2 && c.x < cols + 2)

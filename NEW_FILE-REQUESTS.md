@@ -1,5 +1,23 @@
 # New file requests
 
+## 2026-07-22 — Capacitor Android sideload APK
+
+### Requested files
+- `capacitor.config.ts` — Capacitor app id/name/`webDir` for Android wrapper
+- `android/` — Capacitor-generated native Android project (portrait lock in `AndroidManifest.xml`)
+- `scripts/build-apk.mjs` — Gradle assembleDebug + copy to `dist-apk/gamescroll-debug.apk`
+- `dist-apk/gamescroll-debug.apk` — sideloadable debug APK (gitignored build output)
+- Updates: `package.json` scripts (`cap:sync`, `build:apk`), `.gitignore` (`dist-apk`)
+
+### Duplicate search
+- Glob `**/capacitor*` → **none** before this change
+- Grep `manifest.json|service.?worker|@capacitor` under `/Users/dasali/gamescroll` → **no** PWA/Capacitor/Cordova/Expo setup
+- Glob `android/`, `**/AndroidManifest.xml` → **none**
+- No existing APK build scripts under `scripts/` (only `generate-games.mjs`)
+
+### Rationale
+Sideloadable Android APK via Capacitor WebView shell around the existing Vite `dist/`; no native rewrite of the iframe games.
+
 ## 2026-07-22 — GSAP + Proton game juice
 
 ### Requested files

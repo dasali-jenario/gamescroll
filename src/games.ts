@@ -51,9 +51,5 @@ export function buildFeedBatch(round: number): FeedItem[] {
     const j = Math.floor(Math.random() * (i + 1))
     ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
-  // First open: stable opener so Pocket Pong autoplays first.
-  if (round === 0) {
-    return games.map((game, i) => ({ key: `${game.id}-0-${i}`, game }))
-  }
   return shuffled.map((game, i) => ({ key: `${game.id}-${round}-${i}`, game }))
 }
