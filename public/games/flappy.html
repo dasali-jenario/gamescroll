@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Flappy Dot</title>
+  <title>Flappy</title>
   <style>
     html, body { margin: 0; height: 100%; overflow: hidden; background: #2d6a4f; touch-action: none; }
     #stage { position: fixed; inset: 0; will-change: transform; }
@@ -85,7 +85,11 @@
     function bump(n) {
       const amount = n || 1
       setScore(score + amount)
-      if (window.Juice) Juice.onScore(amount)
+      if (window.Juice) {
+        const pos = typeof scorePos === 'function' ? scorePos() : null
+        if (pos) Juice.onScore(amount, pos[0], pos[1])
+        else Juice.onScore(amount)
+      }
     }
     function resize() {
       W = innerWidth; H = innerHeight
@@ -98,46 +102,215 @@
     if (window.Juice) Juice.init({ accent: "#2d6a4f" })
 
     let y, v, pipes, gap = 130
+    let clouds = [], hills = [], groundX = 0, hillX = 0, cloudX = 0
+    let flapT = 0, wing = 0, squash = 1, stretch = 1
+    const SCROLL = 150, GROUND_H = 72, PIPE_W = 54, BIRD_R = 14
     const bx = () => W * 0.3
+    function diePos() { return [bx(), y] }
+    function scorePos() { return [bx(), y] }
+    function seedWorld() {
+      clouds = []
+      for (let i = 0; i < 6; i++) {
+        clouds.push({
+          x: Math.random() * W * 1.4,
+          y: H * (0.08 + Math.random() * 0.32),
+          s: 0.55 + Math.random() * 0.9,
+          a: 0.35 + Math.random() * 0.35,
+        })
+      }
+      hills = []
+      for (let i = 0; i < 5; i++) {
+        hills.push({
+          x: i * W * 0.45 + Math.random() * 40,
+          w: W * (0.4 + Math.random() * 0.35),
+          h: H * (0.12 + Math.random() * 0.14),
+          shade: i % 2 === 0 ? '#40916c' : '#52b788',
+        })
+      }
+      groundX = 0; hillX = 0; cloudX = 0
+    }
     function reset() {
-      y = H * 0.45; v = 0; pipes = [{ x: W + 40, gapY: H * 0.4, passed: false }]; setScore(0)
+      y = H * 0.45; v = 0
+      pipes = [{ x: W + 40, gapY: H * 0.4, passed: false }]
+      flapT = 0; wing = 0; squash = 1; stretch = 1
+      seedWorld(); setScore(0)
     }
     function onHostStart() { reset() }
     function die() { reset() }
+    function flap() {
+      if (GS.paused) return
+      v = -7.4
+      flapT = 0.28
+      squash = 1.28
+      stretch = 0.72
+      if (window.Juice) Juice.burst(bx(), y, '#ffba08', 10)
+    }
     function tick(dt) {
       v += 20 * dt; y += v
-      if (y < 20 || y > H - 20) die()
-      for (const p of pipes) p.x -= 150 * dt
+      const floorY = H - GROUND_H - 8
+      if (y < 20 || y > floorY) die()
+      for (const p of pipes) p.x -= SCROLL * dt
       if (pipes[0] && pipes[0].x < -70) pipes.shift()
       if (pipes.length && pipes[pipes.length - 1].x < W * 0.45) {
-        pipes.push({ x: W + 40, gapY: H * (0.25 + Math.random() * 0.4), passed: false })
+        pipes.push({ x: W + 40, gapY: H * (0.25 + Math.random() * 0.35), passed: false })
       }
       for (const p of pipes) {
-        const inX = bx() + 14 > p.x && bx() - 14 < p.x + 54
+        const inX = bx() + BIRD_R > p.x && bx() - BIRD_R < p.x + PIPE_W
         const inGap = y > p.gapY && y < p.gapY + gap
         if (inX && !inGap) die()
-        if (!p.passed && p.x + 54 < bx()) { p.passed = true; bump() }
+        if (!p.passed && p.x + PIPE_W < bx()) { p.passed = true; bump() }
       }
+      groundX = (groundX + SCROLL * dt) % 48
+      hillX = (hillX + SCROLL * 0.35 * dt) % (W * 0.45)
+      cloudX += SCROLL * 0.12 * dt
+      if (flapT > 0) {
+        flapT -= dt
+        wing = Math.sin(flapT * 42) * 0.85
+      } else {
+        wing += (Math.max(-0.35, Math.min(0.55, v * 0.06)) - wing) * Math.min(1, dt * 8)
+      }
+      squash += (1 - squash) * Math.min(1, dt * 10)
+      stretch += (1 - stretch) * Math.min(1, dt * 10)
+    }
+    function roundRect(x, y0, w, h, r) {
+      const rr = Math.min(r, w * 0.5, h * 0.5)
+      ctx.beginPath()
+      ctx.moveTo(x + rr, y0)
+      ctx.arcTo(x + w, y0, x + w, y0 + h, rr)
+      ctx.arcTo(x + w, y0 + h, x, y0 + h, rr)
+      ctx.arcTo(x, y0 + h, x, y0, rr)
+      ctx.arcTo(x, y0, x + w, y0, rr)
+      ctx.closePath()
+    }
+    function drawCloud(c, ox) {
+      const x = ((c.x - ox) % (W * 1.6) + W * 1.6) % (W * 1.6) - W * 0.2
+      const y0 = c.y, s = c.s
+      ctx.fillStyle = 'rgba(255,255,255,' + c.a + ')'
+      ctx.beginPath(); ctx.ellipse(x, y0, 28 * s, 16 * s, 0, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.ellipse(x - 22 * s, y0 + 4, 18 * s, 12 * s, 0, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.ellipse(x + 24 * s, y0 + 2, 20 * s, 13 * s, 0, 0, Math.PI * 2); ctx.fill()
+    }
+    function drawPipe(p) {
+      const x = p.x, topH = p.gapY, botY = p.gapY + gap, botH = H - GROUND_H - botY
+      const cap = 18, lip = 10
+      // top shaft
+      const tg = ctx.createLinearGradient(x, 0, x + PIPE_W, 0)
+      tg.addColorStop(0, '#1b4332'); tg.addColorStop(0.22, '#2d6a4f')
+      tg.addColorStop(0.55, '#52b788'); tg.addColorStop(0.78, '#40916c'); tg.addColorStop(1, '#1b4332')
+      ctx.fillStyle = tg
+      ctx.fillRect(x + 2, 0, PIPE_W - 4, Math.max(0, topH - cap))
+      // top cap
+      roundRect(x - lip * 0.5, topH - cap, PIPE_W + lip, cap, 6)
+      ctx.fill()
+      ctx.fillStyle = 'rgba(255,255,255,0.18)'
+      ctx.fillRect(x + 8, 0, 6, Math.max(0, topH - 4))
+      ctx.fillStyle = 'rgba(0,0,0,0.18)'
+      ctx.fillRect(x + PIPE_W - 10, 0, 5, Math.max(0, topH - 4))
+      // bottom shaft
+      ctx.fillStyle = tg
+      if (botH > 0) ctx.fillRect(x + 2, botY + cap, PIPE_W - 4, Math.max(0, botH - cap))
+      roundRect(x - lip * 0.5, botY, PIPE_W + lip, cap, 6)
+      ctx.fill()
+      ctx.fillStyle = 'rgba(255,255,255,0.18)'
+      if (botH > 0) ctx.fillRect(x + 8, botY + 4, 6, Math.max(0, botH - 4))
+      ctx.fillStyle = 'rgba(0,0,0,0.18)'
+      if (botH > 0) ctx.fillRect(x + PIPE_W - 10, botY + 4, 5, Math.max(0, botH - 4))
+      // rim lines
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)'
+      ctx.lineWidth = 2
+      ctx.beginPath(); ctx.moveTo(x - lip * 0.5, topH - 1); ctx.lineTo(x + PIPE_W + lip * 0.5, topH - 1); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(x - lip * 0.5, botY + 1); ctx.lineTo(x + PIPE_W + lip * 0.5, botY + 1); ctx.stroke()
+    }
+    function drawGround() {
+      const gy = H - GROUND_H
+      const dirt = ctx.createLinearGradient(0, gy, 0, H)
+      dirt.addColorStop(0, '#d8a048'); dirt.addColorStop(0.35, '#b08968'); dirt.addColorStop(1, '#7f5539')
+      ctx.fillStyle = dirt; ctx.fillRect(0, gy, W, GROUND_H)
+      ctx.fillStyle = '#74c69d'
+      ctx.fillRect(0, gy, W, 14)
+      ctx.fillStyle = '#40916c'
+      for (let i = -1; i < W / 24 + 2; i++) {
+        const gx = i * 24 - groundX
+        ctx.beginPath()
+        ctx.moveTo(gx, gy + 14)
+        ctx.lineTo(gx + 12, gy + 2)
+        ctx.lineTo(gx + 24, gy + 14)
+        ctx.fill()
+      }
+      ctx.fillStyle = 'rgba(0,0,0,0.12)'
+      for (let i = -1; i < W / 48 + 2; i++) {
+        ctx.fillRect(i * 48 - groundX * 0.5, gy + 28, 22, 8)
+      }
+    }
+    function drawBird() {
+      const x = bx(), ang = Math.max(-0.65, Math.min(1.15, Math.atan2(v, SCROLL * 0.55)))
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.rotate(ang)
+      ctx.scale(squash, stretch)
+      // shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.22)'
+      ctx.beginPath(); ctx.ellipse(2, 16, 12, 4, 0, 0, Math.PI * 2); ctx.fill()
+      // body
+      const body = ctx.createRadialGradient(-4, -4, 2, 0, 0, 16)
+      body.addColorStop(0, '#ffe066'); body.addColorStop(0.55, '#ffba08'); body.addColorStop(1, '#e85d04')
+      ctx.fillStyle = body
+      ctx.beginPath(); ctx.ellipse(0, 0, 15, 12, 0, 0, Math.PI * 2); ctx.fill()
+      // belly
+      ctx.fillStyle = '#fff3bf'
+      ctx.beginPath(); ctx.ellipse(1, 4, 9, 6, 0, 0, Math.PI * 2); ctx.fill()
+      // wing
+      ctx.save()
+      ctx.translate(-2, 1)
+      ctx.rotate(wing)
+      ctx.fillStyle = '#f48c06'
+      ctx.beginPath(); ctx.ellipse(-2, 0, 9, 5.5, -0.2, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#ffba08'
+      ctx.beginPath(); ctx.ellipse(-1, -1, 5, 3, -0.2, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
+      // beak
+      ctx.fillStyle = '#f77f00'
+      ctx.beginPath(); ctx.moveTo(12, -2); ctx.lineTo(22, 1); ctx.lineTo(12, 4); ctx.closePath(); ctx.fill()
+      ctx.fillStyle = '#e85d04'
+      ctx.beginPath(); ctx.moveTo(12, 1); ctx.lineTo(20, 2); ctx.lineTo(12, 4); ctx.closePath(); ctx.fill()
+      // eye
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.ellipse(6, -4, 4.2, 4.5, 0, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#1b1b1b'
+      ctx.beginPath(); ctx.arc(7.2, -3.5, 1.8, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.arc(7.8, -4.2, 0.7, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
     }
     function draw() {
-      const g = ctx.createLinearGradient(0, 0, 0, H)
-      g.addColorStop(0, '#1b4332'); g.addColorStop(1, '#95d5b2')
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
-      for (const p of pipes) {
-        ctx.fillStyle = '#d8f3dc'
-        ctx.fillRect(p.x, 0, 54, p.gapY)
-        ctx.fillRect(p.x, p.gapY + gap, 54, H - p.gapY - gap)
+      const sky = ctx.createLinearGradient(0, 0, 0, H)
+      sky.addColorStop(0, '#4cc9f0'); sky.addColorStop(0.45, '#90e0ef'); sky.addColorStop(1, '#b7e4c7')
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H)
+      for (const c of clouds) drawCloud(c, cloudX)
+      const baseY = H - GROUND_H - 8
+      for (const h of hills) {
+        const hx = ((h.x - hillX) % (W * 2.2) + W * 2.2) % (W * 2.2) - W * 0.3
+        ctx.fillStyle = h.shade
+        ctx.beginPath()
+        ctx.moveTo(hx, baseY)
+        ctx.quadraticCurveTo(hx + h.w * 0.5, baseY - h.h, hx + h.w, baseY)
+        ctx.closePath(); ctx.fill()
       }
-      ctx.fillStyle = '#ffba08'
-      ctx.beginPath(); ctx.arc(bx(), y, 14, 0, Math.PI * 2); ctx.fill()
+      for (const p of pipes) drawPipe(p)
+      drawGround()
+      drawBird()
     }
-    addEventListener('pointerdown', () => { if (!GS.paused) v = -7.4 })
+    addEventListener('pointerdown', flap)
     reset()
 
     if (typeof die === 'function') {
       const __die = die
       die = function () {
-        if (window.Juice) Juice.onDie()
+        if (window.Juice) {
+          const pos = typeof diePos === 'function' ? diePos() : null
+          if (pos) Juice.onDie(pos[0], pos[1])
+          else Juice.onDie()
+        }
         __die()
       }
     }

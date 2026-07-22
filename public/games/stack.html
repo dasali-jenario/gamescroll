@@ -85,7 +85,11 @@
     function bump(n) {
       const amount = n || 1
       setScore(score + amount)
-      if (window.Juice) Juice.onScore(amount)
+      if (window.Juice) {
+        const pos = typeof scorePos === 'function' ? scorePos() : null
+        if (pos) Juice.onScore(amount, pos[0], pos[1])
+        else Juice.onScore(amount)
+      }
     }
     function resize() {
       W = innerWidth; H = innerHeight
@@ -153,7 +157,11 @@
     if (typeof die === 'function') {
       const __die = die
       die = function () {
-        if (window.Juice) Juice.onDie()
+        if (window.Juice) {
+          const pos = typeof diePos === 'function' ? diePos() : null
+          if (pos) Juice.onDie(pos[0], pos[1])
+          else Juice.onDie()
+        }
         __die()
       }
     }

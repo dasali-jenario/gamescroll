@@ -8,7 +8,7 @@ export type Game = {
 
 export const games: Game[] = [
   { id: 'pong', title: 'Pocket Pong', tip: 'Drag to keep the ball bouncing', src: '/games/pong.html', accent: '#1b4332' },
-  { id: 'flappy', title: 'Flappy Dot', tip: 'Tap to stay airborne', src: '/games/flappy.html', accent: '#2d6a4f' },
+  { id: 'flappy', title: 'Flappy', tip: 'Tap to stay airborne', src: '/games/flappy.html', accent: '#2d6a4f' },
   { id: 'lanes', title: 'Lane Switch', tip: 'Tap to switch lanes', src: '/games/lanes.html', accent: '#1d3557' },
   { id: 'stack', title: 'Falling Stack', tip: 'Tap to drop the moving block', src: '/games/stack.html', accent: '#7b2d26' },
   { id: 'orbit', title: 'Orbit Jump', tip: 'Tap to leap to the next planet', src: '/games/orbit.html', accent: '#22223b' },
