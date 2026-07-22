@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildFeedBatch, type FeedItem } from './games'
 import { GameCard } from './components/GameCard'
+import {
+  hasSeenSwipeCoach,
+  markSwipeCoachSeen,
+  SwipeCoach,
+} from './components/SwipeCoach'
 import { loadHighscores, recordHighscore } from './highscores'
 import { createSessionMetrics, trackVisit } from './metrics'
 
@@ -20,9 +25,9 @@ export default function App() {
   )
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [nudgeVisible, setNudgeVisible] = useState(false)
+  const [coachVisible, setCoachVisible] = useState(() => !hasSeenSwipeCoach())
   const [activeIndex, setActiveIndex] = useState(0)
   const [gamesPlayed, setGamesPlayed] = useState(0)
-  const [visits] = useState(() => session.snapshot().visits)
   const [highscores, setHighscores] = useState(loadHighscores)
 
   const dismissNudge = useCallback(() => setNudgeVisible(false), [])
@@ -75,6 +80,15 @@ export default function App() {
     setNudgeVisible(false)
     scrollToIndex(activeIndex - 1)
   }, [activeIndex, scrollToIndex])
+
+  const dismissCoach = useCallback(
+    (via: 'tap' | 'swipe') => {
+      markSwipeCoachSeen()
+      setCoachVisible(false)
+      if (via === 'swipe') goToNextGame()
+    },
+    [goToNextGame],
+  )
 
   const onGameSwipe = useCallback(
     (direction: 'next' | 'prev') => {
@@ -148,6 +162,19 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (coachVisible) {
+        if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          dismissCoach('tap')
+          return
+        }
+        if (e.key === 'ArrowDown' || e.key === 'j') {
+          e.preventDefault()
+          dismissCoach('swipe')
+          return
+        }
+        return
+      }
       if (e.key === 'Escape' && playingKey) {
         pausePlay()
         return
@@ -163,7 +190,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [playingKey, pausePlay, goToNextGame, goToPrevGame])
+  }, [coachVisible, dismissCoach, playingKey, pausePlay, goToNextGame, goToPrevGame])
 
   // After pause: swipe up anywhere from the lower part of the screen advances.
   useEffect(() => {
@@ -206,29 +233,10 @@ export default function App() {
         <div className="stats" aria-label="Session stats">
           <span>{gamesPlayed} played</span>
           <span className="mode">{playingKey ? 'Playing' : 'Browse'}</span>
-          <span className="visits">v{visits}</span>
           {playingKey && (
-            <>
-              <button
-                type="button"
-                className="nav-btn"
-                aria-label="Previous game"
-                onClick={goToPrevGame}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                className="nav-btn"
-                aria-label="Next game"
-                onClick={goToNextGame}
-              >
-                ↓
-              </button>
-              <button type="button" className="pause-btn" onClick={pausePlay}>
-                Pause
-              </button>
-            </>
+            <button type="button" className="pause-btn" onClick={pausePlay}>
+              Pause
+            </button>
           )}
         </div>
       </header>
@@ -262,7 +270,7 @@ export default function App() {
 
       {/* While playing, the iframe eats touches — this host-owned right-edge
           rail stays above it so vertical swipes there always switch games. */}
-      {playingKey && (
+      {playingKey && !coachVisible && (
         <div
           className="swipe-rail"
           aria-label="Swipe up or down to switch games"
@@ -281,12 +289,14 @@ export default function App() {
         </div>
       )}
 
-      {nudgeVisible && !playingKey && (
+      {nudgeVisible && !playingKey && !coachVisible && (
         <button type="button" className="nudge" onClick={goToNextGame}>
           <span className="nudge-chevron" aria-hidden="true" />
           Swipe up for the next game
         </button>
       )}
+
+      {coachVisible && <SwipeCoach onDismiss={dismissCoach} />}
     </div>
   )
 }

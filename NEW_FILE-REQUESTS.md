@@ -1,5 +1,20 @@
 # New file requests
 
+## 2026-07-22 — First-visit swipe coach overlay
+
+### Requested files
+- `src/components/SwipeCoach.tsx` — TikTok-style full-screen overlay teaching vertical swipe; persists dismiss via `localStorage`
+- Updates: `src/App.tsx`, `src/index.css`
+
+### Duplicate search
+- Grep `SwipeCoach|swipe.?coach|onboard|tutorial|gs_swipe` under `/Users/dasali/gamescroll` → **none**
+- Existing related UX: `.nudge` / pause “Swipe up for the next game” tip in `App.tsx` (post-pause only, not first-launch coach); `.swipe-rail` chevrons (play-mode edge affordance only); pitch mock `.swipe-cue` in `pitch/gamescroll-ux-mock.html` (marketing mock, not product)
+- Glob `src/components/*` → only `GameCard.tsx`; no coach/onboarding component
+- `src/metrics.ts` tracks visits/`isReturning` but does not gate UI tutorials
+
+### Rationale
+First-session overlay needs its own component + `gs_swipe_coach_seen` flag so return visits stay clean; nudge/rail remain for in-session play, not cold-start education.
+
 ## 2026-07-22 — Per-game highscores
 
 ### Requested files
