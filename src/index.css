@@ -4,6 +4,7 @@
   --accent: #e85d04;
   --stage: #0f1419;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --chrome-top: calc(2.85rem + env(safe-area-inset-top));
 }
 
 * {
@@ -41,9 +42,16 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: calc(0.75rem + env(safe-area-inset-top)) 1rem 0.75rem;
+  min-height: var(--chrome-top);
+  padding: calc(0.55rem + env(safe-area-inset-top)) 1rem 0.55rem;
   pointer-events: none;
   background: linear-gradient(to bottom, rgba(15, 20, 25, 0.55), transparent);
+  box-sizing: border-box;
+}
+
+.app.is-playing .top-bar {
+  background: var(--stage);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .brand {
@@ -117,6 +125,11 @@ body {
 .stage {
   position: absolute;
   inset: 0;
+  transition: top 0.2s var(--ease);
+}
+
+.card.is-playing .stage {
+  top: var(--chrome-top);
 }
 
 .stage-placeholder {

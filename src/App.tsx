@@ -118,7 +118,7 @@ export default function App() {
   }, [playingKey, activeIndex, pausePlay, scrollToIndex])
 
   return (
-    <div className="app">
+    <div className={`app${playingKey ? ' is-playing' : ''}`}>
       <header className="top-bar">
         <div className="brand">Gamescroll</div>
         <div className="stats" aria-label="Session stats">
