@@ -125,6 +125,11 @@ export default function App() {
           <span>{gamesPlayed} played</span>
           <span className="mode">{playingKey ? 'Playing' : 'Browse'}</span>
           <span className="visits">v{visits}</span>
+          {playingKey && (
+            <button type="button" className="pause-btn" onClick={pausePlay}>
+              Pause
+            </button>
+          )}
         </div>
       </header>
 
@@ -142,7 +147,6 @@ export default function App() {
             isPlaying={playingKey === item.key}
             liked={!!liked[item.game.id]}
             onPlay={() => enterPlay(item.key)}
-            onPause={pausePlay}
             onPlaying={onPlaying}
             onLike={() => {
               setLiked((prev) => ({

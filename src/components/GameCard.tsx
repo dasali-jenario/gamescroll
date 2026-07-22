@@ -8,7 +8,6 @@ type Props = {
   isPlaying: boolean
   liked: boolean
   onPlay: () => void
-  onPause: () => void
   onLike: () => void
   onPlaying: (feedKey: string) => void
 }
@@ -27,7 +26,6 @@ export function GameCard({
   isPlaying,
   liked,
   onPlay,
-  onPause,
   onLike,
   onPlaying,
 }: Props) {
@@ -117,14 +115,6 @@ export function GameCard({
             </svg>
           </span>
         </button>
-      )}
-
-      {isPlaying && (
-        <div className="done-bar">
-          <button type="button" className="done" onClick={onPause}>
-            Pause
-          </button>
-        </div>
       )}
     </article>
   )
