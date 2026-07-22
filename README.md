@@ -7,7 +7,4 @@ npm install
 npm run dev
 ```
 
-- First card starts automatically
-- **Pause** (or Esc) freezes the game and unlocks the feed
-- Swipe (or ↑ / ↓ / J / K) for the next game, then tap Play
-- Death always restarts instantly — games never end or block you
+Open the local URL. The first game autoplays. **Pause** (or Esc) freezes play. Swipe up from the bottom (or ↓ / J) for the next game, then tap Play.

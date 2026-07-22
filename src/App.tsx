@@ -4,11 +4,13 @@ import { GameCard } from './components/GameCard'
 import { createSessionMetrics, trackVisit } from './metrics'
 
 const PREFETCH_WITHIN = 3
+const SWIPE_MIN_DY = 64
 
 export default function App() {
   const feedRef = useRef<HTMLDivElement>(null)
   const roundRef = useRef(1)
   const appendingRef = useRef(false)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
   const session = useMemo(() => createSessionMetrics(trackVisit()), [])
 
   const [feed, setFeed] = useState<FeedItem[]>(() => buildFeedBatch(0))
@@ -42,6 +44,7 @@ export default function App() {
       const clamped = Math.max(0, Math.min(max, index))
       if (clamped >= max - PREFETCH_WITHIN) appendBatch()
       el.scrollTo({ top: clamped * el.clientHeight, behavior: 'smooth' })
+      setActiveIndex(clamped)
     },
     [feed.length, appendBatch],
   )
@@ -56,12 +59,30 @@ export default function App() {
     setNudgeVisible(true)
   }, [])
 
+  const goToNextGame = useCallback(() => {
+    setPlayingKey(null)
+    setNudgeVisible(false)
+    scrollToIndex(activeIndex + 1)
+  }, [activeIndex, scrollToIndex])
+
   const onPlaying = useCallback(
     (key: string) => {
       const snap = session.recordGamePlayed(key)
       setGamesPlayed(snap.gamesPlayed)
     },
     [session],
+  )
+
+  const endSwipe = useCallback(
+    (clientX: number, clientY: number) => {
+      const start = swipeStart.current
+      swipeStart.current = null
+      if (!start) return
+      const dy = start.y - clientY
+      const dx = Math.abs(clientX - start.x)
+      if (dy >= SWIPE_MIN_DY && dy >= dx * 1.25) goToNextGame()
+    },
+    [goToNextGame],
   )
 
   useEffect(() => {
@@ -106,7 +127,7 @@ export default function App() {
       if (playingKey) return
       if (e.key === 'ArrowDown' || e.key === 'j') {
         e.preventDefault()
-        scrollToIndex(activeIndex + 1)
+        goToNextGame()
       }
       if (e.key === 'ArrowUp' || e.key === 'k') {
         e.preventDefault()
@@ -115,12 +136,41 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [playingKey, activeIndex, pausePlay, scrollToIndex])
+  }, [playingKey, activeIndex, pausePlay, goToNextGame, scrollToIndex])
+
+  // After pause: swipe up anywhere from the lower part of the screen advances.
+  useEffect(() => {
+    if (playingKey || !nudgeVisible) return
+
+    const EDGE = 120
+    const onDown = (e: PointerEvent) => {
+      if (e.clientY < window.innerHeight - EDGE) return
+      swipeStart.current = { x: e.clientX, y: e.clientY }
+    }
+    const onUp = (e: PointerEvent) => endSwipe(e.clientX, e.clientY)
+    const onCancel = () => {
+      swipeStart.current = null
+    }
+
+    window.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onCancel)
+    return () => {
+      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onCancel)
+    }
+  }, [playingKey, nudgeVisible, endSwipe])
 
   return (
     <div className={`app${playingKey ? ' is-playing' : ''}`}>
       <header className="top-bar">
-        <div className="brand">Gamescroll</div>
+        <div className="brand-block">
+          <div className="brand">Gamescroll</div>
+          <div className="game-title">
+            {feed[activeIndex]?.game.title ?? ''}
+          </div>
+        </div>
         <div className="stats" aria-label="Session stats">
           <span>{gamesPlayed} played</span>
           <span className="mode">{playingKey ? 'Playing' : 'Browse'}</span>
@@ -158,10 +208,28 @@ export default function App() {
         ))}
       </div>
 
+      {/* While playing, iframe eats touches — thin bottom edge captures swipe-up. */}
+      {playingKey && (
+        <div
+          className="swipe-edge"
+          aria-label="Swipe up for next game"
+          onPointerDown={(e) => {
+            swipeStart.current = { x: e.clientX, y: e.clientY }
+            e.currentTarget.setPointerCapture(e.pointerId)
+          }}
+          onPointerUp={(e) => endSwipe(e.clientX, e.clientY)}
+          onPointerCancel={() => {
+            swipeStart.current = null
+          }}
+        >
+          <span className="swipe-edge-bar" aria-hidden="true" />
+        </div>
+      )}
+
       {nudgeVisible && !playingKey && (
-        <button type="button" className="nudge" onClick={dismissNudge}>
+        <button type="button" className="nudge" onClick={goToNextGame}>
           <span className="nudge-chevron" aria-hidden="true" />
-          Swipe for the next game
+          Swipe up for the next game
         </button>
       )}
     </div>
