@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Gamescroll — UX pitch mock</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #1a1612;
+      --paper: #e8e2d6;
+      --paper-2: #f3eee4;
+      --accent: #e85d04;
+      --accent-deep: #c44500;
+      --teal: #0d7377;
+      --stage: #0f1419;
+      --glass: rgba(15, 20, 25, 0.45);
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: "IBM Plex Sans", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 700px at 10% -10%, #f6c28b 0%, transparent 55%),
+        radial-gradient(900px 600px at 100% 20%, #9fd3c7 0%, transparent 50%),
+        linear-gradient(165deg, var(--paper-2) 0%, #d9d0c0 48%, #cbb9a0 100%);
+      overflow: hidden;
+    }
+
+    body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      grid-template-rows: 1fr;
+      align-items: center;
+      gap: 2rem;
+      padding: 1.5rem;
+      min-height: 100%;
+    }
+
+    .pitch-copy {
+      max-width: 22rem;
+      justify-self: end;
+      padding-right: 0.5rem;
+      animation: rise-in 0.8s var(--ease) both;
+    }
+
+    .pitch-copy .brand {
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.4rem, 4vw, 3.4rem);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      margin-bottom: 0.85rem;
+    }
+
+    .pitch-copy p {
+      font-size: 1.05rem;
+      line-height: 1.45;
+      opacity: 0.85;
+      margin-bottom: 1.25rem;
+    }
+
+    .pitch-copy .beats {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      font-size: 0.9rem;
+    }
+
+    .pitch-copy .beats li {
+      display: grid;
+      grid-template-columns: 1.5rem 1fr;
+      gap: 0.4rem;
+      align-items: baseline;
+    }
+
+    .pitch-copy .beats span {
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-weight: 700;
+      color: var(--accent-deep);
+    }
+
+    .controls {
+      justify-self: start;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      animation: rise-in 0.8s var(--ease) 0.12s both;
+    }
+
+    .controls button {
+      font-family: "IBM Plex Sans", sans-serif;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border: 1.5px solid var(--ink);
+      background: transparent;
+      color: var(--ink);
+      padding: 0.7rem 1.1rem;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.2s, color 0.2s, transform 0.2s var(--ease);
+    }
+
+    .controls button:hover {
+      background: var(--ink);
+      color: var(--paper);
+      transform: translateX(3px);
+    }
+
+    .controls button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .controls .hint {
+      font-size: 0.78rem;
+      opacity: 0.65;
+      max-width: 12rem;
+      line-height: 1.35;
+    }
+
+    /* Phone shell */
+    .device {
+      width: min(360px, calc(100vw - 2rem));
+      height: min(740px, calc(100dvh - 2.5rem));
+      border-radius: 36px;
+      background: #1c1916;
+      padding: 10px;
+      position: relative;
+      justify-self: center;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.35),
+        0 24px 60px rgba(26, 22, 18, 0.35);
+      animation: phone-in 0.9s var(--ease) both;
+    }
+
+    .device::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 96px;
+      height: 22px;
+      background: #0a0908;
+      border-radius: 20px;
+      z-index: 40;
+    }
+
+    .screen {
+      width: 100%;
+      height: 100%;
+      border-radius: 28px;
+      overflow: hidden;
+      background: var(--stage);
+      position: relative;
+      isolation: isolate;
+    }
+
+    .feed {
+      height: 100%;
+      overflow-y: auto;
+      scroll-snap-type: y mandatory;
+      scroll-behavior: smooth;
+      overscroll-behavior: contain;
+      scrollbar-width: none;
+    }
+
+    .feed::-webkit-scrollbar { display: none; }
+    .feed.is-locked { overflow: hidden; }
+
+    .card {
+      height: 100%;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stage {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .top-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      padding: 2.6rem 1rem 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      background: linear-gradient(to bottom, rgba(15,20,25,0.55), transparent);
+    }
+
+    .top-bar .logo {
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-weight: 800;
+      font-size: 1.15rem;
+      letter-spacing: -0.03em;
+      color: #fff;
+      text-shadow: 0 1px 8px rgba(0,0,0,0.35);
+    }
+
+    .top-bar .mode-pill {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.85);
+      border: 1px solid rgba(255,255,255,0.35);
+      padding: 0.28rem 0.55rem;
+      backdrop-filter: blur(6px);
+      background: var(--glass);
+    }
+
+    .meta {
+      position: absolute;
+      left: 1rem;
+      right: 4.5rem;
+      bottom: 5.5rem;
+      z-index: 20;
+      color: #fff;
+      pointer-events: none;
+      transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
+    }
+
+    .card.is-playing .meta,
+    .card.is-playing .rail,
+    .card.is-playing .play-layer {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+    }
+
+    .meta h2 {
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-weight: 800;
+      font-size: 1.55rem;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      margin-bottom: 0.35rem;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    }
+
+    .meta p {
+      font-size: 0.88rem;
+      opacity: 0.9;
+      text-shadow: 0 1px 8px rgba(0,0,0,0.4);
+    }
+
+    .rail {
+      position: absolute;
+      right: 0.75rem;
+      bottom: 5.5rem;
+      z-index: 25;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
+    }
+
+    .like-btn {
+      width: 48px;
+      height: 48px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
+    }
+
+    .like-btn svg {
+      width: 32px;
+      height: 32px;
+      transition: transform 0.35s var(--ease);
+    }
+
+    .like-btn.liked svg {
+      fill: var(--accent);
+      stroke: var(--accent);
+      animation: heart-pop 0.45s var(--ease);
+    }
+
+    .like-btn .count {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #fff;
+      margin-top: -2px;
+    }
+
+    .play-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 15;
+      display: grid;
+      place-items: center;
+      background: rgba(15, 20, 25, 0.28);
+      cursor: pointer;
+      transition: opacity 0.35s var(--ease);
+      border: none;
+      width: 100%;
+      height: 100%;
+      color: inherit;
+      font: inherit;
+    }
+
+    .play-btn {
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.9);
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(8px);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      transition: transform 0.3s var(--ease), background 0.2s;
+      animation: pulse-ring 2.4s var(--ease) infinite;
+    }
+
+    .play-layer:hover .play-btn {
+      transform: scale(1.06);
+      background: rgba(232, 93, 4, 0.85);
+      border-color: #fff;
+    }
+
+    .play-btn svg {
+      width: 28px;
+      height: 28px;
+      margin-left: 3px;
+    }
+
+    .done-bar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 30;
+      padding: 1rem 1rem 1.4rem;
+      display: flex;
+      gap: 0.6rem;
+      background: linear-gradient(to top, rgba(15,20,25,0.75), transparent);
+      transform: translateY(110%);
+      opacity: 0;
+      transition: transform 0.4s var(--ease), opacity 0.35s;
+      pointer-events: none;
+    }
+
+    .card.is-playing .done-bar {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .done-bar button {
+      flex: 1;
+      font-family: "IBM Plex Sans", sans-serif;
+      font-weight: 600;
+      font-size: 0.92rem;
+      border: none;
+      padding: 0.85rem 1rem;
+      cursor: pointer;
+      transition: transform 0.2s var(--ease), background 0.2s;
+    }
+
+    .done-bar .done {
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .done-bar .again {
+      background: rgba(255,255,255,0.18);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.35);
+    }
+
+    .done-bar button:hover { transform: translateY(-1px); }
+
+    .score-hud {
+      position: absolute;
+      top: 4.2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(-12px);
+      z-index: 28;
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-weight: 800;
+      font-size: 2rem;
+      color: #fff;
+      text-shadow: 0 2px 14px rgba(0,0,0,0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s, transform 0.3s var(--ease);
+    }
+
+    .card.is-playing .score-hud {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .tip {
+      position: absolute;
+      left: 50%;
+      bottom: 2.2rem;
+      transform: translateX(-50%);
+      z-index: 35;
+      background: rgba(255,255,255,0.95);
+      color: var(--ink);
+      font-size: 0.78rem;
+      font-weight: 500;
+      padding: 0.55rem 0.85rem;
+      white-space: nowrap;
+      animation: tip-in 0.5s var(--ease) 0.6s both;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+
+    .tip.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-50%) translateY(8px);
+      transition: opacity 0.35s, transform 0.35s;
+    }
+
+    .swipe-cue {
+      position: absolute;
+      right: 1rem;
+      top: 50%;
+      z-index: 18;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      color: rgba(255,255,255,0.7);
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      pointer-events: none;
+      opacity: 0;
+      animation: cue-fade 4s var(--ease) 1.2s both;
+    }
+
+    .swipe-cue .chev {
+      width: 18px;
+      height: 18px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: rotate(45deg);
+      animation: chev-bounce 1.4s var(--ease) infinite;
+    }
+
+    @keyframes rise-in {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes phone-in {
+      from { opacity: 0; transform: translateY(28px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes heart-pop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.35); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes pulse-ring {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.35); }
+      50% { box-shadow: 0 0 0 14px rgba(255,255,255,0); }
+    }
+
+    @keyframes tip-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    @keyframes chev-bounce {
+      0%, 100% { transform: rotate(45deg) translateY(0); opacity: 0.5; }
+      50% { transform: rotate(45deg) translateY(5px); opacity: 1; }
+    }
+
+    @keyframes cue-fade {
+      0% { opacity: 0; }
+      15% { opacity: 1; }
+      75% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    @media (max-width: 860px) {
+      body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+        padding: 1rem;
+        gap: 1rem;
+        overflow: auto;
+      }
+      .pitch-copy, .controls {
+        justify-self: center;
+        text-align: center;
+        max-width: 22rem;
+        padding: 0;
+      }
+      .pitch-copy .beats { text-align: left; }
+      .controls { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+      .controls .hint { width: 100%; text-align: center; max-width: none; }
+      .device {
+        width: min(360px, 100%);
+        height: min(680px, 72dvh);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .pitch-copy { display: none; }
+      .controls {
+        order: 2;
+        position: sticky;
+        bottom: 0;
+        background: rgba(243, 238, 228, 0.92);
+        backdrop-filter: blur(8px);
+        padding: 0.75rem;
+        margin: 0 -1rem -1rem;
+        width: calc(100% + 2rem);
+      }
+      body { padding-bottom: 0; }
+      .device {
+        width: 100%;
+        height: calc(100dvh - 5.5rem);
+        border-radius: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+      .device::before { display: none; }
+      .screen { border-radius: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .feed { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="pitch-copy">
+    <div class="brand">Gamescroll</div>
+    <p>TikTok energy. Every swipe is a playable game — skip in a flick, or tap in and play.</p>
+    <ol class="beats">
+      <li><span>01</span> Swipe the feed</li>
+      <li><span>02</span> Tap Play when hooked</li>
+      <li><span>03</span> Done → back to scrolling</li>
+    </ol>
+  </aside>
+
+  <div class="device" aria-label="Gamescroll phone mock">
+    <div class="screen">
+      <div class="top-bar">
+        <div class="logo">Gamescroll</div>
+        <div class="mode-pill" id="modePill">Browse</div>
+      </div>
+
+      <div class="feed" id="feed" tabindex="0">
+        <!-- cards injected -->
+      </div>
+
+      <div class="swipe-cue" aria-hidden="true">
+        <div class="chev"></div>
+        Swipe
+      </div>
+
+      <div class="tip" id="tip">Swipe for next · Tap to play</div>
+    </div>
+  </div>
+
+  <aside class="controls">
+    <button type="button" id="demoBtn">Auto demo</button>
+    <button type="button" id="resetBtn">Reset mock</button>
+    <p class="hint">Wheel / arrows browse. Esc exits play. Best fullscreen on a phone.</p>
+  </aside>
+
+  <script>
+    const GAMES = [
+      {
+        id: "flap",
+        title: "Pipe Hop",
+        tip: "Tap to flap through the gap",
+        likes: 1284,
+        palette: ["#1b4332", "#2d6a4f", "#95d5b2"],
+      },
+      {
+        id: "dodge",
+        title: "Lane Shift",
+        tip: "Tap left or right to dodge",
+        likes: 892,
+        palette: ["#1d3557", "#457b9d", "#e63946"],
+      },
+      {
+        id: "react",
+        title: "Green Flash",
+        tip: "Tap only when it turns green",
+        likes: 2103,
+        palette: ["#22223b", "#4a4e69", "#9a8c98"],
+      },
+      {
+        id: "stack",
+        title: "Beat Stack",
+        tip: "Tap on the beat to stack higher",
+        likes: 1560,
+        palette: ["#3d0814", "#7b2d26", "#e09f3e"],
+      },
+    ];
+
+    const feed = document.getElementById("feed");
+    const modePill = document.getElementById("modePill");
+    const tip = document.getElementById("tip");
+    const demoBtn = document.getElementById("demoBtn");
+    const resetBtn = document.getElementById("resetBtn");
+
+    let playingId = null;
+    let tipDismissed = false;
+    let demoTimer = null;
+    let demoStep = 0;
+    const likes = Object.fromEntries(GAMES.map((g) => [g.id, { count: g.likes, on: false }]));
+    const engines = {};
+
+    function heartSvg() {
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7.2-4.6-9.4-9.1C1.1 8.6 2.7 5.5 6 4.7c1.8-.4 3.5.3 4.5 1.6C11.5 5 13.2 4.3 15 4.7c3.3.8 4.9 3.9 3.4 7.2C19.2 16.4 12 21 12 21z"/></svg>`;
+    }
+
+    function playSvg() {
+      return `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5L8 5.5z"/></svg>`;
+    }
+
+    function buildCards() {
+      feed.innerHTML = "";
+      GAMES.forEach((game, index) => {
+        const card = document.createElement("article");
+        card.className = "card";
+        card.dataset.id = game.id;
+        card.innerHTML = `
+          <canvas class="stage" data-game="${game.id}"></canvas>
+          <div class="score-hud" data-score="${game.id}">0</div>
+          <div class="meta">
+            <h2>${game.title}</h2>
+            <p>${game.tip}</p>
+          </div>
+          <div class="rail">
+            <button class="like-btn" type="button" data-like="${game.id}" aria-label="Like">
+              ${heartSvg()}
+              <span class="count">${formatCount(likes[game.id].count)}</span>
+            </button>
+          </div>
+          <button class="play-layer" type="button" data-play="${game.id}" aria-label="Play ${game.title}">
+            <span class="play-btn">${playSvg()}</span>
+          </button>
+          <div class="done-bar">
+            <button type="button" class="again" data-again="${game.id}">Again</button>
+            <button type="button" class="done" data-done="${game.id}">Done</button>
+          </div>
+        `;
+        feed.appendChild(card);
+        if (index === 0) {
+          // swipe cue lives globally
+        }
+      });
+    }
+
+    function formatCount(n) {
+      if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+      return String(n);
+    }
+
+    function getActiveIndex() {
+      const h = feed.clientHeight;
+      return Math.round(feed.scrollTop / h);
+    }
+
+    function scrollToIndex(i, smooth = true) {
+      const clamped = Math.max(0, Math.min(GAMES.length - 1, i));
+      feed.scrollTo({ top: clamped * feed.clientHeight, behavior: smooth ? "smooth" : "auto" });
+    }
+
+    function dismissTip() {
+      if (tipDismissed) return;
+      tipDismissed = true;
+      tip.classList.add("hidden");
+    }
+
+    function enterPlay(id) {
+      if (playingId) exitPlay(playingId, false);
+      playingId = id;
+      const card = feed.querySelector(`.card[data-id="${id}"]`);
+      card.classList.add("is-playing");
+      feed.classList.add("is-locked");
+      modePill.textContent = "Playing";
+      dismissTip();
+      engines[id]?.reset(true);
+      engines[id]?.setPlaying(true);
+    }
+
+    function exitPlay(id, advance = false) {
+      const card = feed.querySelector(`.card[data-id="${id}"]`);
+      if (card) card.classList.remove("is-playing");
+      engines[id]?.setPlaying(false);
+      if (playingId === id) playingId = null;
+      feed.classList.remove("is-locked");
+      modePill.textContent = "Browse";
+      if (advance) {
+        const idx = GAMES.findIndex((g) => g.id === id);
+        setTimeout(() => scrollToIndex(idx + 1), 180);
+      }
+    }
+
+    function bindUI() {
+      feed.addEventListener("click", (e) => {
+        const play = e.target.closest("[data-play]");
+        const done = e.target.closest("[data-done]");
+        const again = e.target.closest("[data-again]");
+        const like = e.target.closest("[data-like]");
+
+        if (play) enterPlay(play.dataset.play);
+        if (done) exitPlay(done.dataset.done, false);
+        if (again) {
+          const id = again.dataset.again;
+          engines[id]?.reset(true);
+        }
+        if (like) {
+          const id = like.dataset.like;
+          const state = likes[id];
+          state.on = !state.on;
+          state.count += state.on ? 1 : -1;
+          like.classList.toggle("liked", state.on);
+          like.querySelector(".count").textContent = formatCount(state.count);
+          dismissTip();
+        }
+      });
+
+      // In-play taps on canvas
+      feed.addEventListener("pointerdown", (e) => {
+        if (!playingId) return;
+        const canvas = e.target.closest("canvas.stage");
+        if (!canvas || canvas.dataset.game !== playingId) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width;
+        engines[playingId]?.tap(x);
+      });
+
+      feed.addEventListener("scroll", () => {
+        if (!tipDismissed && feed.scrollTop > 40) dismissTip();
+      }, { passive: true });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && playingId) {
+          exitPlay(playingId);
+          return;
+        }
+        if (playingId) return;
+        if (e.key === "ArrowDown" || e.key === "j") {
+          e.preventDefault();
+          scrollToIndex(getActiveIndex() + 1);
+        }
+        if (e.key === "ArrowUp" || e.key === "k") {
+          e.preventDefault();
+          scrollToIndex(getActiveIndex() - 1);
+        }
+      });
+    }
+
+    /* ---- Mini game engines (browse attract + play) ---- */
+    function setupEngines() {
+      document.querySelectorAll("canvas.stage").forEach((canvas) => {
+        const id = canvas.dataset.game;
+        const game = GAMES.find((g) => g.id === id);
+        const scoreEl = document.querySelector(`[data-score="${id}"]`);
+        const ctx = canvas.getContext("2d");
+        const state = {
+          playing: false,
+          score: 0,
+          t: 0,
+          w: 0,
+          h: 0,
+          data: {},
+        };
+
+        function resize() {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const { width, height } = canvas.getBoundingClientRect();
+          canvas.width = Math.floor(width * dpr);
+          canvas.height = Math.floor(height * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          state.w = width;
+          state.h = height;
+        }
+
+        function setScore(n) {
+          state.score = n;
+          scoreEl.textContent = String(n);
+        }
+
+        function reset(hard) {
+          state.t = 0;
+          if (hard) setScore(0);
+          if (id === "flap") {
+            state.data = {
+              y: state.h * 0.45,
+              vy: 0,
+              pipes: [{ x: state.w + 40, gap: state.h * 0.38 }],
+            };
+          } else if (id === "dodge") {
+            state.data = {
+              lane: 1,
+              blocks: [],
+              spawn: 0,
+            };
+          } else if (id === "react") {
+            state.data = {
+              phase: "wait",
+              timer: 1.2,
+              flash: 0,
+              ready: false,
+            };
+          } else if (id === "stack") {
+            state.data = {
+              height: 3,
+              pulse: 0,
+              beat: 0,
+              good: 0,
+            };
+          }
+        }
+
+        function setPlaying(on) {
+          state.playing = on;
+          if (on) reset(true);
+        }
+
+        function tap(x) {
+          if (!state.playing) return;
+          if (id === "flap") {
+            state.data.vy = -7.2;
+          } else if (id === "dodge") {
+            state.data.lane = x < 0.5 ? 0 : 2;
+          } else if (id === "react") {
+            if (state.data.ready) {
+              setScore(state.score + 1);
+              state.data.ready = false;
+              state.data.phase = "wait";
+              state.data.timer = 0.8 + Math.random() * 1.4;
+              state.data.flash = 1;
+            } else {
+              setScore(Math.max(0, state.score - 1));
+              state.data.flash = -1;
+            }
+          } else if (id === "stack") {
+            const sync = Math.abs(Math.sin(state.data.beat)) < 0.35;
+            if (sync) {
+              state.data.height = Math.min(14, state.data.height + 1);
+              setScore(state.score + 1);
+              state.data.good = 1;
+            } else {
+              state.data.height = Math.max(2, state.data.height - 1);
+              state.data.good = -1;
+            }
+          }
+        }
+
+        function drawBg() {
+          const [a, b, c] = game.palette;
+          const g = ctx.createLinearGradient(0, 0, state.w * 0.2, state.h);
+          g.addColorStop(0, a);
+          g.addColorStop(0.55, b);
+          g.addColorStop(1, c);
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, state.w, state.h);
+
+          // subtle grain bands
+          ctx.globalAlpha = 0.06;
+          for (let i = 0; i < 8; i++) {
+            ctx.fillStyle = i % 2 ? "#fff" : "#000";
+            ctx.fillRect(0, (i / 8) * state.h + (state.t * 8) % 20, state.w, 2);
+          }
+          ctx.globalAlpha = 1;
+        }
+
+        function drawFlap(dt) {
+          const d = state.data;
+          const birdX = state.w * 0.32;
+          if (state.playing) {
+            d.vy += 18 * dt;
+            d.y += d.vy;
+            if (d.y > state.h - 40) { d.y = state.h - 40; d.vy = 0; }
+            if (d.y < 40) { d.y = 40; d.vy = 0; }
+            d.pipes.forEach((p) => { p.x -= 120 * dt; });
+            if (d.pipes[0].x < -60) {
+              d.pipes.shift();
+              d.pipes.push({ x: state.w + 20, gap: state.h * (0.28 + Math.random() * 0.25) });
+              setScore(state.score + 1);
+            }
+          } else {
+            d.y = state.h * 0.45 + Math.sin(state.t * 2.2) * 18;
+            d.pipes[0].x = state.w * 0.72 + Math.sin(state.t) * 8;
+          }
+
+          const gapH = 110;
+          d.pipes.forEach((p) => {
+            ctx.fillStyle = "rgba(255,255,255,0.18)";
+            ctx.fillRect(p.x, 0, 52, p.gap);
+            ctx.fillRect(p.x, p.gap + gapH, 52, state.h - p.gap - gapH);
+            ctx.fillStyle = "#d8f3dc";
+            ctx.fillRect(p.x + 4, 0, 44, p.gap);
+            ctx.fillRect(p.x + 4, p.gap + gapH, 44, state.h - p.gap - gapH);
+          });
+
+          ctx.save();
+          ctx.translate(birdX, d.y);
+          ctx.rotate(state.playing ? Math.max(-0.4, Math.min(0.5, d.vy * 0.05)) : Math.sin(state.t * 3) * 0.15);
+          ctx.fillStyle = "#ffba08";
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 18, 14, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(6, -4, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#111";
+          ctx.beginPath();
+          ctx.arc(7, -4, 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        function drawDodge(dt) {
+          const d = state.data;
+          const lanes = [0.22, 0.5, 0.78];
+          if (state.playing) {
+            d.spawn -= dt;
+            if (d.spawn <= 0) {
+              d.blocks.push({ lane: Math.floor(Math.random() * 3), y: -40, hit: false });
+              d.spawn = 0.7 + Math.random() * 0.5;
+            }
+            d.blocks.forEach((b) => { b.y += 220 * dt; });
+            d.blocks = d.blocks.filter((b) => {
+              if (b.y > state.h + 40) {
+                if (!b.hit) setScore(state.score + 1);
+                return false;
+              }
+              const py = state.h * 0.78;
+              if (!b.hit && b.lane === d.lane && Math.abs(b.y - py) < 36) {
+                b.hit = true;
+                setScore(Math.max(0, state.score - 1));
+              }
+              return true;
+            });
+          } else {
+            d.lane = 1 + Math.round(Math.sin(state.t * 1.5));
+            if (d.blocks.length < 3 && Math.random() < 0.02) {
+              d.blocks.push({ lane: Math.floor(Math.random() * 3), y: -40, hit: false });
+            }
+            d.blocks.forEach((b) => { b.y += 90 * dt; });
+            d.blocks = d.blocks.filter((b) => b.y < state.h + 40);
+          }
+
+          ctx.strokeStyle = "rgba(255,255,255,0.15)";
+          ctx.lineWidth = 2;
+          lanes.forEach((lx) => {
+            ctx.beginPath();
+            ctx.moveTo(state.w * lx, 80);
+            ctx.lineTo(state.w * lx, state.h - 40);
+            ctx.stroke();
+          });
+
+          d.blocks.forEach((b) => {
+            ctx.fillStyle = b.hit ? "rgba(255,255,255,0.25)" : "#e63946";
+            const x = state.w * lanes[b.lane];
+            roundRect(ctx, x - 28, b.y - 18, 56, 36, 6);
+            ctx.fill();
+          });
+
+          const px = state.w * lanes[Math.max(0, Math.min(2, d.lane))];
+          ctx.fillStyle = "#a8dadc";
+          roundRect(ctx, px - 24, state.h * 0.78 - 24, 48, 48, 10);
+          ctx.fill();
+        }
+
+        function drawReact(dt) {
+          const d = state.data;
+          if (state.playing) {
+            d.timer -= dt;
+            if (d.phase === "wait" && d.timer <= 0) {
+              d.phase = "go";
+              d.ready = true;
+              d.timer = 0.85;
+            } else if (d.phase === "go" && d.timer <= 0) {
+              d.ready = false;
+              d.phase = "wait";
+              d.timer = 0.9 + Math.random() * 1.5;
+            }
+            if (d.flash !== 0) {
+              d.flash *= 0.9;
+              if (Math.abs(d.flash) < 0.05) d.flash = 0;
+            }
+          } else {
+            d.ready = Math.sin(state.t * 1.8) > 0.55;
+          }
+
+          const cx = state.w / 2;
+          const cy = state.h * 0.48;
+          const r = Math.min(state.w, state.h) * 0.18;
+          const go = d.ready;
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, r + 18, 0, Math.PI * 2);
+          ctx.strokeStyle = go ? "rgba(116, 198, 157, 0.5)" : "rgba(255,255,255,0.15)";
+          ctx.lineWidth = 4;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fillStyle = go ? "#74c69d" : "#4a4e69";
+          ctx.fill();
+
+          if (d.flash > 0) {
+            ctx.fillStyle = `rgba(116, 198, 157, ${d.flash * 0.35})`;
+            ctx.fillRect(0, 0, state.w, state.h);
+          } else if (d.flash < 0) {
+            ctx.fillStyle = `rgba(230, 57, 70, ${-d.flash * 0.35})`;
+            ctx.fillRect(0, 0, state.w, state.h);
+          }
+
+          ctx.fillStyle = "#fff";
+          ctx.font = `600 ${Math.floor(r * 0.28)}px "IBM Plex Sans", sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(go ? "TAP" : "WAIT", cx, cy);
+        }
+
+        function drawStack(dt) {
+          const d = state.data;
+          d.beat += dt * 3.2;
+          d.pulse = (Math.sin(d.beat) + 1) / 2;
+          if (!state.playing) {
+            d.height = 3 + Math.floor((Math.sin(state.t) + 1) * 2);
+          }
+          if (d.good !== 0) {
+            d.good *= 0.92;
+            if (Math.abs(d.good) < 0.05) d.good = 0;
+          }
+
+          const baseY = state.h * 0.78;
+          const bw = state.w * 0.42;
+          const bx = (state.w - bw) / 2;
+          const unit = 22;
+
+          for (let i = 0; i < d.height; i++) {
+            const y = baseY - i * (unit + 4);
+            ctx.fillStyle = i === d.height - 1
+              ? `rgba(255, 214, 102, ${0.55 + d.pulse * 0.45})`
+              : "#e09f3e";
+            roundRect(ctx, bx + (i % 2) * 6, y - unit, bw - (i % 2) * 12, unit, 4);
+            ctx.fill();
+          }
+
+          // beat marker
+          const mx = state.w / 2;
+          const my = state.h * 0.22;
+          ctx.strokeStyle = "rgba(255,255,255,0.35)";
+          ctx.beginPath();
+          ctx.arc(mx, my, 28, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(mx, my, 10 + d.pulse * 16, 0, Math.PI * 2);
+          ctx.fillStyle = d.good > 0 ? "#74c69d" : d.good < 0 ? "#e63946" : "#fff";
+          ctx.globalAlpha = 0.85;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+
+        function frame(now) {
+          if (!state._last) state._last = now;
+          const dt = Math.min(0.033, (now - state._last) / 1000);
+          state._last = now;
+          state.t += dt;
+          resize();
+          drawBg();
+          if (id === "flap") drawFlap(dt);
+          if (id === "dodge") drawDodge(dt);
+          if (id === "react") drawReact(dt);
+          if (id === "stack") drawStack(dt);
+          requestAnimationFrame(frame);
+        }
+
+        resize();
+        reset(true);
+        requestAnimationFrame(frame);
+        window.addEventListener("resize", resize);
+
+        engines[id] = { reset, setPlaying, tap };
+      });
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    /* ---- Auto demo ---- */
+    function stopDemo() {
+      if (demoTimer) clearTimeout(demoTimer);
+      demoTimer = null;
+      demoStep = 0;
+      demoBtn.classList.remove("active");
+      demoBtn.textContent = "Auto demo";
+      if (playingId) exitPlay(playingId);
+    }
+
+    function runDemo() {
+      const steps = [
+        { wait: 900, fn: () => scrollToIndex(0, true) },
+        { wait: 1600, fn: () => scrollToIndex(1, true) },
+        { wait: 1400, fn: () => enterPlay("dodge") },
+        { wait: 400, fn: () => engines.dodge?.tap(0.2) },
+        { wait: 500, fn: () => engines.dodge?.tap(0.8) },
+        { wait: 500, fn: () => engines.dodge?.tap(0.2) },
+        { wait: 1200, fn: () => exitPlay("dodge") },
+        { wait: 900, fn: () => scrollToIndex(2, true) },
+        { wait: 1200, fn: () => enterPlay("react") },
+        { wait: 1800, fn: () => exitPlay("react") },
+        { wait: 800, fn: () => scrollToIndex(3, true) },
+        { wait: 1000, fn: () => scrollToIndex(0, true) },
+      ];
+
+      function next() {
+        if (!demoBtn.classList.contains("active")) return;
+        const step = steps[demoStep % steps.length];
+        demoStep++;
+        step.fn();
+        demoTimer = setTimeout(next, step.wait);
+      }
+      next();
+    }
+
+    demoBtn.addEventListener("click", () => {
+      if (demoBtn.classList.contains("active")) {
+        stopDemo();
+        return;
+      }
+      demoBtn.classList.add("active");
+      demoBtn.textContent = "Stop demo";
+      demoStep = 0;
+      runDemo();
+    });
+
+    resetBtn.addEventListener("click", () => {
+      stopDemo();
+      tipDismissed = false;
+      tip.classList.remove("hidden");
+      Object.keys(likes).forEach((id) => {
+        likes[id].on = false;
+        likes[id].count = GAMES.find((g) => g.id === id).likes;
+      });
+      document.querySelectorAll(".like-btn").forEach((btn) => {
+        btn.classList.remove("liked");
+        const id = btn.dataset.like;
+        btn.querySelector(".count").textContent = formatCount(likes[id].count);
+      });
+      scrollToIndex(0, true);
+      modePill.textContent = "Browse";
+    });
+
+    tip.addEventListener("click", dismissTip);
+
+    buildCards();
+    bindUI();
+    setupEngines();
+    feed.focus();
+  </script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+import type { Game } from '../games'
+
+type Props = {
+  game: Game
+  isActive: boolean
+  isPlaying: boolean
+  liked: boolean
+  onPlay: () => void
+  onDone: () => void
+  onLike: () => void
+}
+
+export function GameCard({
+  game,
+  isActive,
+  isPlaying,
+  liked,
+  onPlay,
+  onDone,
+  onLike,
+}: Props) {
+  const shouldLoad = isActive || isPlaying
+
+  return (
+    <article
+      className={`card${isPlaying ? ' is-playing' : ''}`}
+      style={{ ['--accent' as string]: game.accent }}
+    >
+      <div className="stage" style={{ background: game.accent }}>
+        {shouldLoad ? (
+          <iframe
+            title={game.title}
+            src={game.src}
+            className="game-frame"
+            sandbox="allow-scripts"
+            style={{ pointerEvents: isPlaying ? 'auto' : 'none' }}
+          />
+        ) : (
+          <div className="stage-placeholder" />
+        )}
+      </div>
+
+      <div className="meta">
+        <h2>{game.title}</h2>
+        <p>{game.tip}</p>
+      </div>
+
+      <div className="rail">
+        <button
+          type="button"
+          className={`like-btn${liked ? ' liked' : ''}`}
+          aria-label={liked ? 'Unlike' : 'Like'}
+          onClick={onLike}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 21s-7.2-4.6-9.4-9.1C1.1 8.6 2.7 5.5 6 4.7c1.8-.4 3.5.3 4.5 1.6C11.5 5 13.2 4.3 15 4.7c3.3.8 4.9 3.9 3.4 7.2C19.2 16.4 12 21 12 21z" />
+          </svg>
+        </button>
+      </div>
+
+      {!isPlaying && (
+        <button
+          type="button"
+          className="play-layer"
+          onClick={onPlay}
+          aria-label={`Play ${game.title}`}
+        >
+          <span className="play-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5.5v13l11-6.5L8 5.5z" />
+            </svg>
+          </span>
+        </button>
+      )}
+
+      {isPlaying && (
+        <div className="done-bar">
+          <button type="button" className="done" onClick={onDone}>
+            Done
+          </button>
+        </div>
+      )}
+    </article>
+  )
+}

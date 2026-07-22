@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Pipe Hop</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #1b4332; touch-action: manipulation; }
+    canvas { display: block; width: 100%; height: 100%; }
+    .hud {
+      position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
+      font: 800 2rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 10px rgba(0,0,0,.4); pointer-events: none;
+    }
+    .banner {
+      position: fixed; inset: 0; display: grid; place-items: center;
+      background: rgba(15,20,25,.35); color: #fff; font: 600 1rem "Segoe UI", sans-serif;
+      text-align: center; padding: 1rem;
+    }
+    .banner.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div class="hud" id="score">0</div>
+  <div class="banner" id="banner">Tap to start<br/><small>Tap again to flap</small></div>
+  <script>
+    const canvas = document.getElementById('c')
+    const ctx = canvas.getContext('2d')
+    const scoreEl = document.getElementById('score')
+    const banner = document.getElementById('banner')
+    const dpr = Math.min(devicePixelRatio || 1, 2)
+    let W = 0, H = 0, running = false, dead = false, score = 0
+    let birdY = 0, birdV = 0
+    let pipes = []
+    const GAP = 130
+    const BIRD_X = () => W * 0.3
+
+    function resize() {
+      W = innerWidth; H = innerHeight
+      canvas.width = W * dpr; canvas.height = H * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+
+    function reset() {
+      score = 0; scoreEl.textContent = '0'
+      birdY = H * 0.45; birdV = 0; dead = false
+      pipes = [{ x: W + 40, gapY: H * 0.4, passed: false }]
+    }
+
+    function start() {
+      if (!running) { running = true; banner.classList.add('hidden'); reset() }
+      else if (dead) { reset(); banner.classList.add('hidden') }
+      else birdV = -7.4
+    }
+
+    function spawnPipe() {
+      pipes.push({ x: W + 40, gapY: H * (0.25 + Math.random() * 0.4), passed: false })
+    }
+
+    function tick(dt) {
+      if (!running || dead) return
+      birdV += 20 * dt
+      birdY += birdV
+      if (birdY < 24 || birdY > H - 24) die()
+
+      pipes.forEach(p => { p.x -= 150 * dt })
+      if (pipes[0] && pipes[0].x < -70) pipes.shift()
+      if (pipes.length && pipes[pipes.length - 1].x < W * 0.45) spawnPipe()
+
+      const bx = BIRD_X()
+      for (const p of pipes) {
+        const inX = bx + 16 > p.x && bx - 16 < p.x + 54
+        const inGap = birdY > p.gapY && birdY < p.gapY + GAP
+        if (inX && !inGap) die()
+        if (!p.passed && p.x + 54 < bx) { p.passed = true; score++; scoreEl.textContent = String(score) }
+      }
+    }
+
+    function die() {
+      dead = true
+      banner.innerHTML = `Score ${score}<br/><small>Tap to retry</small>`
+      banner.classList.remove('hidden')
+    }
+
+    function draw() {
+      const g = ctx.createLinearGradient(0, 0, 0, H)
+      g.addColorStop(0, '#1b4332'); g.addColorStop(1, '#95d5b2')
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+
+      pipes.forEach(p => {
+        ctx.fillStyle = '#d8f3dc'
+        ctx.fillRect(p.x, 0, 54, p.gapY)
+        ctx.fillRect(p.x, p.gapY + GAP, 54, H - p.gapY - GAP)
+        ctx.fillStyle = '#40916c'
+        ctx.fillRect(p.x + 4, 0, 46, p.gapY)
+        ctx.fillRect(p.x + 4, p.gapY + GAP, 46, H - p.gapY - GAP)
+      })
+
+      ctx.save()
+      ctx.translate(BIRD_X(), birdY)
+      ctx.rotate(Math.max(-0.5, Math.min(0.6, birdV * 0.05)))
+      ctx.fillStyle = '#ffba08'
+      ctx.beginPath(); ctx.ellipse(0, 0, 18, 14, 0, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(6, -4, 4, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(7.5, -4, 2, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
+    }
+
+    let last = performance.now()
+    function loop(now) {
+      const dt = Math.min(0.033, (now - last) / 1000)
+      last = now
+      if (!running) {
+        birdY = H * 0.45 + Math.sin(now / 400) * 16
+        if (!pipes.length) pipes = [{ x: W * 0.7, gapY: H * 0.38, passed: true }]
+      }
+      tick(dt); draw()
+      requestAnimationFrame(loop)
+    }
+
+    addEventListener('resize', () => { resize(); if (!running) reset() })
+    addEventListener('pointerdown', start)
+    resize(); reset(); requestAnimationFrame(loop)
+  </script>
+</body>
+</html>
