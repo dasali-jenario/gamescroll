@@ -30,3 +30,19 @@ Single HTML file with inline CSS/JS is the pitch deliverable; no existing module
 
 ### Rationale
 Greenfield product app per 3-hour plan; pitch mock stays separate under `pitch/`.
+
+## 2026-07-22 — More games + infinite feed
+
+### Requested files
+- `public/games/stack.html` — timing stack game
+- `public/games/aim.html` — tap moving target
+- `public/games/catch.html` — catch falling orbs
+- Updates to `src/games.ts`, `src/App.tsx`, `src/components/GameCard.tsx` for infinite feed items
+
+### Duplicate search
+- Glob / listed `public/games/*` → existing `flap.html`, `dodge.html`, `react.html` only
+- Grep / read `src/games.ts` catalog → 3 entries; no stack/aim/catch
+- Pitch mock has canvas demos but not reusable iframe games; no infinite-feed logic in `src/App.tsx`
+
+### Rationale
+New game files needed; feed will cycle catalog with unique instance keys rather than a hard end.

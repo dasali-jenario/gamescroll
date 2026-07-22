@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Sky Catch</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #240046; touch-action: manipulation; }
+    canvas { display: block; width: 100%; height: 100%; }
+    .hud {
+      position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
+      font: 800 2rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 10px rgba(0,0,0,.4); pointer-events: none;
+    }
+    .banner {
+      position: fixed; inset: 0; display: grid; place-items: center;
+      background: rgba(15,20,25,.35); color: #fff; font: 600 1rem "Segoe UI", sans-serif;
+      text-align: center; padding: 1rem;
+    }
+    .banner.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div class="hud" id="score">0</div>
+  <div class="banner" id="banner">Tap left or right<br/><small>to catch falling stars</small></div>
+  <script>
+    const canvas = document.getElementById('c')
+    const ctx = canvas.getContext('2d')
+    const scoreEl = document.getElementById('score')
+    const banner = document.getElementById('banner')
+    const dpr = Math.min(devicePixelRatio || 1, 2)
+    const LANES = [0.25, 0.5, 0.75]
+    let W = 0, H = 0, running = false, dead = false, score = 0, lives = 3
+    let lane = 1, stars = [], spawn = 0, flash = 0
+
+    function resize() {
+      W = innerWidth; H = innerHeight
+      canvas.width = W * dpr; canvas.height = H * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+
+    function reset() {
+      score = 0; lives = 3; scoreEl.textContent = '0'
+      lane = 1; stars = []; spawn = 0.3; dead = false; flash = 0
+    }
+
+    function onTap(e) {
+      const x = e.clientX / W
+      if (!running) { running = true; banner.classList.add('hidden'); reset(); return }
+      if (dead) { reset(); banner.classList.add('hidden'); return }
+      lane = x < 0.5 ? Math.max(0, lane - 1) : Math.min(2, lane + 1)
+    }
+
+    function die() {
+      dead = true
+      banner.innerHTML = `Score ${score}<br/><small>Tap to retry</small>`
+      banner.classList.remove('hidden')
+    }
+
+    function tick(dt) {
+      if (!running || dead) return
+      spawn -= dt
+      if (spawn <= 0) {
+        stars.push({ lane: Math.floor(Math.random() * 3), y: -30, caught: false })
+        spawn = Math.max(0.35, 0.9 - score * 0.025)
+      }
+      const py = H * 0.8
+      stars.forEach(s => { s.y += (160 + score * 5) * dt })
+      stars = stars.filter(s => {
+        if (s.y > H + 40) {
+          if (!s.caught) {
+            lives--
+            flash = -1
+            if (lives <= 0) die()
+          }
+          return false
+        }
+        if (!s.caught && s.lane === lane && Math.abs(s.y - py) < 42) {
+          s.caught = true
+          score++
+          scoreEl.textContent = String(score)
+          flash = 1
+          return false
+        }
+        return true
+      })
+      if (flash !== 0) {
+        flash *= 0.88
+        if (Math.abs(flash) < 0.04) flash = 0
+      }
+    }
+
+    function starPath(x, y, r) {
+      ctx.beginPath()
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + i * (Math.PI * 2 / 5)
+        const b = a + Math.PI / 5
+        ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r)
+        ctx.lineTo(x + Math.cos(b) * r * 0.45, y + Math.sin(b) * r * 0.45)
+      }
+      ctx.closePath()
+    }
+
+    function draw(now) {
+      const g = ctx.createLinearGradient(0, 0, 0, H)
+      g.addColorStop(0, '#10002b'); g.addColorStop(1, '#7b2cbf')
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+
+      // twinkles
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'
+      for (let i = 0; i < 18; i++) {
+        const tx = (i * 97) % W
+        const ty = (i * 53 + now * 0.02) % H
+        ctx.fillRect(tx, ty, 2, 2)
+      }
+
+      if (!running) {
+        stars = stars.length ? stars : [
+          { lane: 0, y: H * 0.2, caught: false },
+          { lane: 2, y: H * 0.05, caught: false },
+        ]
+        stars.forEach(s => { s.y += 0.5; if (s.y > H) s.y = -20 })
+        lane = 1 + Math.round(Math.sin(now / 700))
+      }
+
+      stars.forEach(s => {
+        const x = W * LANES[s.lane]
+        ctx.fillStyle = '#ffd6ff'
+        starPath(x, s.y, 16)
+        ctx.fill()
+      })
+
+      const px = W * LANES[Math.max(0, Math.min(2, lane))]
+      ctx.fillStyle = '#c77dff'
+      ctx.beginPath()
+      ctx.moveTo(px - 36, H * 0.8)
+      ctx.lineTo(px + 36, H * 0.8)
+      ctx.lineTo(px + 22, H * 0.8 + 28)
+      ctx.lineTo(px - 22, H * 0.8 + 28)
+      ctx.closePath()
+      ctx.fill()
+
+      if (running) {
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath()
+          ctx.arc(W / 2 - 28 + i * 28, H * 0.92, 8, 0, Math.PI * 2)
+          ctx.fillStyle = i < lives ? '#fff' : 'rgba(255,255,255,0.25)'
+          ctx.fill()
+        }
+      }
+
+      if (flash > 0) {
+        ctx.fillStyle = `rgba(199,125,255,${flash * 0.28})`
+        ctx.fillRect(0, 0, W, H)
+      } else if (flash < 0) {
+        ctx.fillStyle = `rgba(255,80,120,${-flash * 0.28})`
+        ctx.fillRect(0, 0, W, H)
+      }
+    }
+
+    let last = performance.now()
+    function loop(now) {
+      const dt = Math.min(0.033, (now - last) / 1000)
+      last = now
+      tick(dt); draw(now)
+      requestAnimationFrame(loop)
+    }
+
+    addEventListener('resize', resize)
+    addEventListener('pointerdown', onTap)
+    resize(); requestAnimationFrame(loop)
+  </script>
+</body>
+</html>

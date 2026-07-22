@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Beat Stack</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #3d0814; touch-action: manipulation; }
+    canvas { display: block; width: 100%; height: 100%; }
+    .hud {
+      position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
+      font: 800 2rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 10px rgba(0,0,0,.4); pointer-events: none;
+    }
+    .banner {
+      position: fixed; inset: 0; display: grid; place-items: center;
+      background: rgba(15,20,25,.35); color: #fff; font: 600 1rem "Segoe UI", sans-serif;
+      text-align: center; padding: 1rem;
+    }
+    .banner.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div class="hud" id="score">0</div>
+  <div class="banner" id="banner">Tap on the beat<br/><small>to stack higher</small></div>
+  <script>
+    const canvas = document.getElementById('c')
+    const ctx = canvas.getContext('2d')
+    const scoreEl = document.getElementById('score')
+    const banner = document.getElementById('banner')
+    const dpr = Math.min(devicePixelRatio || 1, 2)
+    let W = 0, H = 0, running = false, dead = false, score = 0
+    let height = 3, beat = 0, pulse = 0, flash = 0, misses = 0
+
+    function resize() {
+      W = innerWidth; H = innerHeight
+      canvas.width = W * dpr; canvas.height = H * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+
+    function reset() {
+      score = 0; scoreEl.textContent = '0'
+      height = 3; beat = 0; misses = 0; dead = false; flash = 0
+    }
+
+    function onTap() {
+      if (!running) { running = true; banner.classList.add('hidden'); reset(); return }
+      if (dead) { reset(); banner.classList.add('hidden'); return }
+      const sync = Math.abs(Math.sin(beat)) < 0.38
+      if (sync) {
+        height = Math.min(16, height + 1)
+        score++
+        scoreEl.textContent = String(score)
+        flash = 1
+        misses = 0
+      } else {
+        height = Math.max(1, height - 1)
+        flash = -1
+        misses++
+        if (misses >= 3 || height <= 1) die()
+      }
+    }
+
+    function die() {
+      dead = true
+      banner.innerHTML = `Score ${score}<br/><small>Tap to retry</small>`
+      banner.classList.remove('hidden')
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath()
+      ctx.moveTo(x + r, y)
+      ctx.arcTo(x + w, y, x + w, y + h, r)
+      ctx.arcTo(x + w, y + h, x, y + h, r)
+      ctx.arcTo(x, y + h, x, y, r)
+      ctx.arcTo(x, y, x + w, y, r)
+      ctx.closePath()
+    }
+
+    function draw() {
+      const g = ctx.createLinearGradient(0, 0, 0, H)
+      g.addColorStop(0, '#3d0814'); g.addColorStop(1, '#e09f3e')
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+
+      const showH = running ? height : 3 + Math.floor((Math.sin(beat) + 1) * 2)
+      const baseY = H * 0.78
+      const bw = W * 0.42
+      const bx = (W - bw) / 2
+      const unit = 22
+
+      for (let i = 0; i < showH; i++) {
+        const y = baseY - i * (unit + 4)
+        ctx.fillStyle = i === showH - 1
+          ? `rgba(255, 214, 102, ${0.55 + pulse * 0.45})`
+          : '#e09f3e'
+        roundRect(bx + (i % 2) * 6, y - unit, bw - (i % 2) * 12, unit, 4)
+        ctx.fill()
+      }
+
+      const mx = W / 2, my = H * 0.22
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+      ctx.beginPath(); ctx.arc(mx, my, 28, 0, Math.PI * 2); ctx.stroke()
+      ctx.beginPath(); ctx.arc(mx, my, 10 + pulse * 16, 0, Math.PI * 2)
+      ctx.fillStyle = flash > 0 ? '#74c69d' : flash < 0 ? '#e63946' : '#fff'
+      ctx.globalAlpha = 0.9; ctx.fill(); ctx.globalAlpha = 1
+
+      if (flash !== 0) {
+        ctx.fillStyle = flash > 0
+          ? `rgba(116,198,157,${flash * 0.3})`
+          : `rgba(230,57,70,${-flash * 0.3})`
+        ctx.fillRect(0, 0, W, H)
+      }
+    }
+
+    let last = performance.now()
+    function loop(now) {
+      const dt = Math.min(0.033, (now - last) / 1000)
+      last = now
+      beat += dt * (3.1 + Math.min(1.5, score * 0.05))
+      pulse = (Math.sin(beat) + 1) / 2
+      if (flash !== 0) {
+        flash *= 0.9
+        if (Math.abs(flash) < 0.04) flash = 0
+      }
+      draw()
+      requestAnimationFrame(loop)
+    }
+
+    addEventListener('resize', resize)
+    addEventListener('pointerdown', onTap)
+    resize(); requestAnimationFrame(loop)
+  </script>
+</body>
+</html>

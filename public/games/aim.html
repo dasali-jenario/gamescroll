@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Orb Hunt</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #264653; touch-action: manipulation; }
+    canvas { display: block; width: 100%; height: 100%; }
+    .hud {
+      position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
+      font: 800 2rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 10px rgba(0,0,0,.4); pointer-events: none;
+    }
+    .banner {
+      position: fixed; inset: 0; display: grid; place-items: center;
+      background: rgba(15,20,25,.35); color: #fff; font: 600 1rem "Segoe UI", sans-serif;
+      text-align: center; padding: 1rem;
+    }
+    .banner.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div class="hud" id="score">0</div>
+  <div class="banner" id="banner">Tap the glowing orb<br/><small>before it fades</small></div>
+  <script>
+    const canvas = document.getElementById('c')
+    const ctx = canvas.getContext('2d')
+    const scoreEl = document.getElementById('score')
+    const banner = document.getElementById('banner')
+    const dpr = Math.min(devicePixelRatio || 1, 2)
+    let W = 0, H = 0, running = false, dead = false, score = 0, lives = 3
+    let orb = null, flash = 0
+
+    function resize() {
+      W = innerWidth; H = innerHeight
+      canvas.width = W * dpr; canvas.height = H * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+
+    function spawn() {
+      const margin = 70
+      orb = {
+        x: margin + Math.random() * (W - margin * 2),
+        y: margin + 80 + Math.random() * (H - margin * 2 - 160),
+        r: 28 + Math.random() * 10,
+        life: Math.max(0.7, 1.5 - score * 0.04),
+        max: Math.max(0.7, 1.5 - score * 0.04),
+      }
+    }
+
+    function reset() {
+      score = 0; lives = 3; scoreEl.textContent = '0'
+      dead = false; flash = 0; spawn()
+    }
+
+    function onTap(e) {
+      if (!running) { running = true; banner.classList.add('hidden'); reset(); return }
+      if (dead) { reset(); banner.classList.add('hidden'); return }
+      if (!orb) return
+      const x = e.clientX, y = e.clientY
+      const dx = x - orb.x, dy = y - orb.y
+      if (dx * dx + dy * dy <= (orb.r + 18) ** 2) {
+        score++
+        scoreEl.textContent = String(score)
+        flash = 1
+        spawn()
+      } else {
+        lives--
+        flash = -1
+        if (lives <= 0) die()
+      }
+    }
+
+    function die() {
+      dead = true; orb = null
+      banner.innerHTML = `Score ${score}<br/><small>Tap to retry</small>`
+      banner.classList.remove('hidden')
+    }
+
+    function tick(dt) {
+      if (!running || dead || !orb) return
+      orb.life -= dt
+      if (orb.life <= 0) {
+        lives--
+        flash = -1
+        if (lives <= 0) die()
+        else spawn()
+      }
+      if (flash !== 0) {
+        flash *= 0.88
+        if (Math.abs(flash) < 0.04) flash = 0
+      }
+    }
+
+    function draw(now) {
+      const g = ctx.createLinearGradient(0, 0, W, H)
+      g.addColorStop(0, '#264653'); g.addColorStop(1, '#2a9d8f')
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+
+      if (!running) {
+        const ox = W * 0.5 + Math.sin(now / 600) * W * 0.2
+        const oy = H * 0.45 + Math.cos(now / 700) * H * 0.1
+        ctx.beginPath(); ctx.arc(ox, oy, 34, 0, Math.PI * 2)
+        ctx.fillStyle = '#e9c46a'; ctx.fill()
+      } else if (orb) {
+        const t = orb.life / orb.max
+        ctx.beginPath(); ctx.arc(orb.x, orb.y, orb.r + 10, 0, Math.PI * 2)
+        ctx.strokeStyle = `rgba(233,196,106,${0.2 + t * 0.5})`
+        ctx.lineWidth = 4; ctx.stroke()
+        ctx.beginPath(); ctx.arc(orb.x, orb.y, orb.r * (0.7 + t * 0.3), 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(244,162,97,${0.45 + t * 0.55})`
+        ctx.fill()
+      }
+
+      if (running) {
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath()
+          ctx.arc(W / 2 - 28 + i * 28, H * 0.88, 8, 0, Math.PI * 2)
+          ctx.fillStyle = i < lives ? '#fff' : 'rgba(255,255,255,0.25)'
+          ctx.fill()
+        }
+      }
+
+      if (flash > 0) {
+        ctx.fillStyle = `rgba(42,157,143,${flash * 0.3})`
+        ctx.fillRect(0, 0, W, H)
+      } else if (flash < 0) {
+        ctx.fillStyle = `rgba(231,111,81,${-flash * 0.3})`
+        ctx.fillRect(0, 0, W, H)
+      }
+    }
+
+    let last = performance.now()
+    function loop(now) {
+      const dt = Math.min(0.033, (now - last) / 1000)
+      last = now
+      tick(dt); draw(now)
+      requestAnimationFrame(loop)
+    }
+
+    addEventListener('resize', resize)
+    addEventListener('pointerdown', onTap)
+    resize(); requestAnimationFrame(loop)
+  </script>
+</body>
+</html>
