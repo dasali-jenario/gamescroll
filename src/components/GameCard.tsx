@@ -10,6 +10,7 @@ type Props = {
   onPlay: () => void
   onLike: () => void
   onPlaying: (feedKey: string) => void
+  onScore: (gameId: string, score: number) => void
   onSwipe: (direction: 'next' | 'prev') => void
 }
 
@@ -29,6 +30,7 @@ export function GameCard({
   onPlay,
   onLike,
   onPlaying,
+  onScore,
   onSwipe,
 }: Props) {
   const frameRef = useRef<HTMLIFrameElement>(null)
@@ -47,6 +49,10 @@ export function GameCard({
       if (type === 'gamescroll:playing' && isPlaying) {
         onPlaying(feedKey)
       }
+      if (type === 'gamescroll:score' && isPlaying) {
+        const score = Number(event.data?.score)
+        if (Number.isFinite(score) && score > 0) onScore(game.id, score)
+      }
       if (type === 'gamescroll:swipe-next' && isPlaying) {
         onSwipe('next')
       }
@@ -56,7 +62,7 @@ export function GameCard({
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [feedKey, isPlaying, onPlaying, onSwipe])
+  }, [feedKey, game.id, isPlaying, onPlaying, onScore, onSwipe])
 
   useEffect(() => {
     if (!shouldLoad) {

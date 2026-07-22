@@ -98,6 +98,11 @@ ${BRIDGE}
     const dpr = Math.min(devicePixelRatio || 1, 2)
     let W = 0, H = 0, score = 0, last = performance.now()
     function setScore(n) { score = Math.max(0, n|0); scoreEl.textContent = String(score) }
+    function reportScore() {
+      if (score > 0) {
+        try { parent.postMessage({ type: 'gamescroll:score', score }, '*') } catch (e) {}
+      }
+    }
     function bump(n) {
       const amount = n || 1
       setScore(score + amount)
@@ -117,9 +122,17 @@ ${BRIDGE}
     resize()
     if (window.Juice) Juice.init({ accent: ${JSON.stringify(juiceAccent)} })
 ${body}
+    ;(function () {
+      const __halt = GS.halt
+      GS.halt = function () {
+        reportScore()
+        __halt()
+      }
+    })()
     if (typeof die === 'function') {
       const __die = die
       die = function () {
+        reportScore()
         if (window.Juice) {
           const pos = typeof diePos === 'function' ? diePos() : null
           if (pos) Juice.onDie(pos[0], pos[1])

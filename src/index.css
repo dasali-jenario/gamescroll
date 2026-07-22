@@ -84,6 +84,17 @@ body {
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
 }
 
+.highscore {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  margin-top: 0.12rem;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
 .stats {
   display: flex;
   align-items: center;

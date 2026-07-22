@@ -1,5 +1,20 @@
 # New file requests
 
+## 2026-07-22 — Per-game highscores
+
+### Requested files
+- `src/highscores.ts` — localStorage get/set for best score per game id
+- Updates: `scripts/generate-games.mjs` (post `gamescroll:score` on die/pause), regenerated `public/games/*.html`, `src/App.tsx`, `src/components/GameCard.tsx`, `src/index.css`
+
+### Duplicate search
+- Grep `highscore|high.?score|gs_highscores|gamescroll:score` under `/Users/dasali/gamescroll` → **none** before this change
+- `src/metrics.ts` only tracks visits / games-played counts — no score persistence
+- Glob `src/**/*score*` → **none**
+- Iframe `sandbox="allow-scripts"` (no same-origin) cannot use localStorage inside games; host must own persistence
+
+### Rationale
+Parent-owned highscore map keyed by catalog game id; games report final/run score via postMessage so Best shows in the top bar when a score exists.
+
 ## 2026-07-22 — Playful shared canvas kit
 
 ### Requested files

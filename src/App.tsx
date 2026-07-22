@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildFeedBatch, type FeedItem } from './games'
 import { GameCard } from './components/GameCard'
+import { loadHighscores, recordHighscore } from './highscores'
 import { createSessionMetrics, trackVisit } from './metrics'
 
 const PREFETCH_WITHIN = 3
@@ -22,8 +23,12 @@ export default function App() {
   const [activeIndex, setActiveIndex] = useState(0)
   const [gamesPlayed, setGamesPlayed] = useState(0)
   const [visits] = useState(() => session.snapshot().visits)
+  const [highscores, setHighscores] = useState(loadHighscores)
 
   const dismissNudge = useCallback(() => setNudgeVisible(false), [])
+
+  const activeGame = feed[activeIndex]?.game
+  const activeHighscore = activeGame ? highscores[activeGame.id] ?? 0 : 0
 
   const appendBatch = useCallback(() => {
     if (appendingRef.current) return
@@ -86,6 +91,13 @@ export default function App() {
     },
     [session],
   )
+
+  const onScore = useCallback((gameId: string, score: number) => {
+    const best = recordHighscore(gameId, score)
+    setHighscores((prev) =>
+      prev[gameId] === best ? prev : { ...prev, [gameId]: best },
+    )
+  }, [])
 
   const endSwipe = useCallback(
     (clientX: number, clientY: number) => {
@@ -183,8 +195,13 @@ export default function App() {
         <div className="brand-block">
           <div className="brand">Gamescroll</div>
           <div className="game-title">
-            {feed[activeIndex]?.game.title ?? ''}
+            {activeGame?.title ?? ''}
           </div>
+          {playingKey && activeHighscore > 0 && (
+            <div className="highscore" aria-label={`High score ${activeHighscore}`}>
+              Best {activeHighscore}
+            </div>
+          )}
         </div>
         <div className="stats" aria-label="Session stats">
           <span>{gamesPlayed} played</span>
@@ -231,6 +248,7 @@ export default function App() {
             liked={!!liked[item.game.id]}
             onPlay={() => enterPlay(item.key)}
             onPlaying={onPlaying}
+            onScore={onScore}
             onSwipe={onGameSwipe}
             onLike={() => {
               setLiked((prev) => ({
