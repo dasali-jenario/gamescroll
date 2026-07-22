@@ -100,20 +100,8 @@
     }
   }
 
-  Juice.burst = function burst(x, y, color, count) {
-    if (!emitter || !proton) return
-    const P = resolveProton()
-    const c = particleColor(color || Juice.accent)
-    const n = count || 18
-    emitter.p.x = x
-    emitter.p.y = y
-    emitter.removeAllBehaviours()
-    emitter.addBehaviour(new P.Alpha(1, 0))
-    emitter.addBehaviour(new P.Scale(1, 0.1))
-    emitter.addBehaviour(new P.Color(c))
-    emitter.addBehaviour(new P.G(2.6))
-    emitter.rate = new P.Rate(new P.Span(Math.max(8, n - 4), n + 4), 0.01)
-    emitter.emit('once')
+  Juice.burst = function burst() {
+    // Particle explosions disabled — keep API so games can still call it safely.
   }
 
   Juice.shake = function shake(intensity) {
@@ -186,18 +174,12 @@
     )
   }
 
-  Juice.onScore = function onScore(amount, x, y) {
-    const ax = x != null ? x : (global.innerWidth || 0) * 0.5
-    const ay = y != null ? y : (global.innerHeight || 0) * 0.42
-    Juice.burst(ax, ay, Juice.accent, 16 + Math.min(10, (amount || 1) * 2))
+  Juice.onScore = function onScore(amount) {
     Juice.popScore(amount)
     if ((amount || 1) >= 2) Juice.shake(0.45)
   }
 
-  Juice.onDie = function onDie(x, y) {
-    const ax = x != null ? x : (global.innerWidth || 0) * 0.5
-    const ay = y != null ? y : (global.innerHeight || 0) * 0.5
-    Juice.burst(ax, ay, '#ffffff', 28)
+  Juice.onDie = function onDie() {
     Juice.shake(1.15)
   }
 

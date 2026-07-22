@@ -244,7 +244,6 @@ const games = {
       flapT = 0.28
       squash = 1.28
       stretch = 0.72
-      if (window.Juice) Juice.burst(bx(), y, '#ffba08', 10)
     }
     function tick(dt) {
       v += 20 * dt; y += v
@@ -1475,7 +1474,6 @@ Object.assign(games, {
       squash = 1.22
       stretch = 0.78
       pulse = 0.22
-      if (window.Juice) Juice.burst(fx() - 8, y + 2, '#90e0ef', 8)
     }
     function endHold() { holding = false }
     function tick(dt) {
@@ -1520,7 +1518,7 @@ Object.assign(games, {
         }
       }
       if (holding && pulse <= 0 && Math.random() < dt * 4) {
-        if (window.Juice) Juice.burst(fx() - 10, y + 4, '#caf0f8', 3)
+        pulse = 0.12
       }
       if (pulse > 0) pulse -= dt
       const flapSpeed = holding ? 14 : 5
