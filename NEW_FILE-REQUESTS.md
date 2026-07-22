@@ -1,5 +1,22 @@
 # New file requests
 
+## 2026-07-22 — GSAP + Proton game juice
+
+### Requested files
+- `public/lib/gsap.min.js` — vendored GSAP core (tweens / shake / score pop)
+- `public/lib/proton.min.js` — vendored Proton particle engine
+- `public/lib/juice.js` — shared Gamescroll juice API used by all iframe games
+- Regenerated `public/games/*.html` via `scripts/generate-games.mjs` (template loads lib scripts + hooks bump/die)
+
+### Duplicate search
+- Grep `juice|proton|gsap|particle|tween|shake|burst` under `/Users/dasali/gamescroll` → only incidental swipe comments / catalog tips; **no** existing juice, particle, or tween module
+- Glob `public/lib/**`, `**/juice.js`, `**/proton*`, `**/gsap*` → **none**
+- `package.json` → React/Vite only; no graphics libs
+- Game visuals live inline in `scripts/generate-games.mjs` + generated `public/games/*.html` (Canvas 2D primitives only)
+
+### Rationale
+Shared iframe-safe juice layer (CDN avoided: sandboxed iframes + offline); generator injects once so all 30 games get score bursts, shake, and HUD pops without per-game rewrites.
+
 ## 2026-07-22 — Animated UX pitch mock
 
 ### Requested files
