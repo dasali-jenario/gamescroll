@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Wall Bounce</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #bc4749; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,46 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    let side = -1, y, v, spikes = [], spawn = 0, x
+    function reset() { side = -1; y = H * 0.5; v = 0; x = 40; spikes = []; spawn = 0.3; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
+      const target = side < 0 ? 40 : W - 40
+      x += (target - x) * Math.min(1, dt * 10)
+      v += (Math.sin(performance.now() / 400) * 40) * dt
+      y += v * dt
+      if (y < 40 || y > H - 40) v *= -1
       spawn -= dt
       if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
+        spikes.push({ side: Math.random() < 0.5 ? -1 : 1, y: 60 + Math.random() * (H - 120) })
+        spawn = 0.6 + Math.random() * 0.4
       }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
-          return false
-        }
-        return it.y < H + 30
+      // move spikes toward center then despawn — actually fixed on walls
+      spikes = spikes.filter(s => {
+        // scroll spikes down
+        s.y += 120 * dt
+        if (s.y > H + 20) { bump(); return false }
+        if (s.side === side && Math.abs(s.y - y) < 24 && Math.abs(x - (s.side < 0 ? 40 : W - 40)) < 30) die()
+        return true
       })
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#6a040f'; ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = '#370617'; ctx.fillRect(0, 0, 28, H); ctx.fillRect(W - 28, 0, 28, H)
+      for (const s of spikes) {
+        ctx.fillStyle = '#ffba08'
+        const sx = s.side < 0 ? 28 : W - 28
+        ctx.beginPath()
+        ctx.moveTo(sx, s.y)
+        ctx.lineTo(sx + (s.side < 0 ? 22 : -22), s.y - 12)
+        ctx.lineTo(sx + (s.side < 0 ? 22 : -22), s.y + 12)
+        ctx.fill()
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      ctx.fillStyle = '#f8f9fa'
+      ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI * 2); ctx.fill()
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    addEventListener('pointerdown', () => { if (!GS.paused) side *= -1 })
     reset()
 
     function loop(now) {

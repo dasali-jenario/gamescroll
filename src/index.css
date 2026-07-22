@@ -53,15 +53,26 @@ body {
   letter-spacing: -0.03em;
 }
 
-.mode {
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  pointer-events: none;
+}
+
+.stats span {
   border: 1px solid rgba(255, 255, 255, 0.35);
   padding: 0.28rem 0.55rem;
   background: rgba(15, 20, 25, 0.4);
   backdrop-filter: blur(6px);
+}
+
+.stats .visits {
+  opacity: 0.7;
 }
 
 .feed {
@@ -235,7 +246,7 @@ body {
   cursor: pointer;
 }
 
-.tip {
+.nudge {
   position: fixed;
   left: 50%;
   bottom: calc(1.5rem + env(safe-area-inset-bottom));
@@ -245,11 +256,23 @@ body {
   background: rgba(243, 238, 228, 0.96);
   color: var(--ink);
   font-family: 'IBM Plex Sans', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 500;
-  padding: 0.6rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.7rem 1rem 0.7rem 0.85rem;
   cursor: pointer;
-  animation: tip-in 0.45s var(--ease) 0.5s both;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  animation: tip-in 0.45s var(--ease) both;
+}
+
+.nudge-chevron {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  transform: rotate(45deg);
+  animation: nudge-bounce 1.2s var(--ease) infinite;
 }
 
 @keyframes heart-pop {
@@ -271,6 +294,11 @@ body {
 @keyframes tip-in {
   from { opacity: 0; transform: translateX(-50%) translateY(10px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes nudge-bounce {
+  0%, 100% { transform: rotate(45deg) translate(0, 0); opacity: 0.55; }
+  50% { transform: rotate(45deg) translate(2px, 2px); opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

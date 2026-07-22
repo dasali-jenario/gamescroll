@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Mini Breakout</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #e9c46a; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,48 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    let px, pw, ball, bricks = []
+    function buildBricks() {
+      bricks = []
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 8; c++) {
+        bricks.push({ x: 20 + c * ((W - 40) / 8), y: 80 + r * 28, w: (W - 40) / 8 - 6, h: 18, alive: true })
+      }
+    }
+    function reset() {
+      pw = Math.min(120, W * 0.28); px = W * 0.5
+      ball = { x: W * 0.5, y: H * 0.6, vx: 160, vy: -220, r: 8 }
+      buildBricks(); setScore(0)
+    }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
-      spawn -= dt
-      if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
+      ball.x += ball.vx * dt; ball.y += ball.vy * dt
+      if (ball.x < ball.r || ball.x > W - ball.r) ball.vx *= -1
+      if (ball.y < ball.r) ball.vy = Math.abs(ball.vy)
+      const py = H - 50
+      if (ball.y + ball.r > py && Math.abs(ball.x - px) < pw * 0.5 + ball.r && ball.vy > 0) {
+        ball.vy = -Math.abs(ball.vy); ball.vx = (ball.x - px) * 6
       }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
-          return false
+      if (ball.y > H + 20) die()
+      for (const b of bricks) {
+        if (!b.alive) continue
+        if (ball.x > b.x && ball.x < b.x + b.w && ball.y > b.y && ball.y < b.y + b.h) {
+          b.alive = false; ball.vy *= -1; bump()
         }
-        return it.y < H + 30
-      })
+      }
+      if (bricks.every(b => !b.alive)) buildBricks()
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#264653'; ctx.fillRect(0, 0, W, H)
+      for (const b of bricks) if (b.alive) {
+        ctx.fillStyle = '#e76f51'; ctx.fillRect(b.x, b.y, b.w, b.h)
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      ctx.fillStyle = '#e9c46a'; ctx.fillRect(px - pw * 0.5, H - 50, pw, 12)
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill()
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    addEventListener('pointermove', e => { if (!GS.paused) px = Math.max(pw * 0.5, Math.min(W - pw * 0.5, e.clientX)) })
+    addEventListener('pointerdown', e => { if (!GS.paused) px = Math.max(pw * 0.5, Math.min(W - pw * 0.5, e.clientX)) })
     reset()
 
     function loop(now) {

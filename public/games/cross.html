@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Cross Forever</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #6c584c; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,56 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    let row = 0, lanes = [], player = { c: 2, r: 0 }, cols = 5
+    function reset() {
+      lanes = []; player = { c: 2, r: 0 }
+      for (let i = 0; i < 12; i++) {
+        const kind = i === 0 ? 'safe' : (['road', 'river', 'rail'][i % 3])
+        lanes.push({ kind, cars: [], t: Math.random() })
+      }
+      setScore(0)
+    }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
-      spawn -= dt
-      if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
-      }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
-          return false
+      for (let i = 1; i < lanes.length; i++) {
+        const L = lanes[i]
+        L.t -= dt
+        if (L.t <= 0) {
+          L.cars.push({ c: Math.random() < 0.5 ? -1 : cols, dir: Math.random() < 0.5 ? 1 : -1, x: Math.random() < 0.5 ? -1 : cols })
+          L.cars[L.cars.length - 1].x = L.cars[L.cars.length - 1].dir > 0 ? -1 : cols
+          L.t = 0.8 + Math.random() * 0.8
         }
-        return it.y < H + 30
-      })
+        for (const c of L.cars) c.x += c.dir * (2 + score * 0.05) * dt
+        L.cars = L.cars.filter(c => c.x > -2 && c.x < cols + 2)
+        if (player.r === i) {
+          for (const c of L.cars) if (Math.abs(c.x - player.c) < 0.7) die()
+        }
+      }
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+      const rowH = H / lanes.length
+      for (let i = 0; i < lanes.length; i++) {
+        const L = lanes[i]
+        ctx.fillStyle = L.kind === 'safe' ? '#a98467' : L.kind === 'river' ? '#4cc9f0' : L.kind === 'rail' ? '#495057' : '#343a40'
+        ctx.fillRect(0, H - (i + 1) * rowH, W, rowH)
+        for (const c of L.cars) {
+          ctx.fillStyle = L.kind === 'river' ? '#0077b6' : '#ef476f'
+          ctx.fillRect((c.x / cols) * W, H - (i + 1) * rowH + 8, W / cols - 8, rowH - 16)
+        }
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      ctx.fillStyle = '#ffd166'
+      ctx.fillRect((player.c / cols) * W + 6, H - (player.r + 1) * rowH + 10, W / cols - 12, rowH - 20)
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    addEventListener('pointerdown', () => {
+      if (GS.paused) return
+      player.r++
+      bump()
+      if (player.r >= lanes.length - 2) {
+        lanes.push({ kind: ['road', 'river', 'rail'][Math.floor(Math.random() * 3)], cars: [], t: 0.5 })
+        lanes.shift(); player.r--
+      }
+    })
     reset()
 
     function loop(now) {

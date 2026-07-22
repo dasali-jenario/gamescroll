@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Gravity Flip</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #3d405b; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,42 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    let onCeil = false, obstacles = [], spawn = 0, y
+    function reset() { onCeil = false; obstacles = []; spawn = 0.4; setScore(0); y = H - 60 }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
+      const target = onCeil ? 60 : H - 60
+      y += (target - y) * Math.min(1, dt * 14)
       spawn -= dt
       if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
+        const ceil = Math.random() < 0.5
+        obstacles.push({ x: W + 40, w: 36, h: 70 + Math.random() * 40, ceil })
+        spawn = 0.85 + Math.random() * 0.4
       }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
-          return false
+      for (const o of obstacles) o.x -= (220 + score * 3) * dt
+      obstacles = obstacles.filter(o => {
+        if (o.x < -50) { bump(); return false }
+        const py = y
+        const oy = o.ceil ? 40 : H - 40 - o.h
+        if (o.x < W * 0.22 + 16 && o.x + o.w > W * 0.22 - 16) {
+          if (py > oy && py < oy + o.h) die()
         }
-        return it.y < H + 30
+        return true
       })
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#3d405b'; ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = '#81b29a'
+      ctx.fillRect(0, 0, W, 36); ctx.fillRect(0, H - 36, W, 36)
+      for (const o of obstacles) {
+        ctx.fillStyle = '#e07a5f'
+        ctx.fillRect(o.x, o.ceil ? 36 : H - 36 - o.h, o.w, o.h)
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      ctx.fillStyle = '#f2cc8f'
+      ctx.beginPath(); ctx.arc(W * 0.22, y, 14, 0, Math.PI * 2); ctx.fill()
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    addEventListener('pointerdown', () => { if (!GS.paused) onCeil = !onCeil })
     reset()
 
     function loop(now) {

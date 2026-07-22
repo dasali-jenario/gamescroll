@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Orbit Jump</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #22223b; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,60 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    let planets = [], idx = 0, ang = 0, flying = null
+    function makePlanets() {
+      planets = []
+      let x = W * 0.35, y = H * 0.55
+      for (let i = 0; i < 8; i++) {
+        planets.push({ x, y, r: 28 + Math.random() * 10 })
+        x += 90 + Math.random() * 50
+        y = H * (0.35 + Math.random() * 0.35)
+      }
+    }
+    function reset() { makePlanets(); idx = 0; ang = 0; flying = null; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
+    function jump() {
+      if (flying || GS.paused) return
+      const p = planets[idx], n = planets[idx + 1]
+      if (!n) { makePlanets(); idx = 0; bump(2); return }
+      flying = { x: p.x + Math.cos(ang) * (p.r + 10), y: p.y + Math.sin(ang) * (p.r + 10),
+        tx: n.x, ty: n.y, t: 0 }
+    }
     function tick(dt) {
-      spawn -= dt
-      if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
+      if (flying) {
+        flying.t += dt * 2.2
+        const t = Math.min(1, flying.t)
+        const x = flying.x + (flying.tx - flying.x) * t
+        const y = flying.y + (flying.ty - flying.y) * t - Math.sin(t * Math.PI) * 40
+        if (t >= 1) {
+          const n = planets[idx + 1]
+          const d = Math.hypot(x - n.x, y - n.y)
+          if (d < n.r + 14) { idx++; bump(); flying = null; ang = 0 }
+          else die()
+        } else { flying.cx = x; flying.cy = y }
+        return
       }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
-          return false
-        }
-        return it.y < H + 30
-      })
+      ang += dt * 2.4
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#22223b'; ctx.fillRect(0, 0, W, H)
+      for (let i = 0; i < planets.length; i++) {
+        const p = planets[i]
+        ctx.fillStyle = i === idx ? '#9a8c98' : '#4a4e69'
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill()
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      let dx, dy
+      if (flying) { dx = flying.cx; dy = flying.cy }
+      else {
+        const p = planets[idx]
+        dx = p.x + Math.cos(ang) * (p.r + 10)
+        dy = p.y + Math.sin(ang) * (p.r + 10)
+      }
+      ctx.fillStyle = '#f2e9e4'
+      ctx.beginPath(); ctx.arc(dx, dy, 8, 0, Math.PI * 2); ctx.fill()
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    addEventListener('pointerdown', jump)
     reset()
 
     function loop(now) {

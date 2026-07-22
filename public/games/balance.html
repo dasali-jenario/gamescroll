@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Keep It Balanced</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #b08968; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,31 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    let tilt = 0, ball = 0, noise = 0
+    function reset() { tilt = 0; ball = 0; noise = 0; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
-      spawn -= dt
-      if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
-      }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
-          return false
-        }
-        return it.y < H + 30
-      })
+      noise += (Math.random() - 0.5) * dt * (0.8 + score * 0.02)
+      noise *= 0.98
+      ball += (tilt * 2.2 + noise) * 60 * dt
+      if (Math.abs(ball) > 110) die()
+      bump(0); // no auto bump
+      scoreAcc = (scoreAcc || 0) + dt
+      if (scoreAcc > 0.5) { scoreAcc = 0; bump() }
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
-      }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      ctx.fillStyle = '#ddb892'; ctx.fillRect(0, 0, W, H)
+      const cx = W * 0.5, cy = H * 0.55
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(tilt)
+      ctx.fillStyle = '#7f5539'; ctx.fillRect(-120, -8, 240, 16)
+      ctx.fillStyle = '#e6ccb2'
+      ctx.beginPath(); ctx.arc(ball, -20, 14, 0, Math.PI * 2); ctx.fill()
+      ctx.restore()
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    addEventListener('pointermove', e => { if (!GS.paused) tilt = (e.clientX / W - 0.5) * 0.9 })
+    addEventListener('pointerdown', e => { if (!GS.paused) tilt = (e.clientX / W - 0.5) * 0.9 })
+    let scoreAcc = 0
     reset()
 
     function loop(now) {

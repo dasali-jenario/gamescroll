@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Tunnel Drift</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #023e8a; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,48 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    let x = 0.5, walls = [], t = 0
+    function reset() {
+      x = 0.5; t = 0; walls = []
+      for (let i = 0; i < 40; i++) walls.push({ c: 0.5, w: 0.55 })
+      setScore(0)
+    }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
-      spawn -= dt
-      if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
+      t += dt
+      walls.scroll = (walls.scroll || 0) + (12 + score * 0.04) * dt
+      while (walls.scroll >= 1) {
+        walls.scroll -= 1; walls.pop()
+        const prev = walls[0]
+        walls.unshift({
+          c: Math.max(0.25, Math.min(0.75, prev.c + Math.sin(t * 2) * 0.04 + (Math.random() - 0.5) * 0.05)),
+          w: Math.max(0.28, 0.55 - score * 0.003)
+        })
+        bump()
       }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
-          return false
-        }
-        return it.y < H + 30
-      })
+      const row = walls[Math.floor(walls.length * 0.65)]
+      if (Math.abs(x - row.c) > row.w * 0.5 - 0.03) die()
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#03045e'; ctx.fillRect(0, 0, W, H)
+      const rowH = H / (walls.length - 1)
+      ctx.fillStyle = '#0077b6'
+      for (let i = 0; i < walls.length - 1; i++) {
+        const a = walls[i], b = walls[i + 1]
+        const y0 = i * rowH, y1 = (i + 1) * rowH
+        ctx.beginPath()
+        ctx.moveTo(0, y0); ctx.lineTo((a.c - a.w * 0.5) * W, y0)
+        ctx.lineTo((b.c - b.w * 0.5) * W, y1); ctx.lineTo(0, y1); ctx.fill()
+        ctx.beginPath()
+        ctx.moveTo(W, y0); ctx.lineTo((a.c + a.w * 0.5) * W, y0)
+        ctx.lineTo((b.c + b.w * 0.5) * W, y1); ctx.lineTo(W, y1); ctx.fill()
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      ctx.fillStyle = '#caf0f8'
+      ctx.beginPath(); ctx.arc(x * W, H * 0.65, 10, 0, Math.PI * 2); ctx.fill()
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    addEventListener('pointermove', e => { if (!GS.paused) x = e.clientX / W })
+    addEventListener('pointerdown', e => { if (!GS.paused) x = e.clientX / W })
     reset()
 
     function loop(now) {

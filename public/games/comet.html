@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Comet Tail</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #3a0ca3; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,35 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    let x, y, trail = [], t = 0
+    function reset() { x = W * 0.5; y = H * 0.5; trail = []; t = 0; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
-      spawn -= dt
-      if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
+      t += dt
+      trail.unshift({ x, y })
+      const max = Math.min(80, 25 + score)
+      if (trail.length > max) trail.pop()
+      for (let i = 12; i < trail.length; i++) {
+        if (Math.hypot(trail[i].x - x, trail[i].y - y) < 10) { die(); return }
       }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
-          return false
-        }
-        return it.y < H + 30
-      })
+      if (x < 10 || y < 10 || x > W - 10 || y > H - 10) die()
+      scoreAcc = (scoreAcc || 0) + dt
+      if (scoreAcc > 0.4) { scoreAcc = 0; bump() }
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#10002b'; ctx.fillRect(0, 0, W, H)
+      for (let i = trail.length - 1; i >= 0; i--) {
+        const p = trail[i], a = 1 - i / trail.length
+        ctx.fillStyle = `rgba(76,201,240,${a * 0.8})`
+        ctx.beginPath(); ctx.arc(p.x, p.y, 4 + a * 4, 0, Math.PI * 2); ctx.fill()
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      ctx.fillStyle = '#f72585'
+      ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill()
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    addEventListener('pointermove', e => { if (!GS.paused) { x = e.clientX; y = e.clientY } })
+    addEventListener('pointerdown', e => { if (!GS.paused) { x = e.clientX; y = e.clientY } })
+    let scoreAcc = 0
     reset()
 
     function loop(now) {

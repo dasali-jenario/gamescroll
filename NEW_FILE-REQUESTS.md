@@ -46,3 +46,21 @@ Greenfield product app per 3-hour plan; pitch mock stays separate under `pitch/`
 
 ### Rationale
 New game files needed; feed will cycle catalog with unique instance keys rather than a hard end.
+
+## 2026-07-22 — Autoplay, pause, nudge, 30-game catalog
+
+### Requested files
+- `src/metrics.ts` — session games-played + recurring visit tracking (`localStorage`)
+- `scripts/generate-games.mjs` — generator for the 30 canvas iframe games + shared postMessage bridge
+- `public/games/{pong,flappy,lanes,stack,orbit,ski,gravity,bubbles,helix,road,balloon,colour,doodle,tunnel,shield,pulse,snake,cross,catch,ridge,wall,fish,dance,balance,shapes,rain,magnet,comet,light,breakout}.html`
+- Updates to `src/games.ts`, `src/App.tsx`, `src/components/GameCard.tsx`, `src/index.css`, `README.md`
+- Removed obsolete: `public/games/{flap,dodge,react,aim}.html` (replaced by new catalog ids)
+
+### Duplicate search
+- Glob `public/games/*` → prior 6 games (`flap`, `dodge`, `react`, `stack`, `aim`, `catch`); remapped/replaced rather than duplicated
+- Grep `gamescroll:start|metrics|nudge` under `src/` → none before this change
+- Pitch mock (`pitch/gamescroll-ux-mock.html`) has inline demos only — not reusable product iframes or metrics
+- No existing `src/metrics.ts` or `scripts/generate-games.mjs`
+
+### Rationale
+Host UX (autoplay / Pause / next nudge) needs a postMessage bridge and metrics module; 30 distinct endless games require new HTML files (generator keeps bridge + restart rules consistent).

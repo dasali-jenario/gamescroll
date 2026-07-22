@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Lane Switch</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #1d3557; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,40 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    const LANES = [0.28, 0.72]
+    let lane = 0, blocks = [], spawn = 0, py
+    function reset() { lane = 0; blocks = []; spawn = 0.5; setScore(0); py = H * 0.78 }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
       spawn -= dt
       if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
+        blocks.push({ lane: Math.random() < 0.5 ? 0 : 1, y: -40, h: 50 + Math.random() * 30 })
+        spawn = 0.7 + Math.random() * 0.5
       }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
-          return false
-        }
-        return it.y < H + 30
+      const speed = 260 + score * 4
+      for (const b of blocks) b.y += speed * dt
+      blocks = blocks.filter(b => {
+        if (b.y > H + 60) { bump(); return false }
+        return true
       })
+      const px = W * LANES[lane]
+      for (const b of blocks) {
+        if (b.lane === lane && Math.abs(b.y + b.h * 0.5 - py) < b.h * 0.5 + 18) die()
+      }
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#1d3557'; ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = 'rgba(255,255,255,0.08)'
+      ctx.fillRect(W * 0.5 - 2, 0, 4, H)
+      for (const b of blocks) {
+        ctx.fillStyle = '#e63946'
+        ctx.fillRect(W * LANES[b.lane] - 28, b.y, 56, b.h)
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      ctx.fillStyle = '#a8dadc'
+      ctx.beginPath(); ctx.arc(W * LANES[lane], py, 18, 0, Math.PI * 2); ctx.fill()
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    addEventListener('pointerdown', () => { if (!GS.paused) lane = 1 - lane })
     reset()
 
     function loop(now) {

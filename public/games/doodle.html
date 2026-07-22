@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Endless Doodle Jump</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #2a9d8f; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,40 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    let x, y, v, plats = [], cam = 0
+    function reset() {
+      x = W * 0.5; y = H * 0.7; v = -420; cam = 0; plats = []
+      for (let i = 0; i < 10; i++) plats.push({ x: 40 + Math.random() * (W - 120), y: H - i * 90, w: 70 })
+      setScore(0)
+    }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
-      spawn -= dt
-      if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
-      }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
-          return false
+      v += 900 * dt; y += v * dt
+      if (y - cam > H - 40) die()
+      if (y < cam + H * 0.35) cam = y - H * 0.35
+      for (const p of plats) {
+        if (v > 0 && y < p.y && y + v * dt >= p.y && x > p.x && x < p.x + p.w) {
+          v = -420; bump()
         }
-        return it.y < H + 30
-      })
+      }
+      plats = plats.filter(p => p.y > cam - 40)
+      while (plats.length < 10) {
+        const top = Math.min(...plats.map(p => p.y))
+        plats.push({ x: 30 + Math.random() * (W - 110), y: top - 80 - Math.random() * 40, w: 60 + Math.random() * 30 })
+      }
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#264653'; ctx.fillRect(0, 0, W, H)
+      for (const p of plats) {
+        ctx.fillStyle = '#e9c46a'
+        ctx.fillRect(p.x, p.y - cam, p.w, 12)
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      ctx.fillStyle = '#e76f51'
+      ctx.beginPath(); ctx.arc(x, y - cam, 14, 0, Math.PI * 2); ctx.fill()
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    addEventListener('pointermove', e => { if (!GS.paused) x = e.clientX })
+    addEventListener('pointerdown', e => { if (!GS.paused) x = e.clientX })
     reset()
 
     function loop(now) {

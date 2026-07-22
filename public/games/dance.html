@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Two-Dot Dance</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #7209b7; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,49 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    let ang = 0, dir = 1, gaps = [], spawn = 0
+    function reset() { ang = 0; dir = 1; gaps = []; spawn = 0.5; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
+      ang += dir * 2.8 * dt
       spawn -= dt
       if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
+        gaps.push({ y: -30, open: ang + Math.PI * 0.5, w: 0.9 })
+        spawn = 1.0
       }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
+      for (const g of gaps) g.y += 160 * dt
+      const cx = W * 0.5, cy = H * 0.55, R = 50
+      const d1 = { x: cx + Math.cos(ang) * R, y: cy + Math.sin(ang) * R }
+      const d2 = { x: cx + Math.cos(ang + Math.PI) * R, y: cy + Math.sin(ang + Math.PI) * R }
+      gaps = gaps.filter(g => {
+        if (g.y > H * 0.55 - 8 && g.y < H * 0.55 + 8) {
+          // bar with gap — simplified: horizontal bar with opening around open angle projected
+          const ok = Math.abs(Math.sin(ang - g.open)) > 0.55
+          if (!ok) die()
+          else bump()
           return false
         }
-        return it.y < H + 30
+        return g.y < H + 40
       })
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#3a0ca3'; ctx.fillRect(0, 0, W, H)
+      const cx = W * 0.5, cy = H * 0.55, R = 50
+      for (const g of gaps) {
+        ctx.fillStyle = '#f72585'
+        ctx.fillRect(40, g.y, W - 80, 14)
+        ctx.fillStyle = '#3a0ca3'
+        const gx = cx + Math.cos(g.open) * 40
+        ctx.clearRect?.(0,0,0,0)
+        ctx.fillRect(gx - 36, g.y - 1, 72, 16)
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      ctx.fillStyle = '#4cc9f0'
+      ctx.beginPath(); ctx.arc(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#b5179e'
+      ctx.beginPath(); ctx.arc(cx + Math.cos(ang + Math.PI) * R, cy + Math.sin(ang + Math.PI) * R, 12, 0, Math.PI * 2); ctx.fill()
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    addEventListener('pointerdown', () => { if (!GS.paused) dir *= -1 })
     reset()
 
     function loop(now) {

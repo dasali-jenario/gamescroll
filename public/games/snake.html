@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Snake Lite</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #386641; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,48 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    let body, dir, next, food, acc = 0
+    const CS = 20
+    function reset() {
+      const cx = Math.floor(W / CS / 2), cy = Math.floor(H / CS / 2)
+      body = [{ x: cx, y: cy }, { x: cx - 1, y: cy }, { x: cx - 2, y: cy }]
+      dir = { x: 1, y: 0 }; next = { x: 1, y: 0 }; placeFood(); setScore(0); acc = 0
+    }
+    function placeFood() {
+      food = { x: 2 + Math.floor(Math.random() * (W / CS - 4)), y: 2 + Math.floor(Math.random() * (H / CS - 4)) }
+    }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
-      spawn -= dt
-      if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
+      acc += dt
+      const step = Math.max(0.09, 0.16 - score * 0.002)
+      while (acc >= step) {
+        acc -= step
+        dir = next
+        const h = { x: body[0].x + dir.x, y: body[0].y + dir.y }
+        if (h.x < 0 || h.y < 0 || h.x >= W / CS || h.y >= H / CS) { die(); return }
+        if (body.some(p => p.x === h.x && p.y === h.y)) { die(); return }
+        body.unshift(h)
+        if (h.x === food.x && h.y === food.y) { bump(); placeFood() }
+        else body.pop()
       }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
-          return false
-        }
-        return it.y < H + 30
-      })
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
-      }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
+      ctx.fillStyle = '#14213d'; ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = '#fca311'
+      ctx.fillRect(food.x * CS, food.y * CS, CS - 2, CS - 2)
+      ctx.fillStyle = '#2a9d8f'
+      for (const p of body) ctx.fillRect(p.x * CS, p.y * CS, CS - 2, CS - 2)
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    let sx, sy
+    addEventListener('pointerdown', e => { sx = e.clientX; sy = e.clientY })
+    addEventListener('pointerup', e => {
+      if (GS.paused) return
+      const dx = e.clientX - sx, dy = e.clientY - sy
+      if (Math.abs(dx) > Math.abs(dy)) next = dx > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 }
+      else next = dy > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 }
+      if (next.x === -dir.x && next.y === -dir.y) next = dir
+    })
     reset()
 
     function loop(now) {

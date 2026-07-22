@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Catch or Dodge</title>
+  <title>Perfect Pulse</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3c096c; touch-action: none; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #5e548e; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
@@ -55,36 +55,35 @@
     addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
     resize()
 
-    let bx, items = [], spawn = 0
-    function reset() { bx = W * 0.5; items = []; spawn = 0.2; setScore(0) }
+    let rings = [], spawn = 0, flash = 0
+    function reset() { rings = []; spawn = 0.2; flash = 0; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
+      flash = Math.max(0, flash - dt)
       spawn -= dt
-      if (spawn <= 0) {
-        items.push({ x: 40 + Math.random() * (W - 80), y: -20, good: Math.random() < 0.65, v: 180 + Math.random() * 80 })
-        spawn = 0.4 + Math.random() * 0.3
-      }
-      for (const it of items) it.y += it.v * dt
-      items = items.filter(it => {
-        if (it.y > H - 70 && Math.abs(it.x - bx) < 40) {
-          if (it.good) bump(); else die()
-          return false
-        }
-        return it.y < H + 30
+      if (spawn <= 0) { rings.push({ r: Math.max(W, H) * 0.55 }); spawn = 1.35 }
+      for (const r of rings) r.r -= 120 * dt
+      rings = rings.filter(r => {
+        if (r.r < 28) { die(); return false }
+        return true
       })
     }
     function draw() {
-      ctx.fillStyle = '#240046'; ctx.fillRect(0, 0, W, H)
-      for (const it of items) {
-        ctx.fillStyle = it.good ? '#80ed99' : '#ef476f'
-        ctx.beginPath(); ctx.arc(it.x, it.y, 12, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = flash > 0 ? '#9f86c0' : '#231942'; ctx.fillRect(0, 0, W, H)
+      const cx = W * 0.5, cy = H * 0.5
+      ctx.strokeStyle = '#e0aaff'; ctx.lineWidth = 3
+      ctx.beginPath(); ctx.arc(cx, cy, 36, 0, Math.PI * 2); ctx.stroke()
+      for (const r of rings) {
+        ctx.beginPath(); ctx.arc(cx, cy, r.r, 0, Math.PI * 2); ctx.stroke()
       }
-      ctx.fillStyle = '#c77dff'
-      ctx.fillRect(bx - 36, H - 58, 72, 18)
     }
-    addEventListener('pointermove', e => { if (!GS.paused) bx = e.clientX })
-    addEventListener('pointerdown', e => { if (!GS.paused) bx = e.clientX })
+    addEventListener('pointerdown', () => {
+      if (GS.paused || !rings.length) return
+      const r = rings[0]
+      if (Math.abs(r.r - 36) < 18) { rings.shift(); bump(); flash = 0.15 }
+      else die()
+    })
     reset()
 
     function loop(now) {

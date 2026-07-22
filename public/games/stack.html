@@ -3,133 +3,119 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Beat Stack</title>
+  <title>Falling Stack</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #3d0814; touch-action: manipulation; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #7b2d26; touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
     .hud {
       position: fixed; top: 4.5rem; left: 0; right: 0; text-align: center;
       font: 800 2rem "Segoe UI", sans-serif; color: #fff;
-      text-shadow: 0 2px 10px rgba(0,0,0,.4); pointer-events: none;
+      text-shadow: 0 2px 10px rgba(0,0,0,.45); pointer-events: none;
     }
-    .banner {
-      position: fixed; inset: 0; display: grid; place-items: center;
-      background: rgba(15,20,25,.35); color: #fff; font: 600 1rem "Segoe UI", sans-serif;
-      text-align: center; padding: 1rem;
-    }
-    .banner.hidden { display: none; }
   </style>
 </head>
 <body>
   <canvas id="c"></canvas>
   <div class="hud" id="score">0</div>
-  <div class="banner" id="banner">Tap on the beat<br/><small>to stack higher</small></div>
   <script>
+
+    const GS = {
+      paused: true,
+      reported: false,
+      post(type) { try { parent.postMessage({ type }, '*') } catch (e) {} },
+      begin() {
+        if (!GS.reported) { GS.reported = true; GS.post('gamescroll:playing') }
+        GS.paused = false
+        if (typeof onHostStart === 'function') onHostStart()
+      },
+      halt() {
+        GS.paused = true
+        if (typeof onHostPause === 'function') onHostPause()
+      }
+    }
+    addEventListener('message', (e) => {
+      const t = e.data && e.data.type
+      if (t === 'gamescroll:start') GS.begin()
+      if (t === 'gamescroll:pause') GS.halt()
+    })
+    GS.post('gamescroll:ready')
+
     const canvas = document.getElementById('c')
     const ctx = canvas.getContext('2d')
     const scoreEl = document.getElementById('score')
-    const banner = document.getElementById('banner')
     const dpr = Math.min(devicePixelRatio || 1, 2)
-    let W = 0, H = 0, running = false, dead = false, score = 0
-    let height = 3, beat = 0, pulse = 0, flash = 0, misses = 0
-
+    let W = 0, H = 0, score = 0, last = performance.now()
+    function setScore(n) { score = Math.max(0, n|0); scoreEl.textContent = String(score) }
+    function bump(n) { setScore(score + (n || 1)) }
     function resize() {
       W = innerWidth; H = innerHeight
       canvas.width = W * dpr; canvas.height = H * dpr
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
+    addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
+    resize()
 
+    let pieces = [], cur, dir = 1, speed = 180, baseW
     function reset() {
-      score = 0; scoreEl.textContent = '0'
-      height = 3; beat = 0; misses = 0; dead = false; flash = 0
+      baseW = Math.min(200, W * 0.55)
+      pieces = [{ x: W * 0.5, w: baseW, y: H - 40 }]
+      spawn(); setScore(0); speed = 180
     }
-
-    function onTap() {
-      if (!running) { running = true; banner.classList.add('hidden'); reset(); return }
-      if (dead) { reset(); banner.classList.add('hidden'); return }
-      const sync = Math.abs(Math.sin(beat)) < 0.38
-      if (sync) {
-        height = Math.min(16, height + 1)
-        score++
-        scoreEl.textContent = String(score)
-        flash = 1
-        misses = 0
-      } else {
-        height = Math.max(1, height - 1)
-        flash = -1
-        misses++
-        if (misses >= 3 || height <= 1) die()
+    function spawn() {
+      const prev = pieces[pieces.length - 1]
+      cur = { x: 40, w: prev.w, y: Math.max(80, prev.y - 34), moving: true }
+      dir = Math.random() < 0.5 ? 1 : -1
+      if (dir < 0) cur.x = W - 40
+    }
+    function onHostStart() { reset() }
+    function die() { reset() }
+    function place() {
+      if (!cur || !cur.moving) return
+      const prev = pieces[pieces.length - 1]
+      const left = Math.max(cur.x - cur.w * 0.5, prev.x - prev.w * 0.5)
+      const right = Math.min(cur.x + cur.w * 0.5, prev.x + prev.w * 0.5)
+      const w = right - left
+      if (w < 16) { die(); return }
+      cur = { x: (left + right) * 0.5, w, y: cur.y, moving: false }
+      pieces.push(cur)
+      bump()
+      if (pieces.length > 12) {
+        const shift = pieces[1].y - pieces[0].y
+        pieces.shift()
+        for (const p of pieces) p.y += shift
       }
+      speed = Math.min(320, speed + 6)
+      spawn()
     }
-
-    function die() {
-      dead = true
-      banner.innerHTML = `Score ${score}<br/><small>Tap to retry</small>`
-      banner.classList.remove('hidden')
+    function tick(dt) {
+      if (!cur || !cur.moving) return
+      cur.x += dir * speed * dt
+      if (cur.x < cur.w * 0.5 || cur.x > W - cur.w * 0.5) dir *= -1
     }
-
-    function roundRect(x, y, w, h, r) {
-      ctx.beginPath()
-      ctx.moveTo(x + r, y)
-      ctx.arcTo(x + w, y, x + w, y + h, r)
-      ctx.arcTo(x + w, y + h, x, y + h, r)
-      ctx.arcTo(x, y + h, x, y, r)
-      ctx.arcTo(x, y, x + w, y, r)
-      ctx.closePath()
-    }
-
     function draw() {
       const g = ctx.createLinearGradient(0, 0, 0, H)
-      g.addColorStop(0, '#3d0814'); g.addColorStop(1, '#e09f3e')
+      g.addColorStop(0, '#7b2d26'); g.addColorStop(1, '#e09f3e')
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
-
-      const showH = running ? height : 3 + Math.floor((Math.sin(beat) + 1) * 2)
-      const baseY = H * 0.78
-      const bw = W * 0.42
-      const bx = (W - bw) / 2
-      const unit = 22
-
-      for (let i = 0; i < showH; i++) {
-        const y = baseY - i * (unit + 4)
-        ctx.fillStyle = i === showH - 1
-          ? `rgba(255, 214, 102, ${0.55 + pulse * 0.45})`
-          : '#e09f3e'
-        roundRect(bx + (i % 2) * 6, y - unit, bw - (i % 2) * 12, unit, 4)
-        ctx.fill()
+      for (const p of pieces) {
+        ctx.fillStyle = '#f4d35e'
+        ctx.fillRect(p.x - p.w * 0.5, p.y, p.w, 28)
       }
-
-      const mx = W / 2, my = H * 0.22
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)'
-      ctx.beginPath(); ctx.arc(mx, my, 28, 0, Math.PI * 2); ctx.stroke()
-      ctx.beginPath(); ctx.arc(mx, my, 10 + pulse * 16, 0, Math.PI * 2)
-      ctx.fillStyle = flash > 0 ? '#74c69d' : flash < 0 ? '#e63946' : '#fff'
-      ctx.globalAlpha = 0.9; ctx.fill(); ctx.globalAlpha = 1
-
-      if (flash !== 0) {
-        ctx.fillStyle = flash > 0
-          ? `rgba(116,198,157,${flash * 0.3})`
-          : `rgba(230,57,70,${-flash * 0.3})`
-        ctx.fillRect(0, 0, W, H)
+      if (cur) {
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(cur.x - cur.w * 0.5, cur.y, cur.w, 28)
       }
     }
+    addEventListener('pointerdown', () => { if (!GS.paused) place() })
+    reset()
 
-    let last = performance.now()
     function loop(now) {
       const dt = Math.min(0.033, (now - last) / 1000)
       last = now
-      beat += dt * (3.1 + Math.min(1.5, score * 0.05))
-      pulse = (Math.sin(beat) + 1) / 2
-      if (flash !== 0) {
-        flash *= 0.9
-        if (Math.abs(flash) < 0.04) flash = 0
-      }
-      draw()
+      if (!GS.paused && typeof tick === 'function') tick(dt)
+      if (typeof draw === 'function') draw(now)
       requestAnimationFrame(loop)
     }
-
-    addEventListener('resize', resize)
-    addEventListener('pointerdown', onTap)
-    resize(); requestAnimationFrame(loop)
+    requestAnimationFrame(loop)
   </script>
 </body>
 </html>

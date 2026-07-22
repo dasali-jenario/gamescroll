@@ -1,25 +1,70 @@
+import { useEffect, useRef } from 'react'
 import type { Game } from '../games'
 
 type Props = {
   game: Game
+  feedKey: string
   isActive: boolean
   isPlaying: boolean
   liked: boolean
   onPlay: () => void
-  onDone: () => void
+  onPause: () => void
   onLike: () => void
+  onPlaying: (feedKey: string) => void
+}
+
+function postToFrame(
+  frame: HTMLIFrameElement | null,
+  type: 'gamescroll:start' | 'gamescroll:pause',
+) {
+  frame?.contentWindow?.postMessage({ type }, '*')
 }
 
 export function GameCard({
   game,
+  feedKey,
   isActive,
   isPlaying,
   liked,
   onPlay,
-  onDone,
+  onPause,
   onLike,
+  onPlaying,
 }: Props) {
+  const frameRef = useRef<HTMLIFrameElement>(null)
+  const readyRef = useRef(false)
   const shouldLoad = isActive || isPlaying
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const type = event.data?.type
+      if (type !== 'gamescroll:ready' && type !== 'gamescroll:playing') return
+      if (event.source !== frameRef.current?.contentWindow) return
+
+      if (type === 'gamescroll:ready') {
+        readyRef.current = true
+        if (isPlaying) postToFrame(frameRef.current, 'gamescroll:start')
+      }
+      if (type === 'gamescroll:playing' && isPlaying) {
+        onPlaying(feedKey)
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [feedKey, isPlaying, onPlaying])
+
+  useEffect(() => {
+    if (!shouldLoad) {
+      readyRef.current = false
+      return
+    }
+    if (isPlaying && readyRef.current) {
+      postToFrame(frameRef.current, 'gamescroll:start')
+    }
+    if (!isPlaying && readyRef.current) {
+      postToFrame(frameRef.current, 'gamescroll:pause')
+    }
+  }, [isPlaying, shouldLoad])
 
   return (
     <article
@@ -29,6 +74,7 @@ export function GameCard({
       <div className="stage" style={{ background: game.accent }}>
         {shouldLoad ? (
           <iframe
+            ref={frameRef}
             title={game.title}
             src={game.src}
             className="game-frame"
@@ -75,8 +121,8 @@ export function GameCard({
 
       {isPlaying && (
         <div className="done-bar">
-          <button type="button" className="done" onClick={onDone}>
-            Done
+          <button type="button" className="done" onClick={onPause}>
+            Pause
           </button>
         </div>
       )}
