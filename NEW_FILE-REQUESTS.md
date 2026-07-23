@@ -1,5 +1,20 @@
 # New file requests
 
+## 2026-07-23 — Webapp and integration documentation
+
+### Requested files
+- `docs/WEBAPP.md` — product overview, host architecture, game authoring, host↔iframe bridge, feed/share UX, Capacitor/Android, deploy domains, localStorage, fail modes
+- Updates: `README.md` — link to the new doc
+
+### Duplicate search
+- Glob `**/{README,ARCHITECTURE,INTEGRATION,DOCS,docs}*.{md,mdx,txt}` under `/Users/dasali/gamescroll` → only root `README.md` (minimal install/controls) and `NEW_FILE-REQUESTS.md` (changelog of file requests, not product docs)
+- No `docs/` directory
+- Grep `postMessage|iframe bridge|architecture` in `*.md` → no architecture/integration guide
+- Pitch mock `pitch/gamescroll-ux-mock.html` is marketing UX only, not wired documentation
+
+### Rationale
+Operators and contributors need a single reference for how the React host, sandboxed games, postMessage bridge, Android shell, and Hostinger deploy fit together; README stays a short get-started entry point.
+
 ## 2026-07-23 — Fail-mode experiment (instant replay vs game over)
 
 ### Requested files
