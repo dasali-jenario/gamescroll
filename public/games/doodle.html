@@ -113,9 +113,10 @@
     if (window.Juice) Juice.init({ accent: "#2a9d8f" })
 
     let x, y, v, plats = [], cam = 0
+    const JUMP = -540
     function reset() {
-      x = W * 0.5; y = H * 0.7; v = -420; cam = 0; plats = []
-      for (let i = 0; i < 10; i++) plats.push({ x: 40 + Math.random() * (W - 120), y: H - i * 90, w: 70 })
+      x = W * 0.5; y = H * 0.7; v = JUMP; cam = 0; plats = []
+      for (let i = 0; i < 10; i++) plats.push({ x: 40 + Math.random() * (W - 120), y: H - i * 75, w: 70 })
       setScore(0)
     }
     function onHostStart() { reset() }
@@ -126,13 +127,13 @@
       if (y < cam + H * 0.35) cam = y - H * 0.35
       for (const p of plats) {
         if (v > 0 && y < p.y && y + v * dt >= p.y && x > p.x && x < p.x + p.w) {
-          v = -420; bump()
+          v = JUMP; bump()
         }
       }
       plats = plats.filter(p => p.y > cam - 40)
       while (plats.length < 10) {
         const top = Math.min(...plats.map(p => p.y))
-        plats.push({ x: 30 + Math.random() * (W - 110), y: top - 80 - Math.random() * 40, w: 60 + Math.random() * 30 })
+        plats.push({ x: 30 + Math.random() * (W - 110), y: top - 60 - Math.random() * 35, w: 60 + Math.random() * 30 })
       }
     }
     function diePos() { return [x, y - cam] }

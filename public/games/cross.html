@@ -113,13 +113,19 @@
     if (window.Juice) Juice.init({ accent: "#6c584c" })
 
     let row = 0, lanes = [], player = { c: 2, r: 0 }, cols = 5
+    function spawnDelay() {
+      const t = Math.min(1, score / 40)
+      const lo = 16 - t * 14.4
+      const hi = 32 - t * 28.8
+      return lo + Math.random() * (hi - lo)
+    }
     function reset() {
+      setScore(0)
       lanes = []; player = { c: 2, r: 0 }
       for (let i = 0; i < 12; i++) {
         const kind = i === 0 ? 'safe' : (['road', 'river', 'rail'][i % 3])
-        lanes.push({ kind, cars: [], t: Math.random() })
+        lanes.push({ kind, cars: [], t: spawnDelay() })
       }
-      setScore(0)
     }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -130,7 +136,7 @@
         if (L.t <= 0) {
           L.cars.push({ c: Math.random() < 0.5 ? -1 : cols, dir: Math.random() < 0.5 ? 1 : -1, x: Math.random() < 0.5 ? -1 : cols })
           L.cars[L.cars.length - 1].x = L.cars[L.cars.length - 1].dir > 0 ? -1 : cols
-          L.t = 1.6 + Math.random() * 1.6
+          L.t = spawnDelay()
         }
         for (const c of L.cars) c.x += c.dir * (2 + score * 0.05) * dt
         L.cars = L.cars.filter(c => c.x > -2 && c.x < cols + 2)
@@ -165,7 +171,7 @@
       player.r++
       bump()
       if (player.r >= lanes.length - 2) {
-        lanes.push({ kind: ['road', 'river', 'rail'][Math.floor(Math.random() * 3)], cars: [], t: 0.5 })
+        lanes.push({ kind: ['road', 'river', 'rail'][Math.floor(Math.random() * 3)], cars: [], t: spawnDelay() })
         lanes.shift(); player.r--
       }
     })

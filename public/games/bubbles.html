@@ -120,22 +120,56 @@
     function reset() { bubbles = []; spawn = 0.1; setScore(0); lastPop = null }
     function onHostStart() { reset() }
     function die() { reset() }
+    function drawHeart(x, y, r) {
+      ctx.save()
+      ctx.translate(x, y)
+      const s = r / 16
+      ctx.scale(s, s)
+      ctx.beginPath()
+      ctx.moveTo(0, 6)
+      ctx.bezierCurveTo(0, 0, -12, -2, -12, -8)
+      ctx.bezierCurveTo(-12, -14, -4, -16, 0, -10)
+      ctx.bezierCurveTo(4, -16, 12, -14, 12, -8)
+      ctx.bezierCurveTo(12, -2, 0, 0, 0, 6)
+      ctx.closePath()
+      ctx.fillStyle = '#ff6b8a'
+      ctx.shadowColor = 'rgba(255,107,138,0.55)'
+      ctx.shadowBlur = 10
+      ctx.fill()
+      ctx.restore()
+    }
     function tick(dt) {
       spawn -= dt
       if (spawn <= 0) {
-        bubbles.push({ x: 40 + Math.random() * (W - 80), y: H + 20, r: 18 + Math.random() * 16, v: 70 + Math.random() * 50, hue: Math.random() })
+        bubbles.push({
+          x: 40 + Math.random() * (W - 80),
+          y: H + 20,
+          r: 18 + Math.random() * 16,
+          v: 70 + Math.random() * 50,
+          hue: Math.random(),
+          heart: Math.random() < 0.22,
+        })
         spawn = 0.45 + Math.random() * 0.35
       }
       for (const b of bubbles) b.y -= b.v * dt
-      for (const b of bubbles) if (b.y + b.r < 0) { lastPop = [b.x, 0]; die(); return }
+      for (let i = bubbles.length - 1; i >= 0; i--) {
+        const b = bubbles[i]
+        if (b.y + b.r < 0) {
+          if (b.heart) { bubbles.splice(i, 1); continue }
+          lastPop = [b.x, 0]; die(); return
+        }
+      }
     }
     function draw() {
       PF.sky(ctx, W, H, '#023e8a', '#0077b6', '#90e0ef')
       PF.dots(ctx, W, H, '#caf0f8', 18, 1)
       PF.blobs(ctx, W, H, '#48cae4', 5)
       for (const b of bubbles) {
-        const c = BCOLORS[Math.floor(b.hue * BCOLORS.length) % BCOLORS.length]
-        PF.buddy(ctx, b.x, b.y, b.r, c[0], c[1], { lookY: -0.4, blush: true })
+        if (b.heart) drawHeart(b.x, b.y, b.r)
+        else {
+          const c = BCOLORS[Math.floor(b.hue * BCOLORS.length) % BCOLORS.length]
+          PF.buddy(ctx, b.x, b.y, b.r, c[0], c[1], { lookY: -0.4, blush: true })
+        }
       }
     }
     addEventListener('pointerdown', e => {
@@ -144,7 +178,12 @@
         const b = bubbles[i]
         if (Math.hypot(e.clientX - b.x, e.clientY - b.y) < b.r + 8) {
           lastPop = [b.x, b.y]
-          bubbles.splice(i, 1); bump(); return
+          bubbles.splice(i, 1)
+          if (b.heart) {
+            setScore(Math.floor(score / 2))
+            if (window.Juice) Juice.onDie(b.x, b.y)
+          } else bump()
+          return
         }
       }
     })

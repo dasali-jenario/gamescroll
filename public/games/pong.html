@@ -114,8 +114,9 @@
 
     let px, pw, ball, vx, vy
     let padSquash = 1, ballSquish = 1
-    function diePos() { return [px, H - 41] }
-    function scorePos() { return ball ? [ball.x, ball.y] : [px, H - 41] }
+    const padY = () => H - 110
+    function diePos() { return [px, padY() + 7] }
+    function scorePos() { return ball ? [ball.x, ball.y] : [px, padY() + 7] }
     function reset() {
       pw = Math.min(140, W * 0.32); px = W * 0.5
       ball = { x: W * 0.5, y: H * 0.4, r: 10 }
@@ -132,7 +133,7 @@
       ball.x += vx * dt; ball.y += vy * dt
       if (ball.x < ball.r || ball.x > W - ball.r) { vx *= -1; ball.x = Math.max(ball.r, Math.min(W - ball.r, ball.x)) }
       if (ball.y < ball.r) { vy = Math.abs(vy); bump() }
-      const py = H - 48
+      const py = padY()
       if (ball.y + ball.r > py && ball.y - ball.r < py + 14 && Math.abs(ball.x - px) < pw * 0.5 + ball.r) {
         const hit = (ball.x - px) / (pw * 0.5)
         vx = hit * 320; vy = -Math.abs(vy) * 1.02
@@ -148,7 +149,7 @@
       PF.sky(ctx, W, H, '#134e33', '#2d8659', '#74c69d')
       PF.blobs(ctx, W, H, '#40916c', 5)
       PF.dots(ctx, W, H, '#d8f3dc', 16, 0.8)
-      const py = H - 48
+      const py = padY()
       PF.block(ctx, px - pw * 0.5, py, pw, 14 * padSquash, '#eafff3', '#95d5b2', 8)
       PF.buddy(ctx, ball.x, ball.y, ball.r + 4, '#ffd60a', '#ffba08', {
         lookX: vx / 300, lookY: vy > 0 ? 0.6 : -0.6, squash: ballSquish, stretch: 1 / ballSquish, blush: true

@@ -123,9 +123,14 @@
     }
     function spawn() {
       const prev = pieces[pieces.length - 1]
-      cur = { x: 40, w: prev.w, y: Math.max(80, prev.y - 34), moving: true }
       dir = Math.random() < 0.5 ? 1 : -1
-      if (dir < 0) cur.x = W - 40
+      const w = prev.w
+      cur = {
+        x: dir > 0 ? w * 0.5 : W - w * 0.5,
+        w,
+        y: Math.max(80, prev.y - 34),
+        moving: true,
+      }
     }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -152,7 +157,9 @@
       if (wobble > 0) wobble = Math.max(0, wobble - dt * 3)
       if (!cur || !cur.moving) return
       cur.x += dir * speed * dt
-      if (cur.x < cur.w * 0.5 || cur.x > W - cur.w * 0.5) dir *= -1
+      const minX = cur.w * 0.5, maxX = W - cur.w * 0.5
+      if (cur.x < minX) { cur.x = minX; dir = 1 }
+      else if (cur.x > maxX) { cur.x = maxX; dir = -1 }
     }
     function draw() {
       PF.sky(ctx, W, H, '#3d1f14', '#7b2d26', '#e09f3e')

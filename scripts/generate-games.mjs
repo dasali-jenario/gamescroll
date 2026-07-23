@@ -176,8 +176,9 @@ const games = {
     body: `
     let px, pw, ball, vx, vy
     let padSquash = 1, ballSquish = 1
-    function diePos() { return [px, H - 41] }
-    function scorePos() { return ball ? [ball.x, ball.y] : [px, H - 41] }
+    const padY = () => H - 110
+    function diePos() { return [px, padY() + 7] }
+    function scorePos() { return ball ? [ball.x, ball.y] : [px, padY() + 7] }
     function reset() {
       pw = Math.min(140, W * 0.32); px = W * 0.5
       ball = { x: W * 0.5, y: H * 0.4, r: 10 }
@@ -194,7 +195,7 @@ const games = {
       ball.x += vx * dt; ball.y += vy * dt
       if (ball.x < ball.r || ball.x > W - ball.r) { vx *= -1; ball.x = Math.max(ball.r, Math.min(W - ball.r, ball.x)) }
       if (ball.y < ball.r) { vy = Math.abs(vy); bump() }
-      const py = H - 48
+      const py = padY()
       if (ball.y + ball.r > py && ball.y - ball.r < py + 14 && Math.abs(ball.x - px) < pw * 0.5 + ball.r) {
         const hit = (ball.x - px) / (pw * 0.5)
         vx = hit * 320; vy = -Math.abs(vy) * 1.02
@@ -210,7 +211,7 @@ const games = {
       PF.sky(ctx, W, H, '#134e33', '#2d8659', '#74c69d')
       PF.blobs(ctx, W, H, '#40916c', 5)
       PF.dots(ctx, W, H, '#d8f3dc', 16, 0.8)
-      const py = H - 48
+      const py = padY()
       PF.block(ctx, px - pw * 0.5, py, pw, 14 * padSquash, '#eafff3', '#95d5b2', 8)
       PF.buddy(ctx, ball.x, ball.y, ball.r + 4, '#ffd60a', '#ffba08', {
         lookX: vx / 300, lookY: vy > 0 ? 0.6 : -0.6, squash: ballSquish, stretch: 1 / ballSquish, blush: true
@@ -497,9 +498,14 @@ const games = {
     }
     function spawn() {
       const prev = pieces[pieces.length - 1]
-      cur = { x: 40, w: prev.w, y: Math.max(80, prev.y - 34), moving: true }
       dir = Math.random() < 0.5 ? 1 : -1
-      if (dir < 0) cur.x = W - 40
+      const w = prev.w
+      cur = {
+        x: dir > 0 ? w * 0.5 : W - w * 0.5,
+        w,
+        y: Math.max(80, prev.y - 34),
+        moving: true,
+      }
     }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -526,7 +532,9 @@ const games = {
       if (wobble > 0) wobble = Math.max(0, wobble - dt * 3)
       if (!cur || !cur.moving) return
       cur.x += dir * speed * dt
-      if (cur.x < cur.w * 0.5 || cur.x > W - cur.w * 0.5) dir *= -1
+      const minX = cur.w * 0.5, maxX = W - cur.w * 0.5
+      if (cur.x < minX) { cur.x = minX; dir = 1 }
+      else if (cur.x > maxX) { cur.x = maxX; dir = -1 }
     }
     function draw() {
       PF.sky(ctx, W, H, '#3d1f14', '#7b2d26', '#e09f3e')
@@ -546,74 +554,6 @@ const games = {
       }
     }
     addEventListener('pointerdown', () => { if (!GS.paused) place() })
-    reset()
-`,
-  },
-
-  orbit: {
-    title: 'Orbit Jump',
-    bg: '#22223b',
-    body: `
-    let planets = [], idx = 0, ang = 0, flying = null
-    let landScale = 1
-    const PCOLORS = ['#f2a6b3', '#a6d8f2', '#c7f2a6', '#f2d9a6', '#c9a6f2']
-    function diePos() { return flying ? [flying.cx != null ? flying.cx : flying.x, flying.cy != null ? flying.cy : flying.y] : [W * 0.5, H * 0.5] }
-    function scorePos() { const p = planets[idx]; return p ? [p.x, p.y] : [W * 0.5, H * 0.5] }
-    function makePlanets() {
-      planets = []
-      let x = W * 0.35, y = H * 0.55
-      for (let i = 0; i < 8; i++) {
-        planets.push({ x, y, r: 28 + Math.random() * 10 })
-        x += 90 + Math.random() * 50
-        y = H * (0.35 + Math.random() * 0.35)
-      }
-    }
-    function reset() { makePlanets(); idx = 0; ang = 0; flying = null; landScale = 1; setScore(0) }
-    function onHostStart() { reset() }
-    function die() { reset() }
-    function jump() {
-      if (flying || GS.paused) return
-      const p = planets[idx], n = planets[idx + 1]
-      if (!n) { makePlanets(); idx = 0; bump(2); return }
-      flying = { x: p.x + Math.cos(ang) * (p.r + 10), y: p.y + Math.sin(ang) * (p.r + 10),
-        tx: n.x, ty: n.y, t: 0 }
-    }
-    function tick(dt) {
-      if (flying) {
-        flying.t += dt * 2.2
-        const t = Math.min(1, flying.t)
-        const x = flying.x + (flying.tx - flying.x) * t
-        const y = flying.y + (flying.ty - flying.y) * t - Math.sin(t * Math.PI) * 40
-        if (t >= 1) {
-          const n = planets[idx + 1]
-          const d = Math.hypot(x - n.x, y - n.y)
-          if (d < n.r + 14) { idx++; bump(); flying = null; ang = 0; landScale = 1.4 }
-          else die()
-        } else { flying.cx = x; flying.cy = y }
-        return
-      }
-      ang += dt * 2.4
-      landScale += (1 - landScale) * Math.min(1, dt * 8)
-    }
-    function draw() {
-      PF.sky(ctx, W, H, '#10102a', '#22223b', '#4a4e69')
-      PF.dots(ctx, W, H, '#ffffff', 26, 1.2)
-      PF.blobs(ctx, W, H, '#9a8c98', 4)
-      for (let i = 0; i < planets.length; i++) {
-        const p = planets[i]
-        const c = PCOLORS[i % PCOLORS.length]
-        PF.soft(ctx, p.x, p.y, p.r, i === idx ? '#ffffff' : c, i === idx ? c : '#4a4e69')
-      }
-      let dx, dy
-      if (flying) { dx = flying.cx != null ? flying.cx : flying.x; dy = flying.cy != null ? flying.cy : flying.y }
-      else {
-        const p = planets[idx]
-        dx = p.x + Math.cos(ang) * (p.r + 10)
-        dy = p.y + Math.sin(ang) * (p.r + 10)
-      }
-      PF.buddy(ctx, dx, dy, 10 * landScale, '#fff3b0', '#f2e9e4', { lookX: Math.cos(ang), lookY: Math.sin(ang), blush: true })
-    }
-    addEventListener('pointerdown', jump)
     reset()
 `,
   },
@@ -737,22 +677,56 @@ const games = {
     function reset() { bubbles = []; spawn = 0.1; setScore(0); lastPop = null }
     function onHostStart() { reset() }
     function die() { reset() }
+    function drawHeart(x, y, r) {
+      ctx.save()
+      ctx.translate(x, y)
+      const s = r / 16
+      ctx.scale(s, s)
+      ctx.beginPath()
+      ctx.moveTo(0, 6)
+      ctx.bezierCurveTo(0, 0, -12, -2, -12, -8)
+      ctx.bezierCurveTo(-12, -14, -4, -16, 0, -10)
+      ctx.bezierCurveTo(4, -16, 12, -14, 12, -8)
+      ctx.bezierCurveTo(12, -2, 0, 0, 0, 6)
+      ctx.closePath()
+      ctx.fillStyle = '#ff6b8a'
+      ctx.shadowColor = 'rgba(255,107,138,0.55)'
+      ctx.shadowBlur = 10
+      ctx.fill()
+      ctx.restore()
+    }
     function tick(dt) {
       spawn -= dt
       if (spawn <= 0) {
-        bubbles.push({ x: 40 + Math.random() * (W - 80), y: H + 20, r: 18 + Math.random() * 16, v: 70 + Math.random() * 50, hue: Math.random() })
+        bubbles.push({
+          x: 40 + Math.random() * (W - 80),
+          y: H + 20,
+          r: 18 + Math.random() * 16,
+          v: 70 + Math.random() * 50,
+          hue: Math.random(),
+          heart: Math.random() < 0.22,
+        })
         spawn = 0.45 + Math.random() * 0.35
       }
       for (const b of bubbles) b.y -= b.v * dt
-      for (const b of bubbles) if (b.y + b.r < 0) { lastPop = [b.x, 0]; die(); return }
+      for (let i = bubbles.length - 1; i >= 0; i--) {
+        const b = bubbles[i]
+        if (b.y + b.r < 0) {
+          if (b.heart) { bubbles.splice(i, 1); continue }
+          lastPop = [b.x, 0]; die(); return
+        }
+      }
     }
     function draw() {
       PF.sky(ctx, W, H, '#023e8a', '#0077b6', '#90e0ef')
       PF.dots(ctx, W, H, '#caf0f8', 18, 1)
       PF.blobs(ctx, W, H, '#48cae4', 5)
       for (const b of bubbles) {
-        const c = BCOLORS[Math.floor(b.hue * BCOLORS.length) % BCOLORS.length]
-        PF.buddy(ctx, b.x, b.y, b.r, c[0], c[1], { lookY: -0.4, blush: true })
+        if (b.heart) drawHeart(b.x, b.y, b.r)
+        else {
+          const c = BCOLORS[Math.floor(b.hue * BCOLORS.length) % BCOLORS.length]
+          PF.buddy(ctx, b.x, b.y, b.r, c[0], c[1], { lookY: -0.4, blush: true })
+        }
       }
     }
     addEventListener('pointerdown', e => {
@@ -761,78 +735,14 @@ const games = {
         const b = bubbles[i]
         if (Math.hypot(e.clientX - b.x, e.clientY - b.y) < b.r + 8) {
           lastPop = [b.x, b.y]
-          bubbles.splice(i, 1); bump(); return
+          bubbles.splice(i, 1)
+          if (b.heart) {
+            setScore(Math.floor(score / 2))
+            if (window.Juice) Juice.onDie(b.x, b.y)
+          } else bump()
+          return
         }
       }
-    })
-    reset()
-`,
-  },
-
-  helix: {
-    title: 'Helix Drop',
-    bg: '#6a4c93',
-    body: `
-    let rot = 0, ballY, ballV, segs = [], dangerous
-    function rebuild() {
-      segs = []
-      for (let i = 0; i < 18; i++) {
-        const gap = Math.random() * Math.PI * 0.6
-        segs.push({ y: 120 + i * 48, gap, bad: Math.random() < 0.35 })
-      }
-    }
-    function reset() { rot = 0; ballY = 80; ballV = 0; rebuild(); setScore(0) }
-    function onHostStart() { reset() }
-    function die() { reset() }
-    function tick(dt) {
-      ballV += 180 * dt; ballY += ballV * dt
-      const cx = W * 0.5
-      for (const s of segs) {
-        if (Math.abs(ballY - s.y) < 10) {
-          let a = (rot + Math.atan2(0, 1) + Math.PI * 2) % (Math.PI * 2)
-          // ball is at center x, angle of contact uses fixed side — simplify: ball falls in center column
-          const ballAng = (rot) % (Math.PI * 2)
-          const inGap = ((ballAng - s.gap + Math.PI * 2) % (Math.PI * 2)) < 1.1
-          if (!inGap) {
-            if (s.bad) die()
-            else { ballV = -220; ballY = s.y - 12; bump() }
-          }
-        }
-      }
-      if (ballY > H - 40) { ballY = 80; ballV = 0; rebuild(); bump(2) }
-    }
-    function diePos() { return [W * 0.5, ballY] }
-    function scorePos() { return [W * 0.5, ballY] }
-    function draw() {
-      PF.sky(ctx, W, H, '#38215e', '#6a4c93', '#a084ca')
-      PF.dots(ctx, W, H, '#ffffff', 22, 1)
-      PF.blobs(ctx, W, H, '#c9a8ff', 5)
-      const cx = W * 0.5, R = Math.min(W * 0.38, 140)
-      for (const s of segs) {
-        ctx.save()
-        ctx.strokeStyle = s.bad ? '#ef476f' : '#ffd166'
-        ctx.lineWidth = 12
-        ctx.lineCap = 'round'
-        ctx.shadowColor = s.bad ? 'rgba(239,71,111,0.55)' : 'rgba(255,209,102,0.55)'
-        ctx.shadowBlur = 10
-        ctx.beginPath()
-        ctx.arc(cx, s.y, R, rot + s.gap + 1.1, rot + s.gap + Math.PI * 2)
-        ctx.stroke()
-        ctx.restore()
-      }
-      const sq = 1 + Math.max(-0.22, Math.min(0.22, ballV * 0.0007))
-      PF.buddy(ctx, cx, ballY, 13, '#ffffff', '#ffe6a7', {
-        squash: 1 / Math.max(0.7, sq), stretch: sq,
-        lookY: Math.max(-1, Math.min(1, ballV * 0.01)), blush: true,
-      })
-    }
-    let dragging = false, lastX = 0
-    addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX })
-    addEventListener('pointerup', () => { dragging = false })
-    addEventListener('pointermove', e => {
-      if (!dragging || GS.paused) return
-      rot += (e.clientX - lastX) * 0.02
-      lastX = e.clientX
     })
     reset()
 `,
@@ -993,9 +903,10 @@ Object.assign(games, {
     bg: '#2a9d8f',
     body: `
     let x, y, v, plats = [], cam = 0
+    const JUMP = -540
     function reset() {
-      x = W * 0.5; y = H * 0.7; v = -420; cam = 0; plats = []
-      for (let i = 0; i < 10; i++) plats.push({ x: 40 + Math.random() * (W - 120), y: H - i * 90, w: 70 })
+      x = W * 0.5; y = H * 0.7; v = JUMP; cam = 0; plats = []
+      for (let i = 0; i < 10; i++) plats.push({ x: 40 + Math.random() * (W - 120), y: H - i * 75, w: 70 })
       setScore(0)
     }
     function onHostStart() { reset() }
@@ -1006,13 +917,13 @@ Object.assign(games, {
       if (y < cam + H * 0.35) cam = y - H * 0.35
       for (const p of plats) {
         if (v > 0 && y < p.y && y + v * dt >= p.y && x > p.x && x < p.x + p.w) {
-          v = -420; bump()
+          v = JUMP; bump()
         }
       }
       plats = plats.filter(p => p.y > cam - 40)
       while (plats.length < 10) {
         const top = Math.min(...plats.map(p => p.y))
-        plats.push({ x: 30 + Math.random() * (W - 110), y: top - 80 - Math.random() * 40, w: 60 + Math.random() * 30 })
+        plats.push({ x: 30 + Math.random() * (W - 110), y: top - 60 - Math.random() * 35, w: 60 + Math.random() * 30 })
       }
     }
     function diePos() { return [x, y - cam] }
@@ -1085,57 +996,6 @@ Object.assign(games, {
     }
     addEventListener('pointermove', e => { if (!GS.paused) x = e.clientX / W })
     addEventListener('pointerdown', e => { if (!GS.paused) x = e.clientX / W })
-    reset()
-`,
-  },
-
-  shield: {
-    title: 'Shield the Core',
-    bg: '#4a4e69',
-    body: `
-    let ang = 0, shots = [], spawn = 0
-    function reset() { ang = 0; shots = []; spawn = 0.4; setScore(0) }
-    function onHostStart() { reset() }
-    function die() { reset() }
-    function tick(dt) {
-      spawn -= dt
-      if (spawn <= 0) {
-        shots.push({ a: Math.random() * Math.PI * 2, r: Math.max(W, H) * 0.6, v: 140 + score * 2 })
-        spawn = 0.55 + Math.random() * 0.35
-      }
-      const cx = W * 0.5, cy = H * 0.5
-      for (const s of shots) s.r -= s.v * dt
-      shots = shots.filter(s => {
-        if (s.r < 28) {
-          const da = Math.abs(Math.atan2(Math.sin(s.a - ang), Math.cos(s.a - ang)))
-          if (da < 0.55) { bump(); return false }
-          die(); return false
-        }
-        return true
-      })
-    }
-    function diePos() { return [W * 0.5, H * 0.5] }
-    function scorePos() { return [W * 0.5, H * 0.5] }
-    function draw() {
-      PF.sky(ctx, W, H, '#1c1e3a', '#4a4e69', '#6b7099')
-      PF.dots(ctx, W, H, '#ffffff', 26, 1.4)
-      const cx = W * 0.5, cy = H * 0.5
-      PF.buddy(ctx, cx, cy, 24, '#c9c3d9', '#9a8c98', { blush: true })
-      ctx.save()
-      ctx.strokeStyle = '#f2e9e4'
-      ctx.lineWidth = 9
-      ctx.shadowColor = 'rgba(242,233,228,0.6)'
-      ctx.shadowBlur = 10
-      ctx.beginPath(); ctx.arc(cx, cy, 42, ang - 0.5, ang + 0.5); ctx.stroke()
-      ctx.restore()
-      for (const s of shots) {
-        PF.soft(ctx, cx + Math.cos(s.a) * s.r, cy + Math.sin(s.a) * s.r, 9, '#ff8fa3', '#ef476f')
-      }
-    }
-    addEventListener('pointermove', e => {
-      if (GS.paused) return
-      ang = Math.atan2(e.clientY - H * 0.5, e.clientX - W * 0.5)
-    })
     reset()
 `,
   },
@@ -1245,13 +1105,19 @@ Object.assign(games, {
     bg: '#6c584c',
     body: `
     let row = 0, lanes = [], player = { c: 2, r: 0 }, cols = 5
+    function spawnDelay() {
+      const t = Math.min(1, score / 40)
+      const lo = 16 - t * 14.4
+      const hi = 32 - t * 28.8
+      return lo + Math.random() * (hi - lo)
+    }
     function reset() {
+      setScore(0)
       lanes = []; player = { c: 2, r: 0 }
       for (let i = 0; i < 12; i++) {
         const kind = i === 0 ? 'safe' : (['road', 'river', 'rail'][i % 3])
-        lanes.push({ kind, cars: [], t: Math.random() })
+        lanes.push({ kind, cars: [], t: spawnDelay() })
       }
-      setScore(0)
     }
     function onHostStart() { reset() }
     function die() { reset() }
@@ -1262,7 +1128,7 @@ Object.assign(games, {
         if (L.t <= 0) {
           L.cars.push({ c: Math.random() < 0.5 ? -1 : cols, dir: Math.random() < 0.5 ? 1 : -1, x: Math.random() < 0.5 ? -1 : cols })
           L.cars[L.cars.length - 1].x = L.cars[L.cars.length - 1].dir > 0 ? -1 : cols
-          L.t = 1.6 + Math.random() * 1.6
+          L.t = spawnDelay()
         }
         for (const c of L.cars) c.x += c.dir * (2 + score * 0.05) * dt
         L.cars = L.cars.filter(c => c.x > -2 && c.x < cols + 2)
@@ -1297,7 +1163,7 @@ Object.assign(games, {
       player.r++
       bump()
       if (player.r >= lanes.length - 2) {
-        lanes.push({ kind: ['road', 'river', 'rail'][Math.floor(Math.random() * 3)], cars: [], t: 0.5 })
+        lanes.push({ kind: ['road', 'river', 'rail'][Math.floor(Math.random() * 3)], cars: [], t: spawnDelay() })
         lanes.shift(); player.r--
       }
     })
@@ -1966,53 +1832,19 @@ Object.assign(games, {
 `,
   },
 
-  light: {
-    title: 'Light Chaser',
-    bg: '#f4a261',
-    body: `
-    let px, py, target, dark = 0.35, spawnAt = 0
-    function diePos() { return [px, py] }
-    function scorePos() { return [target.x, target.y] }
-    function place() {
-      target = { x: 60 + Math.random() * (W - 120), y: 80 + Math.random() * (H - 160) }
-    }
-    function reset() { px = W * 0.5; py = H * 0.5; dark = 0.35; place(); setScore(0) }
-    function onHostStart() { reset() }
-    function die() { reset() }
-    function tick(dt) {
-      dark += dt * 0.015
-      const limit = Math.min(W, H) * (0.55 - Math.min(0.35, dark * 0.4))
-      if (Math.hypot(px - W * 0.5, py - H * 0.5) > limit) die()
-      if (Math.hypot(px - target.x, py - target.y) < 22) { bump(); place(); dark = Math.max(0.2, dark - 0.05) }
-    }
-    function draw() {
-      PF.sky(ctx, W, H, '#1b1030', '#264653', '#2a9d8f')
-      PF.dots(ctx, W, H, '#ffffff', 30, 0.3)
-      const limit = Math.min(W, H) * (0.55 - Math.min(0.35, dark * 0.4))
-      ctx.fillStyle = '#05070d'
-      ctx.beginPath(); ctx.rect(0, 0, W, H)
-      ctx.arc(W * 0.5, H * 0.5, limit, 0, Math.PI * 2, true); ctx.fill('evenodd')
-      PF.soft(ctx, target.x, target.y, 18, '#ffe066', '#e9c46a')
-      PF.buddy(ctx, px, py, 13, '#ffd6a5', '#f4a261')
-    }
-    addEventListener('pointermove', e => { if (!GS.paused) { px = e.clientX; py = e.clientY } })
-    addEventListener('pointerdown', e => { if (!GS.paused) { px = e.clientX; py = e.clientY } })
-    reset()
-`,
-  },
-
   breakout: {
     title: 'Mini Breakout',
     bg: '#e9c46a',
     body: `
     let px, pw, ball, bricks = []
+    const padY = () => H - 110
     function buildBricks() {
       bricks = []
       for (let r = 0; r < 5; r++) for (let c = 0; c < 8; c++) {
         bricks.push({ x: 20 + c * ((W - 40) / 8), y: 80 + r * 28, w: (W - 40) / 8 - 6, h: 18, alive: true })
       }
     }
-    function diePos() { return [px, H - 44] }
+    function diePos() { return [px, padY() + 6] }
     function scorePos() { return [ball.x, ball.y] }
     function reset() {
       pw = Math.min(120, W * 0.28); px = W * 0.5
@@ -2025,7 +1857,7 @@ Object.assign(games, {
       ball.x += ball.vx * dt; ball.y += ball.vy * dt
       if (ball.x < ball.r || ball.x > W - ball.r) ball.vx *= -1
       if (ball.y < ball.r) ball.vy = Math.abs(ball.vy)
-      const py = H - 50
+      const py = padY()
       if (ball.y + ball.r > py && Math.abs(ball.x - px) < pw * 0.5 + ball.r && ball.vy > 0) {
         ball.vy = -Math.abs(ball.vy); ball.vx = (ball.x - px) * 6
       }
@@ -2044,7 +1876,7 @@ Object.assign(games, {
       for (const b of bricks) if (b.alive) {
         PF.block(ctx, b.x, b.y, b.w, b.h, '#ff9770', '#e76f51', 5)
       }
-      PF.block(ctx, px - pw * 0.5, H - 50, pw, 12, '#ffe8a1', '#e9c46a', 6)
+      PF.block(ctx, px - pw * 0.5, padY(), pw, 12, '#ffe8a1', '#e9c46a', 6)
       PF.soft(ctx, ball.x, ball.y, ball.r + 3, 'rgba(255,255,255,0.9)', 'rgba(255,255,255,0.15)')
       ctx.fillStyle = '#fff'
       ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill()
@@ -2056,7 +1888,7 @@ Object.assign(games, {
   },
 })
 
-const obsolete = ['aim.html', 'dodge.html', 'flap.html', 'react.html']
+const obsolete = ['aim.html', 'dodge.html', 'flap.html', 'react.html', 'orbit.html', 'light.html', 'helix.html', 'shield.html']
 for (const f of obsolete) {
   const p = join(OUT, f)
   if (existsSync(p)) unlinkSync(p)
