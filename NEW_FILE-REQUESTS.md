@@ -1,5 +1,20 @@
 # New file requests
 
+## 2026-07-23 — Client deploy update detection + reload
+
+### Requested files
+- `src/updateCheck.ts` — poll `/version.json`, compare to injected `__BUILD_ID__`, reload when a new deploy is live
+- Updates: `vite.config.ts` (emit `version.json` + define `__BUILD_ID__` at build), `src/vite-env.d.ts`, `src/App.tsx` (watch updates; defer reload while a game is playing)
+
+### Duplicate search
+- Grep `version.json|__BUILD_ID__|updateCheck|location\.reload|serviceWorker|workbox|vite-plugin-pwa` under `/Users/dasali/gamescroll` → **none** (no update channel)
+- Glob `src/**/*update*` / `**/version*` → **none**
+- `src/metrics.ts` tracks visits only; Capacitor embeds static `dist` (no OTA); no PWA service worker
+- NEW_FILE-REQUESTS earlier note: no manifest/service-worker setup
+
+### Rationale
+Homescreen / standalone WebKit can keep a stale shell; a tiny uncached build-id file lets the client notice deploys and hard-reload once the user is not mid-game.
+
 ## 2026-07-23 — Share favorite game with deep link
 
 ### Requested files

@@ -9,6 +9,7 @@ import {
 import { loadHighscores, recordHighscore } from './highscores'
 import { trackVisit } from './metrics'
 import { readSharedGameId } from './share'
+import { reloadApp, watchForDeployUpdate } from './updateCheck'
 
 const PREFETCH_WITHIN = 3
 const SWIPE_MIN_DY = 64
@@ -44,6 +45,23 @@ export default function App() {
   )
   const [activeIndex, setActiveIndex] = useState(0)
   const [highscores, setHighscores] = useState(loadHighscores)
+  const playingRef = useRef(playingKey)
+  const reloadWhenIdleRef = useRef(false)
+  playingRef.current = playingKey
+
+  useEffect(() => {
+    return watchForDeployUpdate(() => {
+      if (playingRef.current) {
+        reloadWhenIdleRef.current = true
+        return
+      }
+      reloadApp()
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!playingKey && reloadWhenIdleRef.current) reloadApp()
+  }, [playingKey])
 
   const dismissNudge = useCallback(() => setNudgeVisible(false), [])
 
