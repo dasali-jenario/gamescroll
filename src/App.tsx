@@ -7,7 +7,7 @@ import {
   SwipeCoach,
 } from './components/SwipeCoach'
 import { loadHighscores, recordHighscore } from './highscores'
-import { createSessionMetrics, trackVisit } from './metrics'
+import { trackVisit } from './metrics'
 import { readSharedGameId } from './share'
 
 const PREFETCH_WITHIN = 3
@@ -28,7 +28,9 @@ export default function App() {
   const roundRef = useRef(1)
   const appendingRef = useRef(false)
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
-  const session = useMemo(() => createSessionMetrics(trackVisit()), [])
+  useEffect(() => {
+    trackVisit()
+  }, [])
   const boot = useMemo(() => createInitialSession(), [])
 
   const [feed, setFeed] = useState<FeedItem[]>(() => boot.feed)
@@ -41,7 +43,6 @@ export default function App() {
     () => !boot.sharedId && !hasSeenSwipeCoach(),
   )
   const [activeIndex, setActiveIndex] = useState(0)
-  const [gamesPlayed, setGamesPlayed] = useState(0)
   const [highscores, setHighscores] = useState(loadHighscores)
 
   const dismissNudge = useCallback(() => setNudgeVisible(false), [])
@@ -110,14 +111,6 @@ export default function App() {
       else goToPrevGame()
     },
     [goToNextGame, goToPrevGame],
-  )
-
-  const onPlaying = useCallback(
-    (key: string) => {
-      const snap = session.recordGamePlayed(key)
-      setGamesPlayed(snap.gamesPlayed)
-    },
-    [session],
   )
 
   const onScore = useCallback((gameId: string, score: number) => {
@@ -245,7 +238,6 @@ export default function App() {
           )}
         </div>
         <div className="stats" aria-label="Session stats">
-          <span>{gamesPlayed} played</span>
           <span className="mode">{playingKey ? 'Playing' : 'Browse'}</span>
           {playingKey && (
             <button type="button" className="pause-btn" onClick={pausePlay}>
@@ -263,13 +255,11 @@ export default function App() {
         {feed.map((item, index) => (
           <GameCard
             key={item.key}
-            feedKey={item.key}
             game={item.game}
             isActive={Math.abs(index - activeIndex) <= 1}
             isPlaying={playingKey === item.key}
             liked={!!liked[item.game.id]}
             onPlay={() => enterPlay(item.key)}
-            onPlaying={onPlaying}
             onScore={onScore}
             onSwipe={onGameSwipe}
             onLike={() => {

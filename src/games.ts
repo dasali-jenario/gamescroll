@@ -34,7 +34,6 @@ export const games: Game[] = [
   { id: 'shapes', title: 'Shape Squeeze', tip: 'Tap to match the next hole', src: '/games/shapes.html', accent: '#d62828' },
   { id: 'rain', title: 'Rain Dodger', tip: 'Drag sideways under the rain', src: '/games/rain.html', accent: '#415a77' },
   { id: 'magnet', title: 'Magnet Flip', tip: 'Tap to reverse polarity', src: '/games/magnet.html', accent: '#9d4edd' },
-  { id: 'comet', title: 'Comet Tail', tip: 'Steer clear of your own trail', src: '/games/comet.html', accent: '#3a0ca3' },
   { id: 'light', title: 'Light Chaser', tip: 'Chase the glow before darkness', src: '/games/light.html', accent: '#f4a261' },
   { id: 'breakout', title: 'Mini Breakout', tip: 'Bounce through endless bricks', src: '/games/breakout.html', accent: '#e9c46a' },
 ]

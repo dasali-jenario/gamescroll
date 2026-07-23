@@ -1954,45 +1954,6 @@ Object.assign(games, {
 `,
   },
 
-  comet: {
-    title: 'Comet Tail',
-    bg: '#3a0ca3',
-    body: `
-    let x, y, trail = [], t = 0
-    function diePos() { return [x, y] }
-    function scorePos() { return [x, y] }
-    function reset() { x = W * 0.5; y = H * 0.5; trail = []; t = 0; setScore(0) }
-    function onHostStart() { reset() }
-    function die() { reset() }
-    function tick(dt) {
-      t += dt
-      trail.unshift({ x, y })
-      const max = Math.min(80, 25 + score)
-      if (trail.length > max) trail.pop()
-      for (let i = 12; i < trail.length; i++) {
-        if (Math.hypot(trail[i].x - x, trail[i].y - y) < 10) { die(); return }
-      }
-      if (x < 10 || y < 10 || x > W - 10 || y > H - 10) die()
-      scoreAcc = (scoreAcc || 0) + dt
-      if (scoreAcc > 0.4) { scoreAcc = 0; bump() }
-    }
-    function draw() {
-      PF.sky(ctx, W, H, '#10002b', '#240046', '#3a0ca3')
-      PF.dots(ctx, W, H, '#4cc9f0', 20, 0.7)
-      for (let i = trail.length - 1; i >= 0; i--) {
-        const p = trail[i], a = 1 - i / trail.length
-        ctx.fillStyle = 'rgba(76,201,240,' + (a * 0.8) + ')'
-        ctx.beginPath(); ctx.arc(p.x, p.y, 4 + a * 4, 0, Math.PI * 2); ctx.fill()
-      }
-      PF.buddy(ctx, x, y, 13, '#ff8fa3', '#f72585')
-    }
-    addEventListener('pointermove', e => { if (!GS.paused) { x = e.clientX; y = e.clientY } })
-    addEventListener('pointerdown', e => { if (!GS.paused) { x = e.clientX; y = e.clientY } })
-    let scoreAcc = 0
-    reset()
-`,
-  },
-
   light: {
     title: 'Light Chaser',
     bg: '#f4a261',

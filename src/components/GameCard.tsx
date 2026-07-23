@@ -4,13 +4,11 @@ import { shareGame } from '../share'
 
 type Props = {
   game: Game
-  feedKey: string
   isActive: boolean
   isPlaying: boolean
   liked: boolean
   onPlay: () => void
   onLike: () => void
-  onPlaying: (feedKey: string) => void
   onScore: (gameId: string, score: number) => void
   onSwipe: (direction: 'next' | 'prev') => void
 }
@@ -24,13 +22,11 @@ function postToFrame(
 
 export function GameCard({
   game,
-  feedKey,
   isActive,
   isPlaying,
   liked,
   onPlay,
   onLike,
-  onPlaying,
   onScore,
   onSwipe,
 }: Props) {
@@ -48,9 +44,6 @@ export function GameCard({
         readyRef.current = true
         if (isPlaying) postToFrame(frameRef.current, 'gamescroll:start')
       }
-      if (type === 'gamescroll:playing' && isPlaying) {
-        onPlaying(feedKey)
-      }
       if (type === 'gamescroll:score' && isPlaying) {
         const score = Number(event.data?.score)
         if (Number.isFinite(score) && score > 0) onScore(game.id, score)
@@ -64,7 +57,7 @@ export function GameCard({
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [feedKey, game.id, isPlaying, onPlaying, onScore, onSwipe])
+  }, [game.id, isPlaying, onScore, onSwipe])
 
   useEffect(() => {
     if (!shouldLoad) {

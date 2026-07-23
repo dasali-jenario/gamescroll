@@ -5,7 +5,6 @@ const LAST_SEEN_KEY = 'gs_last_seen'
 export type MetricsSnapshot = {
   uid: string
   visits: number
-  gamesPlayed: number
   isReturning: boolean
 }
 
@@ -38,24 +37,5 @@ export function trackVisit(): MetricsSnapshot {
     localStorage.setItem(LAST_SEEN_KEY, today)
   }
 
-  return { uid, visits, gamesPlayed: 0, isReturning }
-}
-
-export function createSessionMetrics(initial: MetricsSnapshot) {
-  let gamesPlayed = 0
-  const counted = new Set<string>()
-
-  return {
-    snapshot(): MetricsSnapshot {
-      return { ...initial, gamesPlayed, isReturning: initial.isReturning }
-    },
-    /** Count at most once per feed item key per session. */
-    recordGamePlayed(playKey: string): MetricsSnapshot {
-      if (!counted.has(playKey)) {
-        counted.add(playKey)
-        gamesPlayed += 1
-      }
-      return this.snapshot()
-    },
-  }
+  return { uid, visits, isReturning }
 }
