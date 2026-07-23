@@ -1,5 +1,21 @@
 # New file requests
 
+## 2026-07-23 — Share favorite game with deep link
+
+### Requested files
+- `src/share.ts` — build `?g=<id>` share URLs; Web Share API + clipboard fallback
+- Updates: `src/games.ts` (`buildFeedBatch` can pin a game first; `getGameById`), `src/App.tsx` (consume deep link once for initial feed), `src/components/GameCard.tsx` (share control), `src/index.css`
+
+### Duplicate search
+- Grep `share|navigator\.share|URLSearchParams|searchParams|\?g=` under `/Users/dasali/gamescroll/src` → **none**
+- No router / deep-link handling in `App.tsx`; feed always starts from shuffled `buildFeedBatch(0)`
+- Glob `src/**/*share*` → **none**
+- Pitch mock has no share affordance; Capacitor deps have no Share plugin installed
+- Existing rail only has like — no outbound link/share control
+
+### Rationale
+Share needs a stable absolute URL keyed by catalog `game.id` so recipients land on that game first; host-owned helper keeps Web Share / clipboard out of iframe games and out of `GameCard` markup.
+
 ## 2026-07-22 — First-visit swipe coach overlay
 
 ### Requested files

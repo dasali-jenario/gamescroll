@@ -44,12 +44,28 @@ export type FeedItem = {
   game: Game
 }
 
+export function getGameById(id: string): Game | undefined {
+  return games.find((game) => game.id === id)
+}
+
 /** Build a shuffled batch of catalog games for the infinite feed. */
-export function buildFeedBatch(round: number): FeedItem[] {
+export function buildFeedBatch(
+  round: number,
+  preferId?: string | null,
+): FeedItem[] {
   const shuffled = [...games]
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
+
+  if (preferId && round === 0) {
+    const idx = shuffled.findIndex((game) => game.id === preferId)
+    if (idx > 0) {
+      const [picked] = shuffled.splice(idx, 1)
+      shuffled.unshift(picked)
+    }
+  }
+
   return shuffled.map((game, i) => ({ key: `${game.id}-${round}-${i}`, game }))
 }

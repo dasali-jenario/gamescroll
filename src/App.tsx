@@ -8,9 +8,20 @@ import {
 } from './components/SwipeCoach'
 import { loadHighscores, recordHighscore } from './highscores'
 import { createSessionMetrics, trackVisit } from './metrics'
+import { readSharedGameId } from './share'
 
 const PREFETCH_WITHIN = 3
 const SWIPE_MIN_DY = 64
+
+function createInitialSession() {
+  const sharedId = readSharedGameId()
+  const feed = buildFeedBatch(0, sharedId)
+  return {
+    sharedId,
+    feed,
+    playingKey: feed[0]?.key ?? null,
+  }
+}
 
 export default function App() {
   const feedRef = useRef<HTMLDivElement>(null)
@@ -18,14 +29,17 @@ export default function App() {
   const appendingRef = useRef(false)
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
   const session = useMemo(() => createSessionMetrics(trackVisit()), [])
+  const boot = useMemo(() => createInitialSession(), [])
 
-  const [feed, setFeed] = useState<FeedItem[]>(() => buildFeedBatch(0))
+  const [feed, setFeed] = useState<FeedItem[]>(() => boot.feed)
   const [playingKey, setPlayingKey] = useState<string | null>(
-    () => buildFeedBatch(0)[0]?.key ?? null,
+    () => boot.playingKey,
   )
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [nudgeVisible, setNudgeVisible] = useState(false)
-  const [coachVisible, setCoachVisible] = useState(() => !hasSeenSwipeCoach())
+  const [coachVisible, setCoachVisible] = useState(
+    () => !boot.sharedId && !hasSeenSwipeCoach(),
+  )
   const [activeIndex, setActiveIndex] = useState(0)
   const [gamesPlayed, setGamesPlayed] = useState(0)
   const [highscores, setHighscores] = useState(loadHighscores)

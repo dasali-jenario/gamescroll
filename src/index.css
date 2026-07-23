@@ -189,11 +189,14 @@ body {
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
 }
 
-.card.is-playing .meta,
-.card.is-playing .rail {
+.card.is-playing .meta {
   opacity: 0;
   transform: translateY(8px);
   pointer-events: none;
+}
+
+.card.is-playing .rail {
+  right: 3.35rem;
 }
 
 .meta h2 {
@@ -215,10 +218,15 @@ body {
   right: 0.75rem;
   bottom: calc(5.25rem + env(safe-area-inset-bottom));
   z-index: 25;
-  transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  transition: right 0.3s var(--ease);
 }
 
-.like-btn {
+.like-btn,
+.share-btn {
   width: 48px;
   height: 48px;
   border: none;
@@ -226,6 +234,7 @@ body {
   color: #fff;
   cursor: pointer;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+  padding: 0;
 }
 
 .like-btn svg {
@@ -235,6 +244,42 @@ body {
   stroke: currentColor;
   stroke-width: 2;
   transition: transform 0.35s var(--ease);
+}
+
+.share-btn svg {
+  width: 28px;
+  height: 28px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.share-btn:active svg,
+.like-btn:active svg {
+  transform: scale(0.92);
+}
+
+.share-note {
+  position: absolute;
+  right: calc(100% + 0.55rem);
+  bottom: 0.35rem;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: rgba(243, 238, 228, 0.96);
+  padding: 0.35rem 0.55rem;
+  pointer-events: none;
+  animation: share-note-in 0.3s var(--ease) both;
+}
+
+@keyframes share-note-in {
+  from { opacity: 0; transform: translateX(6px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .like-btn.liked svg {
