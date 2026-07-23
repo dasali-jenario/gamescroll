@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import type { FailMode } from '../experiments'
+import { failModeForBridge } from '../experiments'
 import type { Game } from '../games'
 import { shareGame } from '../share'
 
@@ -6,34 +8,51 @@ type Props = {
   game: Game
   isActive: boolean
   isPlaying: boolean
+  /** When false (e.g. game-over overlay), iframe ignores pointer input. */
+  controlsEnabled: boolean
   liked: boolean
+  failMode: FailMode
+  /** Bumps to re-send start while still playing (play-again after game over). */
+  restartKey: number
   onPlay: () => void
   onLike: () => void
   onScore: (gameId: string, score: number) => void
+  onDied: (gameId: string, score: number) => void
   onSwipe: (direction: 'next' | 'prev') => void
 }
 
 function postToFrame(
   frame: HTMLIFrameElement | null,
   type: 'gamescroll:start' | 'gamescroll:pause',
+  failMode?: FailMode,
 ) {
-  frame?.contentWindow?.postMessage({ type }, '*')
+  const payload: { type: string; onFail?: string } = { type }
+  if (type === 'gamescroll:start' && failMode) {
+    payload.onFail = failModeForBridge(failMode)
+  }
+  frame?.contentWindow?.postMessage(payload, '*')
 }
 
 export function GameCard({
   game,
   isActive,
   isPlaying,
+  controlsEnabled,
   liked,
+  failMode,
+  restartKey,
   onPlay,
   onLike,
   onScore,
+  onDied,
   onSwipe,
 }: Props) {
   const frameRef = useRef<HTMLIFrameElement>(null)
   const readyRef = useRef(false)
   const [shareNote, setShareNote] = useState<string | null>(null)
   const shouldLoad = isActive || isPlaying
+  const failModeRef = useRef(failMode)
+  failModeRef.current = failMode
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -42,11 +61,17 @@ export function GameCard({
 
       if (type === 'gamescroll:ready') {
         readyRef.current = true
-        if (isPlaying) postToFrame(frameRef.current, 'gamescroll:start')
+        if (isPlaying) {
+          postToFrame(frameRef.current, 'gamescroll:start', failModeRef.current)
+        }
       }
       if (type === 'gamescroll:score' && isPlaying) {
         const score = Number(event.data?.score)
         if (Number.isFinite(score) && score > 0) onScore(game.id, score)
+      }
+      if (type === 'gamescroll:died' && isPlaying) {
+        const score = Number(event.data?.score)
+        onDied(game.id, Number.isFinite(score) ? score : 0)
       }
       if (type === 'gamescroll:swipe-next' && isPlaying) {
         onSwipe('next')
@@ -57,7 +82,7 @@ export function GameCard({
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [game.id, isPlaying, onScore, onSwipe])
+  }, [game.id, isPlaying, onScore, onDied, onSwipe])
 
   useEffect(() => {
     if (!shouldLoad) {
@@ -65,12 +90,17 @@ export function GameCard({
       return
     }
     if (isPlaying && readyRef.current) {
-      postToFrame(frameRef.current, 'gamescroll:start')
+      postToFrame(frameRef.current, 'gamescroll:start', failMode)
     }
     if (!isPlaying && readyRef.current) {
       postToFrame(frameRef.current, 'gamescroll:pause')
     }
-  }, [isPlaying, shouldLoad])
+  }, [isPlaying, shouldLoad, failMode])
+
+  useEffect(() => {
+    if (!isPlaying || !readyRef.current || restartKey === 0) return
+    postToFrame(frameRef.current, 'gamescroll:start', failModeRef.current)
+  }, [restartKey, isPlaying])
 
   useEffect(() => {
     if (!shareNote) return
@@ -91,7 +121,9 @@ export function GameCard({
             src={game.src}
             className="game-frame"
             sandbox="allow-scripts"
-            style={{ pointerEvents: isPlaying ? 'auto' : 'none' }}
+            style={{
+              pointerEvents: isPlaying && controlsEnabled ? 'auto' : 'none',
+            }}
           />
         ) : (
           <div className="stage-placeholder" />

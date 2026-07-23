@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { buildFeedBatch, type FeedItem } from './games'
 import { GameCard } from './components/GameCard'
+import { GameOverOverlay } from './components/GameOverOverlay'
 import {
   hasSeenSwipeCoach,
   markSwipeCoachSeen,
   SwipeCoach,
 } from './components/SwipeCoach'
+import {
+  failModeLabel,
+  nextFailMode,
+  persistFailMode,
+  resolveFailMode,
+  type FailMode,
+} from './experiments'
+import { buildFeedBatch, type FeedItem } from './games'
 import { loadHighscores, recordHighscore } from './highscores'
 import { trackVisit } from './metrics'
 import { readSharedGameId } from './share'
@@ -13,6 +21,8 @@ import { reloadApp, watchForDeployUpdate } from './updateCheck'
 
 const PREFETCH_WITHIN = 3
 const SWIPE_MIN_DY = 64
+
+type GameOverState = { gameId: string; score: number }
 
 function createInitialSession() {
   const sharedId = readSharedGameId()
@@ -45,6 +55,9 @@ export default function App() {
   )
   const [activeIndex, setActiveIndex] = useState(0)
   const [highscores, setHighscores] = useState(loadHighscores)
+  const [failMode, setFailMode] = useState<FailMode>(() => resolveFailMode())
+  const [gameOver, setGameOver] = useState<GameOverState | null>(null)
+  const [restartKey, setRestartKey] = useState(0)
   const playingRef = useRef(playingKey)
   const reloadWhenIdleRef = useRef(false)
   playingRef.current = playingKey
@@ -93,22 +106,26 @@ export default function App() {
   )
 
   const enterPlay = useCallback((key: string) => {
+    setGameOver(null)
     setPlayingKey(key)
     setNudgeVisible(false)
   }, [])
 
   const pausePlay = useCallback(() => {
+    setGameOver(null)
     setPlayingKey(null)
     setNudgeVisible(true)
   }, [])
 
   const goToNextGame = useCallback(() => {
+    setGameOver(null)
     setPlayingKey(null)
     setNudgeVisible(false)
     scrollToIndex(activeIndex + 1)
   }, [activeIndex, scrollToIndex])
 
   const goToPrevGame = useCallback(() => {
+    setGameOver(null)
     setPlayingKey(null)
     setNudgeVisible(false)
     scrollToIndex(activeIndex - 1)
@@ -136,6 +153,34 @@ export default function App() {
     setHighscores((prev) =>
       prev[gameId] === best ? prev : { ...prev, [gameId]: best },
     )
+  }, [])
+
+  const onDied = useCallback(
+    (gameId: string, score: number) => {
+      if (failMode !== 'game-over') return
+      if (score > 0) {
+        const best = recordHighscore(gameId, score)
+        setHighscores((prev) =>
+          prev[gameId] === best ? prev : { ...prev, [gameId]: best },
+        )
+      }
+      setGameOver({ gameId, score })
+    },
+    [failMode],
+  )
+
+  const playAgain = useCallback(() => {
+    setGameOver(null)
+    setRestartKey((n) => n + 1)
+  }, [])
+
+  const toggleFailMode = useCallback(() => {
+    setFailMode((prev) => {
+      const next = nextFailMode(prev)
+      persistFailMode(next)
+      return next
+    })
+    setGameOver(null)
   }, [])
 
   const endSwipe = useCallback(
@@ -200,6 +245,18 @@ export default function App() {
         }
         return
       }
+      if (gameOver) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          playAgain()
+          return
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          goToNextGame()
+          return
+        }
+      }
       if (e.key === 'Escape' && playingKey) {
         pausePlay()
         return
@@ -215,7 +272,16 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [coachVisible, dismissCoach, playingKey, pausePlay, goToNextGame, goToPrevGame])
+  }, [
+    coachVisible,
+    dismissCoach,
+    gameOver,
+    playAgain,
+    playingKey,
+    pausePlay,
+    goToNextGame,
+    goToPrevGame,
+  ])
 
   // After pause: swipe up anywhere from the lower part of the screen advances.
   useEffect(() => {
@@ -241,6 +307,8 @@ export default function App() {
     }
   }, [playingKey, nudgeVisible, endSwipe])
 
+  const inputEnabled = !!playingKey && !gameOver
+
   return (
     <div className={`app${playingKey ? ' is-playing' : ''}`}>
       <header className="top-bar">
@@ -256,6 +324,15 @@ export default function App() {
           )}
         </div>
         <div className="stats" aria-label="Session stats">
+          <button
+            type="button"
+            className="fail-mode-btn"
+            onClick={toggleFailMode}
+            aria-label={`Fail mode: ${failModeLabel(failMode)}. Tap to switch.`}
+            title="Toggle fail experiment (A replay / B game over)"
+          >
+            {failModeLabel(failMode)}
+          </button>
           <span className="mode">{playingKey ? 'Playing' : 'Browse'}</span>
           {playingKey && (
             <button type="button" className="pause-btn" onClick={pausePlay}>
@@ -276,9 +353,13 @@ export default function App() {
             game={item.game}
             isActive={Math.abs(index - activeIndex) <= 1}
             isPlaying={playingKey === item.key}
+            controlsEnabled={playingKey === item.key && !gameOver}
             liked={!!liked[item.game.id]}
+            failMode={failMode}
+            restartKey={playingKey === item.key ? restartKey : 0}
             onPlay={() => enterPlay(item.key)}
             onScore={onScore}
+            onDied={onDied}
             onSwipe={onGameSwipe}
             onLike={() => {
               setLiked((prev) => ({
@@ -292,7 +373,7 @@ export default function App() {
 
       {/* While playing, the iframe eats touches — this host-owned right-edge
           rail stays above it so vertical swipes there always switch games. */}
-      {playingKey && !coachVisible && (
+      {inputEnabled && !coachVisible && (
         <div
           className="swipe-rail"
           aria-label="Swipe up or down to switch games"
@@ -316,6 +397,15 @@ export default function App() {
           <span className="nudge-chevron" aria-hidden="true" />
           Swipe up for the next game
         </button>
+      )}
+
+      {gameOver && playingKey && (
+        <GameOverOverlay
+          score={gameOver.score}
+          best={Math.max(activeHighscore, gameOver.score)}
+          onPlayAgain={playAgain}
+          onPlayAnother={goToNextGame}
+        />
       )}
 
       {coachVisible && <SwipeCoach onDismiss={dismissCoach} />}

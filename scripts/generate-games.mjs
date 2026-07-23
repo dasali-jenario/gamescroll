@@ -1,5 +1,6 @@
 /**
- * Generates all 30 Gamescroll HTML games with shared bridge + instant restart.
+ * Generates all 30 Gamescroll HTML games with shared bridge.
+ * Fail mode is host-controlled via gamescroll:start { onFail: 'replay'|'gameover' }.
  * Run: node scripts/generate-games.mjs
  */
 import { writeFileSync, unlinkSync, existsSync } from 'node:fs'
@@ -13,8 +14,13 @@ const BRIDGE = `
     const GS = {
       paused: true,
       reported: false,
-      post(type) { try { parent.postMessage({ type }, '*') } catch (e) {} },
-      begin() {
+      onFail: 'replay',
+      post(type, extra) {
+        try { parent.postMessage(Object.assign({ type }, extra || {}), '*') } catch (e) {}
+      },
+      begin(msg) {
+        const fail = msg && msg.onFail
+        if (fail === 'gameover' || fail === 'replay') GS.onFail = fail
         if (!GS.reported) { GS.reported = true; GS.post('gamescroll:playing') }
         GS.paused = false
         if (typeof onHostStart === 'function') onHostStart()
@@ -26,7 +32,7 @@ const BRIDGE = `
     }
     addEventListener('message', (e) => {
       const t = e.data && e.data.type
-      if (t === 'gamescroll:start') GS.begin()
+      if (t === 'gamescroll:start') GS.begin(e.data)
       if (t === 'gamescroll:pause') GS.halt()
     })
     // Forward committed vertical flings to the host so swiping between games
@@ -132,11 +138,17 @@ ${body}
     if (typeof die === 'function') {
       const __die = die
       die = function () {
+        if (GS.paused) return
         reportScore()
         if (window.Juice) {
           const pos = typeof diePos === 'function' ? diePos() : null
           if (pos) Juice.onDie(pos[0], pos[1])
           else Juice.onDie()
+        }
+        if (GS.onFail === 'gameover') {
+          GS.post('gamescroll:died', { score })
+          GS.halt()
+          return
         }
         __die()
       }

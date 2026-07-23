@@ -107,11 +107,22 @@ body {
 }
 
 .stats span,
-.stats .pause-btn {
+.stats .pause-btn,
+.stats .fail-mode-btn {
   border: 1px solid rgba(255, 255, 255, 0.35);
   padding: 0.28rem 0.55rem;
   background: rgba(15, 20, 25, 0.4);
   backdrop-filter: blur(6px);
+}
+
+.stats .fail-mode-btn {
+  pointer-events: auto;
+  color: #fff;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
 }
 
 .stats .pause-btn {
@@ -343,6 +354,100 @@ body {
   align-items: center;
   gap: 0.55rem;
   animation: tip-in 0.45s var(--ease) both;
+}
+
+.game-over {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--chrome-top) + 1rem) 1.25rem
+    calc(1.5rem + env(safe-area-inset-bottom));
+  background: linear-gradient(
+    180deg,
+    rgba(15, 20, 25, 0.35) 0%,
+    rgba(15, 20, 25, 0.72) 45%,
+    rgba(15, 20, 25, 0.88) 100%
+  );
+  animation: game-over-in 0.35s var(--ease) both;
+}
+
+.game-over-panel {
+  width: min(100%, 20rem);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.game-over-kicker {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.game-over-score {
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 800;
+  font-size: clamp(3.2rem, 14vw, 4.5rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+}
+
+.game-over-best {
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-bottom: 1.1rem;
+}
+
+.game-over-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.game-over-again,
+.game-over-another {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: none;
+  padding: 0.95rem 1.1rem;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease), background 0.2s;
+}
+
+.game-over-again {
+  background: var(--accent);
+  color: #fff;
+}
+
+.game-over-another {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.game-over-again:hover,
+.game-over-another:hover {
+  transform: translateY(-1px);
+}
+
+@keyframes game-over-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .swipe-rail {
