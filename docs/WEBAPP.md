@@ -230,5 +230,23 @@ Git remotes in use:
 2. Keep `src/games.ts` in sync (add/remove catalog entry, tip, accent).
 3. Run `node scripts/generate-games.mjs`.
 4. Smoke-test in the feed (`npm run dev`), including pause, score, fail, and swipe.
+5. Run `npm run quality` so catalog↔HTML integrity and host unit tests still pass.
 
 To remove a game, delete the catalog entry, remove the generator block, and add the HTML filename to the generator’s `obsolete` list so regenerating cleans `public/games/`.
+
+---
+
+## Quality checks
+
+| Command | What it runs |
+|---------|----------------|
+| `npm run typecheck` | `tsc -b` (app sources; `*.test.ts` excluded) |
+| `npm test` | Vitest unit tests under `src/**/*.test.ts` |
+| `npm run quality` | typecheck then tests (also the CI job) |
+
+Coverage today:
+
+- Catalog shape, feed keys, share deep links, highscores, auto-restart prefs
+- Catalog ids ↔ `public/games/*.html`, bridge message contract, culled games stay gone
+
+CI: [`.github/workflows/quality.yml`](../.github/workflows/quality.yml) runs `npm run quality` on push/PR to `main`.

@@ -1,5 +1,27 @@
 # New file requests
 
+## 2026-07-23 — Regression tests and CI quality gate
+
+### Requested files
+- `vitest.config.ts` — Vitest config (happy-dom + node pool for catalog/fs checks)
+- `src/games.test.ts` — catalog shape, feed keys, preferId pinning
+- `src/share.test.ts` — `?g=` deep-link read/write
+- `src/highscores.test.ts` — localStorage best-score persistence
+- `src/experiments.test.ts` — auto-restart URL/storage/bridge mapping
+- `src/catalogIntegrity.test.ts` — catalog ids ↔ `public/games/*.html` + bridge contract strings
+- `.github/workflows/quality.yml` — typecheck + tests on push/PR to `main`
+- Updates: `package.json` (`test`, `typecheck`, `quality`), `README.md`, `docs/WEBAPP.md`
+
+### Duplicate search
+- Glob `**/*.{test,spec}.{ts,tsx,js,mjs}` → **none**
+- Glob `**/{eslint*,vitest*,jest*,playwright*,.github/**}` → **none** (no test runner, no CI)
+- Grep `vitest|jest|playwright|mocha|cypress` in `package.json` → **none**
+- `NEW_FILE-REQUESTS.md` has no prior test-harness entry
+- Existing quality signal is only `tsc -b` inside `npm run build`
+
+### Rationale
+Pure host modules and catalog↔HTML drift are the highest-regression risks without a backend; Vitest unit tests plus a GitHub Action catch type and logic breaks before they ship to both remotes.
+
 ## 2026-07-23 — Webapp and integration documentation
 
 ### Requested files
