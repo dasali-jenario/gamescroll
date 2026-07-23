@@ -7,11 +7,9 @@ import {
   SwipeCoach,
 } from './components/SwipeCoach'
 import {
-  failModeLabel,
-  nextFailMode,
-  persistFailMode,
-  resolveFailMode,
-  type FailMode,
+  autoRestartForBridge,
+  persistAutoRestart,
+  resolveAutoRestart,
 } from './experiments'
 import { buildFeedBatch, type FeedItem } from './games'
 import { loadHighscores, recordHighscore } from './highscores'
@@ -55,7 +53,7 @@ export default function App() {
   )
   const [activeIndex, setActiveIndex] = useState(0)
   const [highscores, setHighscores] = useState(loadHighscores)
-  const [failMode, setFailMode] = useState<FailMode>(() => resolveFailMode())
+  const [autoRestart, setAutoRestart] = useState(() => resolveAutoRestart())
   const [gameOver, setGameOver] = useState<GameOverState | null>(null)
   const [restartKey, setRestartKey] = useState(0)
   const playingRef = useRef(playingKey)
@@ -157,7 +155,7 @@ export default function App() {
 
   const onDied = useCallback(
     (gameId: string, score: number) => {
-      if (failMode !== 'game-over') return
+      if (autoRestart) return
       if (score > 0) {
         const best = recordHighscore(gameId, score)
         setHighscores((prev) =>
@@ -166,7 +164,7 @@ export default function App() {
       }
       setGameOver({ gameId, score })
     },
-    [failMode],
+    [autoRestart],
   )
 
   const playAgain = useCallback(() => {
@@ -174,10 +172,10 @@ export default function App() {
     setRestartKey((n) => n + 1)
   }, [])
 
-  const toggleFailMode = useCallback(() => {
-    setFailMode((prev) => {
-      const next = nextFailMode(prev)
-      persistFailMode(next)
+  const toggleAutoRestart = useCallback(() => {
+    setAutoRestart((prev) => {
+      const next = !prev
+      persistAutoRestart(next)
       return next
     })
     setGameOver(null)
@@ -326,12 +324,13 @@ export default function App() {
         <div className="stats" aria-label="Session stats">
           <button
             type="button"
-            className="fail-mode-btn"
-            onClick={toggleFailMode}
-            aria-label={`Fail mode: ${failModeLabel(failMode)}. Tap to switch.`}
-            title="Toggle fail experiment (A replay / B game over)"
+            className={`auto-restart-btn${autoRestart ? ' is-on' : ''}`}
+            onClick={toggleAutoRestart}
+            aria-pressed={autoRestart}
+            aria-label={`Auto-restart ${autoRestart ? 'on' : 'off'}. Tap to ${autoRestart ? 'disable' : 'enable'}.`}
+            title="Toggle auto-restart on fail"
           >
-            {failModeLabel(failMode)}
+            Auto-restart {autoRestart ? 'On' : 'Off'}
           </button>
           <span className="mode">{playingKey ? 'Playing' : 'Browse'}</span>
           {playingKey && (
@@ -355,7 +354,7 @@ export default function App() {
             isPlaying={playingKey === item.key}
             controlsEnabled={playingKey === item.key && !gameOver}
             liked={!!liked[item.game.id]}
-            failMode={failMode}
+            autoRestart={autoRestart}
             restartKey={playingKey === item.key ? restartKey : 0}
             onPlay={() => enterPlay(item.key)}
             onScore={onScore}

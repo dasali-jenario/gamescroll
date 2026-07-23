@@ -3,12 +3,12 @@
 ## 2026-07-23 — Fail-mode experiment (instant replay vs game over)
 
 ### Requested files
-- `src/experiments.ts` — fail-mode resolution (`instant-replay` | `game-over`) via `?fail=` + `localStorage` `gs_fail_mode`
+- `src/experiments.ts` — auto-restart on/off (`gs_auto_restart`, `?autorestart=`); legacy `gs_fail_mode` / `?fail=` still read
 - `src/components/GameOverOverlay.tsx` — host overlay: score, Play again, Play another (next feed game)
 - Updates: `scripts/generate-games.mjs` (bridge `onFail` + `gamescroll:died`), regenerated `public/games/*.html`, `src/App.tsx`, `src/components/GameCard.tsx`, `src/index.css`
 
 ### Duplicate search
-- Grep `experiment|failMode|game-over|gameover|onDied|gamescroll:died|instant.?replay` under `/Users/dasali/gamescroll/src` → **none** before this change
+- Grep `experiment|failMode|game-over|gameover|onDied|gamescroll:died|instant.?replay|auto.?restart` under `/Users/dasali/gamescroll/src` → **none** before this change
 - Grep `featureFlag|FEATURE_|A/B|cohort` → none; only `localStorage` prefs (`gs_swipe_coach_seen`, highscores, metrics)
 - Death today: iframe `die()` → `reset()` inside generator wrap — **instant replay already exists in-game**; no host death event or overlay
 - Pitch mock `pitch/gamescroll-ux-mock.html` has Again/Done `.done-bar` only — not wired into React product
@@ -16,7 +16,7 @@
 - Next/random already via `goToNextGame` + shuffled `buildFeedBatch`
 
 ### Rationale
-Host-owned toggle picks fail UX; games learn mode from `gamescroll:start` so A stays zero-latency in-iframe reset and B can surface a shared overlay without per-game UI.
+Host-owned toggle enables/disables auto-restart on fail; games learn mode from `gamescroll:start` so on stays zero-latency in-iframe reset and off surfaces a shared game-over overlay without per-game UI.
 
 ## 2026-07-23 — Client deploy update detection + reload
 

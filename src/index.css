@@ -108,21 +108,27 @@ body {
 
 .stats span,
 .stats .pause-btn,
-.stats .fail-mode-btn {
+.stats .auto-restart-btn {
   border: 1px solid rgba(255, 255, 255, 0.35);
   padding: 0.28rem 0.55rem;
   background: rgba(15, 20, 25, 0.4);
   backdrop-filter: blur(6px);
 }
 
-.stats .fail-mode-btn {
+.stats .auto-restart-btn {
   pointer-events: auto;
-  color: #fff;
+  color: rgba(255, 255, 255, 0.7);
   font: inherit;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   cursor: pointer;
+}
+
+.stats .auto-restart-btn.is-on {
+  color: #fff;
+  border-color: rgba(232, 93, 4, 0.75);
+  background: rgba(232, 93, 4, 0.35);
 }
 
 .stats .pause-btn {

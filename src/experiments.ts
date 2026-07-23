@@ -1,54 +1,60 @@
-/** Fail behavior when a run ends. Toggle via `?fail=` or the top-bar control. */
-export type FailMode = 'instant-replay' | 'game-over'
+/** When true, death instantly restarts the run; when false, show game-over UI. */
+export const AUTO_RESTART_KEY = 'gs_auto_restart'
+export const AUTO_RESTART_QUERY = 'autorestart'
+/** Legacy key/query from the fail-mode experiment — still read for migration. */
+const LEGACY_FAIL_KEY = 'gs_fail_mode'
+const LEGACY_FAIL_QUERY = 'fail'
 
-export const FAIL_MODE_KEY = 'gs_fail_mode'
-export const FAIL_MODE_QUERY = 'fail'
-
-const MODES: FailMode[] = ['instant-replay', 'game-over']
-
-function parseMode(raw: string | null | undefined): FailMode | null {
-  if (!raw) return null
+function parseBool(raw: string | null | undefined): boolean | null {
+  if (raw == null) return null
   const v = raw.trim().toLowerCase()
-  if (v === 'replay' || v === 'instant-replay' || v === 'a') return 'instant-replay'
-  if (v === 'gameover' || v === 'game-over' || v === 'b') return 'game-over'
-  return MODES.includes(v as FailMode) ? (v as FailMode) : null
+  if (v === '1' || v === 'true' || v === 'on' || v === 'yes') return true
+  if (v === '0' || v === 'false' || v === 'off' || v === 'no') return false
+  return null
 }
 
-function readStored(): FailMode | null {
+function parseLegacyFail(raw: string | null | undefined): boolean | null {
+  if (!raw) return null
+  const v = raw.trim().toLowerCase()
+  if (v === 'replay' || v === 'instant-replay' || v === 'a') return true
+  if (v === 'gameover' || v === 'game-over' || v === 'b') return false
+  return null
+}
+
+function readStored(): boolean | null {
   try {
-    return parseMode(localStorage.getItem(FAIL_MODE_KEY))
+    const next = parseBool(localStorage.getItem(AUTO_RESTART_KEY))
+    if (next !== null) return next
+    return parseLegacyFail(localStorage.getItem(LEGACY_FAIL_KEY))
   } catch {
     return null
   }
 }
 
-export function persistFailMode(mode: FailMode): void {
+export function persistAutoRestart(enabled: boolean): void {
   try {
-    localStorage.setItem(FAIL_MODE_KEY, mode)
+    localStorage.setItem(AUTO_RESTART_KEY, enabled ? '1' : '0')
   } catch {
     /* ignore quota / private mode */
   }
 }
 
-/** URL `?fail=` wins (and is persisted); else localStorage; else instant-replay. */
-export function resolveFailMode(search = window.location.search): FailMode {
-  const fromUrl = parseMode(new URLSearchParams(search).get(FAIL_MODE_QUERY))
-  if (fromUrl) {
-    persistFailMode(fromUrl)
+/** URL wins (and is persisted); else localStorage; else auto-restart on. */
+export function resolveAutoRestart(search = window.location.search): boolean {
+  const params = new URLSearchParams(search)
+  const fromUrl =
+    parseBool(params.get(AUTO_RESTART_QUERY)) ??
+    parseLegacyFail(params.get(LEGACY_FAIL_QUERY))
+  if (fromUrl !== null) {
+    persistAutoRestart(fromUrl)
     return fromUrl
   }
-  return readStored() ?? 'instant-replay'
-}
-
-export function failModeLabel(mode: FailMode): string {
-  return mode === 'instant-replay' ? 'Replay' : 'Game over'
+  return readStored() ?? true
 }
 
 /** Value sent to iframes on `gamescroll:start`. */
-export function failModeForBridge(mode: FailMode): 'replay' | 'gameover' {
-  return mode === 'instant-replay' ? 'replay' : 'gameover'
-}
-
-export function nextFailMode(mode: FailMode): FailMode {
-  return mode === 'instant-replay' ? 'game-over' : 'instant-replay'
+export function autoRestartForBridge(
+  enabled: boolean,
+): 'replay' | 'gameover' {
+  return enabled ? 'replay' : 'gameover'
 }
