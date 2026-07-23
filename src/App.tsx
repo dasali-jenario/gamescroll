@@ -7,7 +7,6 @@ import {
   SwipeCoach,
 } from './components/SwipeCoach'
 import {
-  autoRestartForBridge,
   persistAutoRestart,
   resolveAutoRestart,
 } from './experiments'
