@@ -2,6 +2,10 @@
 
 Canonical creator URL: **https://play.thehappylab.com/create**
 
+## Happylab auto-deploy
+
+Pushing to the `thehappylab` GitHub remote builds/deploys automatically. That build uses committed [`.env.production`](../.env.production) for `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (public anon key + RLS). Do **not** put service-role or OpenAI keys there.
+
 ## Cursor / CLI setup (preferred)
 
 With these keys in `.env.local`:

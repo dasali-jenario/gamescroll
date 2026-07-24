@@ -214,7 +214,9 @@ There is no in-repo CI. Typical web deploy:
 1. `npm run build`
 2. Upload `dist/` to Hostinger FTP (`gamescroll.dasali.me`)
 
-Credentials live in gitignored `.env.local` (`HOSTINGER_FTP_*`).
+Credentials live in gitignored `.env.local` (`HOSTINGER_FTP_*`, Supabase admin tokens).
+
+Production Vite builds also read committed `.env.production` for the **public** Supabase URL + anon key (safe with RLS). Happylab’s auto-deploy needs that so `/create` and UGC deep links work without copying `.env.local` onto the build server.
 
 Each Vite build emits `/version.json` and injects `__BUILD_ID__`. The client polls every 60s (`updateCheck.ts`) and hard-reloads when a new build is live **and** the user is not mid-game.
 
