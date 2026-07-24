@@ -11,6 +11,8 @@ Open the local URL. The first game autoplays. **Pause** (or Esc) freezes play. S
 
 For architecture, the host↔game bridge, Android, and deploy domains, see [docs/WEBAPP.md](docs/WEBAPP.md).
 
+Create your own games at **/create** (product URL: [play.thehappylab.com/create](https://play.thehappylab.com/create)) — see [docs/CREATOR.md](docs/CREATOR.md).
+
 ```bash
 npm run quality   # typecheck + unit tests
 npm test          # Vitest only

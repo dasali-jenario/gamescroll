@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { GameCard } from './components/GameCard'
 import { GameOverOverlay } from './components/GameOverOverlay'
 import {
@@ -10,10 +11,16 @@ import {
   persistAutoRestart,
   resolveAutoRestart,
 } from './experiments'
-import { buildFeedBatch, type FeedItem } from './games'
+import {
+  buildFeedBatch,
+  getGameById,
+  type FeedItem,
+  type Game,
+} from './games'
 import { loadHighscores, recordHighscore } from './highscores'
+import { fetchApprovedUgcGames, fetchUgcBySlug } from './lib/ugc'
 import { trackVisit } from './metrics'
-import { readSharedGameId } from './share'
+import { readSharedGameParam } from './share'
 import { reloadApp, watchForDeployUpdate } from './updateCheck'
 
 const PREFETCH_WITHIN = 3
@@ -22,10 +29,12 @@ const SWIPE_MIN_DY = 64
 type GameOverState = { gameId: string; score: number }
 
 function createInitialSession() {
-  const sharedId = readSharedGameId()
-  const feed = buildFeedBatch(0, sharedId)
+  const sharedParam = readSharedGameParam()
+  const preferGame = sharedParam ? getGameById(sharedParam) ?? null : null
+  const feed = buildFeedBatch(0, preferGame)
   return {
-    sharedId,
+    sharedParam,
+    preferGame,
     feed,
     playingKey: feed[0]?.key ?? null,
   }
@@ -36,6 +45,7 @@ export default function App() {
   const roundRef = useRef(1)
   const appendingRef = useRef(false)
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
+  const communityRef = useRef<Game[]>([])
   useEffect(() => {
     trackVisit()
   }, [])
@@ -48,7 +58,7 @@ export default function App() {
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [nudgeVisible, setNudgeVisible] = useState(false)
   const [coachVisible, setCoachVisible] = useState(
-    () => !boot.sharedId && !hasSeenSwipeCoach(),
+    () => !boot.sharedParam && !hasSeenSwipeCoach(),
   )
   const [activeIndex, setActiveIndex] = useState(0)
   const [highscores, setHighscores] = useState(loadHighscores)
@@ -58,6 +68,34 @@ export default function App() {
   const playingRef = useRef(playingKey)
   const reloadWhenIdleRef = useRef(false)
   playingRef.current = playingKey
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const community = await fetchApprovedUgcGames()
+      if (cancelled) return
+      communityRef.current = community
+
+      let prefer = boot.preferGame
+      if (!prefer && boot.sharedParam) {
+        prefer = await fetchUgcBySlug(boot.sharedParam)
+      }
+      if (cancelled) return
+
+      if (prefer || community.length) {
+        const next = buildFeedBatch(0, prefer, community)
+        setFeed(next)
+        if (prefer) {
+          setPlayingKey(next[0]?.key ?? null)
+          setCoachVisible(false)
+        }
+        roundRef.current = 1
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [boot.preferGame, boot.sharedParam])
 
   useEffect(() => {
     return watchForDeployUpdate(() => {
@@ -81,7 +119,7 @@ export default function App() {
   const appendBatch = useCallback(() => {
     if (appendingRef.current) return
     appendingRef.current = true
-    const next = buildFeedBatch(roundRef.current)
+    const next = buildFeedBatch(roundRef.current, null, communityRef.current)
     roundRef.current += 1
     setFeed((prev) => [...prev, ...next])
     queueMicrotask(() => {
@@ -321,6 +359,11 @@ export default function App() {
           )}
         </div>
         <div className="stats" aria-label="Session stats">
+          {!playingKey && (
+            <Link to="/create" className="create-link">
+              Create
+            </Link>
+          )}
           <button
             type="button"
             className={`auto-restart-btn${autoRestart ? ' is-on' : ''}`}

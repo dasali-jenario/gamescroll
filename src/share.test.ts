@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { gameShareUrl, readSharedGameId } from './share'
+import { gameShareUrl, readSharedGameId, readSharedGameParam } from './share'
 import { games } from './games'
 
 describe('share deep links', () => {
@@ -13,16 +13,18 @@ describe('share deep links', () => {
     window.history.replaceState({}, '', original)
   })
 
-  it('readSharedGameId returns null without a valid g param', () => {
+  it('readSharedGameId returns null without a valid catalog g param', () => {
     expect(readSharedGameId()).toBeNull()
     window.history.replaceState({}, '', '/?g=missing-game')
     expect(readSharedGameId()).toBeNull()
+    expect(readSharedGameParam()).toBe('missing-game')
   })
 
   it('readSharedGameId accepts a catalog id', () => {
     const id = games[0].id
     window.history.replaceState({}, '', `/?g=${id}`)
     expect(readSharedGameId()).toBe(id)
+    expect(readSharedGameParam()).toBe(id)
   })
 
   it('gameShareUrl builds an absolute ?g= link and clears other query/hash', () => {

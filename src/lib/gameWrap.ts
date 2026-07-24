@@ -1,0 +1,180 @@
+/** Shared HTML shell + host bridge for official and UGC games. */
+
+export const BRIDGE = `
+    const GS = {
+      paused: true,
+      reported: false,
+      onFail: 'replay',
+      post(type, extra) {
+        try { parent.postMessage(Object.assign({ type }, extra || {}), '*') } catch (e) {}
+      },
+      begin(msg) {
+        const fail = msg && msg.onFail
+        if (fail === 'gameover' || fail === 'replay') GS.onFail = fail
+        if (!GS.reported) { GS.reported = true; GS.post('gamescroll:playing') }
+        GS.paused = false
+        if (typeof onHostStart === 'function') onHostStart()
+      },
+      halt() {
+        GS.paused = true
+        if (typeof onHostPause === 'function') onHostPause()
+      }
+    }
+    addEventListener('message', (e) => {
+      const t = e.data && e.data.type
+      if (t === 'gamescroll:start') GS.begin(e.data)
+      if (t === 'gamescroll:pause') GS.halt()
+    })
+    ;(function () {
+      let sx = 0, sy = 0, st = 0, tracking = false
+      addEventListener('pointerdown', (e) => {
+        sx = e.clientX; sy = e.clientY; st = performance.now(); tracking = true
+      }, true)
+      addEventListener('pointerup', (e) => {
+        if (!tracking) return
+        tracking = false
+        const dx = Math.abs(e.clientX - sx)
+        const dy = e.clientY - sy
+        const dt = performance.now() - st
+        const minDist = Math.max(140, innerHeight * 0.22)
+        if (dt > 350 || Math.abs(dy) < minDist || Math.abs(dy) < dx * 2.2) return
+        GS.post(dy < 0 ? 'gamescroll:swipe-next' : 'gamescroll:swipe-prev')
+      }, true)
+      addEventListener('pointercancel', () => { tracking = false }, true)
+    })()
+    GS.post('gamescroll:ready')
+`
+
+export type WrapOptions = {
+  title: string
+  bg: string
+  body: string
+  accent?: string
+  /** Absolute or root-relative base for /lib scripts (e.g. https://play.thehappylab.com). */
+  libBase?: string
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+export function wrapGameHtml(opts: WrapOptions): string {
+  const juiceAccent = opts.accent || '#ffffff'
+  const base = (opts.libBase || '').replace(/\/$/, '')
+  const lib = (name: string) => `${base}/lib/${name}`
+  const title = escapeHtml(opts.title)
+  const bg = escapeHtml(opts.bg)
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>${title}</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: ${bg}; touch-action: none; -webkit-user-select: none; user-select: none; }
+    #stage { position: fixed; inset: 0; will-change: transform; }
+    #stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
+    #fx { pointer-events: none; z-index: 2; }
+    .hud {
+      position: fixed; top: max(1rem, env(safe-area-inset-top)); left: 0; right: 0; text-align: center; z-index: 3;
+      font: 800 clamp(1.4rem, 7vw, 2rem) "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 10px rgba(0,0,0,.45); pointer-events: none;
+      transform-origin: 50% 50%;
+    }
+    .float-score {
+      position: fixed; z-index: 4; pointer-events: none;
+      font: 800 1.15rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,.5);
+      transform: translate(-50%, 0);
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <canvas id="fx"></canvas>
+  </div>
+  <div class="hud" id="score">0</div>
+  <script src="${lib('gsap.min.js')}"></script>
+  <script src="${lib('proton.min.js')}"></script>
+  <script src="${lib('juice.js')}"></script>
+  <script src="${lib('playful.js')}"></script>
+  <script>
+${BRIDGE}
+    const canvas = document.getElementById('c')
+    const ctx = canvas.getContext('2d')
+    const scoreEl = document.getElementById('score')
+    const dpr = Math.min(devicePixelRatio || 1, 2)
+    let W = 0, H = 0, score = 0, last = performance.now()
+    function setScore(n) { score = Math.max(0, n|0); scoreEl.textContent = String(score) }
+    function reportScore() {
+      if (score > 0) {
+        try { parent.postMessage({ type: 'gamescroll:score', score }, '*') } catch (e) {}
+      }
+    }
+    function bump(n) {
+      const amount = n || 1
+      setScore(score + amount)
+      if (window.Juice) {
+        const pos = typeof scorePos === 'function' ? scorePos() : null
+        if (pos) Juice.onScore(amount, pos[0], pos[1])
+        else Juice.onScore(amount)
+      }
+    }
+    function resize() {
+      W = innerWidth; H = innerHeight
+      canvas.width = W * dpr; canvas.height = H * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      if (window.Juice) Juice.resize()
+    }
+    addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
+    resize()
+    if (window.Juice) Juice.init({ accent: ${JSON.stringify(juiceAccent)} })
+${opts.body}
+    ;(function () {
+      const __halt = GS.halt
+      GS.halt = function () {
+        reportScore()
+        __halt()
+      }
+    })()
+    if (typeof die === 'function') {
+      const __die = die
+      die = function () {
+        if (GS.paused) return
+        reportScore()
+        if (window.Juice) {
+          const pos = typeof diePos === 'function' ? diePos() : null
+          if (pos) Juice.onDie(pos[0], pos[1])
+          else Juice.onDie()
+        }
+        if (GS.onFail === 'gameover') {
+          GS.post('gamescroll:died', { score })
+          GS.halt()
+          return
+        }
+        __die()
+      }
+    }
+    function loop(now) {
+      const dt = Math.min(0.033, (now - last) / 1000)
+      last = now
+      if (window.PF) PF.t += dt
+      if (!GS.paused && typeof tick === 'function') tick(dt)
+      if (typeof draw === 'function') draw(now)
+      if (window.Juice) Juice.update()
+      requestAnimationFrame(loop)
+    }
+    requestAnimationFrame(loop)
+  </script>
+</body>
+</html>
+`
+}

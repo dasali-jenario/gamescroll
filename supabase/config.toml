@@ -1,0 +1,5 @@
+# Gamescroll Supabase project config
+project_id = "gamescroll"
+
+[functions.creator]
+verify_jwt = true

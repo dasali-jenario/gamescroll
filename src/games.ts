@@ -43,24 +43,54 @@ export function getGameById(id: string): Game | undefined {
   return games.find((game) => game.id === id)
 }
 
-/** Build a shuffled batch of catalog games for the infinite feed. */
-export function buildFeedBatch(
-  round: number,
-  preferId?: string | null,
-): FeedItem[] {
-  const shuffled = [...games]
+function shuffleGames(list: Game[]): Game[] {
+  const shuffled = [...list]
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
+  return shuffled
+}
 
-  if (preferId && round === 0) {
-    const idx = shuffled.findIndex((game) => game.id === preferId)
-    if (idx > 0) {
-      const [picked] = shuffled.splice(idx, 1)
-      shuffled.unshift(picked)
+/** Insert ~1 community game after every `every` official games. */
+export function interleaveCommunity(
+  official: Game[],
+  community: Game[],
+  every = 5,
+): Game[] {
+  if (!community.length) return official
+  const out: Game[] = []
+  let u = 0
+  for (let i = 0; i < official.length; i++) {
+    out.push(official[i])
+    if ((i + 1) % every === 0 && community.length) {
+      out.push(community[u % community.length])
+      u += 1
     }
   }
+  return out
+}
 
-  return shuffled.map((game, i) => ({ key: `${game.id}-${round}-${i}`, game }))
+/**
+ * Build a shuffled batch of catalog games for the infinite feed.
+ * `preferGame` pins a game first on round 0 (official or UGC).
+ * `community` are approved UGC games interleaved into the batch.
+ */
+export function buildFeedBatch(
+  round: number,
+  preferGame?: Game | null,
+  community: Game[] = [],
+): FeedItem[] {
+  const mixed = interleaveCommunity(shuffleGames(games), community, 5)
+
+  if (preferGame && round === 0) {
+    const without = mixed.filter((game) => game.id !== preferGame.id)
+    without.unshift(preferGame)
+    return without.map((game, i) => ({
+      key: `${game.id}-${round}-${i}`,
+      game,
+    }))
+  }
+
+  return mixed.map((game, i) => ({ key: `${game.id}-${round}-${i}`, game }))
 }

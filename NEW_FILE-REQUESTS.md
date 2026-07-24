@@ -1,5 +1,48 @@
 # New file requests
 
+## 2026-07-24 — Creator preview host bridge
+
+### Requested files
+- `src/components/CreatorPreview.tsx` — iframe preview that posts `gamescroll:start` on `ready`
+- Updates: `src/pages/CreatePage.tsx`, creator SYSTEM_PROMPT, `gameValidator` (+ Deno copy), redeployed `creator` function
+
+### Duplicate search
+- Grep `CreatorPreview|gamescroll:start` under `src/pages` / `src/components` → only `GameCard.tsx` had host start (feed), create preview was a raw iframe
+- No existing create-preview bridge component
+
+### Rationale
+UGC preview never unlocked `GS.paused`, so generated “Start” UIs looked fine but did nothing; host bridge + stricter canvas-input generation rules fix playability.
+
+## 2026-07-23 — UGC game creator (Supabase + /create)
+
+### Requested files
+- `src/lib/gameWrap.ts` — shared HTML shell + host bridge for UGC
+- `src/lib/gameValidator.ts` — forbidden-API + bridge-contract checks
+- `src/lib/supabase.ts` — Supabase client + UGC row types
+- `src/lib/ugc.ts` — fetch/publish helpers for community games
+- `src/AppRouter.tsx` — React Router (`/`, `/create`, `/mod`)
+- `src/pages/CreatePage.tsx` — chatbot creator UI
+- `src/pages/ModPage.tsx` — moderator approve/reject
+- `src/gameValidator.test.ts` — wrap/validator unit tests
+- `supabase/migrations/20260723120000_ugc_games.sql` — schema, RLS, storage
+- `supabase/functions/creator/index.ts` — chat/generate/publish/moderate Edge Function
+- `supabase/functions/_shared/wrap.ts` / `validate.ts` — Deno copies of wrap/validator
+- `supabase/config.toml` — function JWT settings
+- `public/.htaccess` — Hostinger SPA fallback for `/create`
+- `docs/CREATOR.md` — setup runbook
+- `.env.example` — Vite + Edge Function env names
+- Updates: `src/main.tsx`, `src/App.tsx`, `src/games.ts`, `src/share.ts`, `src/index.css`, tests, `docs/WEBAPP.md`, `README.md`, `package.json`
+
+### Duplicate search
+- Glob `**/create*` / `**/creator*` / `**/ugc*` → **none** (no prior creator surface)
+- Grep `supabase|openai|chatbot|react-router` in `package.json` / `src` → **none** before this change
+- Glob `supabase/**` → **none**
+- Existing game authoring is only `scripts/generate-games.mjs` + static `src/games.ts` (dev-only, not UGC)
+- `NEW_FILE-REQUESTS.md` has no prior UGC/creator entry
+
+### Rationale
+User-published HTML5 games need Auth, Storage, an LLM Edge Function, and a `/create` route on play.thehappylab.com; none of that existed in the static SPA.
+
 ## 2026-07-23 — Regression tests and CI quality gate
 
 ### Requested files

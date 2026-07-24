@@ -3,13 +3,20 @@ import { getGameById } from './games'
 
 const PARAM = 'g'
 
-export function readSharedGameId(): string | null {
+/** Raw `?g=` value (official id or UGC slug). */
+export function readSharedGameParam(): string | null {
   try {
     const id = new URLSearchParams(window.location.search).get(PARAM)
-    return id && getGameById(id) ? id : null
+    return id && id.trim() ? id.trim() : null
   } catch {
     return null
   }
+}
+
+/** Official catalog id only (sync). Prefer async UGC resolve in the host for slugs. */
+export function readSharedGameId(): string | null {
+  const id = readSharedGameParam()
+  return id && getGameById(id) ? id : null
 }
 
 /** Absolute link that opens Gamescroll with this game first. */

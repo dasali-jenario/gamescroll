@@ -22,3 +22,6 @@ dist-apk
 .env
 .env.*
 !.env.example
+
+# Supabase local link cache
+supabase/.temp/

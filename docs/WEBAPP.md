@@ -20,8 +20,9 @@ Share links use the current origin (`window.location`), so both domains deep-lin
 | UI | React 19 + TypeScript |
 | Bundler | Vite 7 |
 | Native | Capacitor 8 (Android only) |
-| Games | Static HTML + canvas in `public/games/` |
-| Backend / auth / analytics SaaS | None (static SPA + `localStorage`) |
+| Games | Static HTML + canvas in `public/games/` + approved UGC from Supabase Storage |
+| Backend | Supabase (Auth, Postgres, Storage, Edge Functions) for the game creator |
+| Creator | [play.thehappylab.com/create](https://play.thehappylab.com/create) — see [CREATOR.md](CREATOR.md) |
 
 ```bash
 npm install
@@ -236,6 +237,21 @@ To remove a game, delete the catalog entry, remove the generator block, and add 
 
 ---
 
+## User-generated games
+
+Players can build single-player HTML5 games via the chatbot at `/create` ([setup](CREATOR.md)).
+
+| Status | Visibility |
+|--------|------------|
+| `draft` | Creator only |
+| `published` | Creator + anyone with `?g=<slug>` (not in main feed) |
+| `approved` | Interleaved into the swipe feed |
+| `rejected` | Creator can iterate and republish |
+
+UGC HTML must pass the same host bridge contract and forbid multiplayer / network / saved-state APIs (`src/lib/gameValidator.ts`).
+
+---
+
 ## Quality checks
 
 | Command | What it runs |
@@ -248,5 +264,6 @@ Coverage today:
 
 - Catalog shape, feed keys, share deep links, highscores, auto-restart prefs
 - Catalog ids ↔ `public/games/*.html`, bridge message contract, culled games stay gone
+- UGC wrap/validator (forbidden APIs + bridge snippets)
 
 CI: [`.github/workflows/quality.yml`](../.github/workflows/quality.yml) runs `npm run quality` on push/PR to `main`.
