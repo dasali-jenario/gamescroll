@@ -114,27 +114,43 @@
 
     let x, y, v, plats = [], cam = 0
     const JUMP = -540
+    const GAP_MIN = 55
+    const GAP_MAX = 95
+    function spawnPlat(py) {
+      const maxX = Math.max(40, W - 110)
+      return { x: 30 + Math.random() * maxX, y: py, w: 55 + Math.random() * 35 }
+    }
+    function ensurePlats() {
+      // Drop platforms that fell below the viewport (behind the player).
+      plats = plats.filter(p => p.y < cam + H + 60)
+      // Keep a full screen of platforms ready above the camera.
+      let top = plats.length ? Math.min(...plats.map(p => p.y)) : y
+      while (top > cam - H) {
+        top -= GAP_MIN + Math.random() * (GAP_MAX - GAP_MIN)
+        plats.push(spawnPlat(top))
+      }
+    }
     function reset() {
       x = W * 0.5; y = H * 0.7; v = JUMP; cam = 0; plats = []
-      for (let i = 0; i < 10; i++) plats.push({ x: 40 + Math.random() * (W - 120), y: H - i * 75, w: 70 })
+      for (let i = 0; i < 12; i++) plats.push(spawnPlat(H - i * 70))
       setScore(0)
     }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
-      v += 900 * dt; y += v * dt
+      v += 900 * dt
+      const prevY = y
+      y += v * dt
       if (y - cam > H - 40) die()
       if (y < cam + H * 0.35) cam = y - H * 0.35
       for (const p of plats) {
-        if (v > 0 && y < p.y && y + v * dt >= p.y && x > p.x && x < p.x + p.w) {
-          v = JUMP; bump()
+        if (v > 0 && prevY < p.y && y >= p.y && x > p.x && x < p.x + p.w) {
+          y = p.y
+          v = JUMP
+          bump()
         }
       }
-      plats = plats.filter(p => p.y > cam - 40)
-      while (plats.length < 10) {
-        const top = Math.min(...plats.map(p => p.y))
-        plats.push({ x: 30 + Math.random() * (W - 110), y: top - 60 - Math.random() * 35, w: 60 + Math.random() * 30 })
-      }
+      ensurePlats()
     }
     function diePos() { return [x, y - cam] }
     function scorePos() { return [x, y - cam] }
