@@ -3,3 +3,6 @@ project_id = "gamescroll"
 
 [functions.creator]
 verify_jwt = true
+
+[functions.ugc-play]
+verify_jwt = false

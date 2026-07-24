@@ -307,6 +307,7 @@ Deno.serve(async (req) => {
         }
 
         const { data: publicUrl } = admin.storage.from('ugc-games').getPublicUrl(path)
+        const playUrl = `${supabaseUrl}/functions/v1/ugc-play?slug=${encodeURIComponent(slug)}`
         const row = {
           creator_id: user.id,
           slug,
@@ -315,7 +316,7 @@ Deno.serve(async (req) => {
           accent: game.accent || '#264653',
           status: 'draft' as const,
           html_path: path,
-          html_url: publicUrl.publicUrl,
+          html_url: playUrl || publicUrl.publicUrl,
           brief: { bg: game.bg, lastReply: turn.reply },
           conversation: userMessages.concat({
             role: 'assistant' as const,

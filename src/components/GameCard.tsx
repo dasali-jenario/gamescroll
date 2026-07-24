@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { autoRestartForBridge } from '../experiments'
 import type { Game } from '../games'
+import { usePlayableFrameSrc } from '../lib/usePlayableFrameSrc'
 import { shareGame } from '../share'
 
 type Props = {
@@ -50,6 +51,7 @@ export function GameCard({
   const readyRef = useRef(false)
   const [shareNote, setShareNote] = useState<string | null>(null)
   const shouldLoad = isActive || isPlaying
+  const frameSrc = usePlayableFrameSrc(game.src, shouldLoad)
   const autoRestartRef = useRef(autoRestart)
   autoRestartRef.current = autoRestart
 
@@ -117,11 +119,11 @@ export function GameCard({
       style={{ ['--accent' as string]: game.accent }}
     >
       <div className="stage" style={{ background: game.accent }}>
-        {shouldLoad ? (
+        {shouldLoad && frameSrc ? (
           <iframe
             ref={frameRef}
             title={game.title}
-            src={game.src}
+            src={frameSrc}
             className="game-frame"
             sandbox="allow-scripts"
             style={{

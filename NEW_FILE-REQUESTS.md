@@ -1,5 +1,19 @@
 # New file requests
 
+## 2026-07-24 — UGC playable HTML blob + ugc-play function
+
+### Requested files
+- `src/lib/usePlayableFrameSrc.ts` — fetch remote UGC HTML and serve via text/html blob in iframes
+- `supabase/functions/ugc-play/index.ts` — public HTML play endpoint by slug
+- Updates: `GameCard.tsx`, `CreatorPreview.tsx`, `ugc.ts`, `creator` upload `html_url`, `config.toml`
+
+### Duplicate search
+- Grep `text/plain|createObjectURL|ugc-play` → only CreatorPreview blob for generated previewHtml; GameCard used raw storage URLs
+- Storage public objects were confirmed Content-Type `text/plain`, which renders as source
+
+### Rationale
+UGC iframes showed HTML source on dasali; Happylab lacked baked Supabase keys so deep links fell back to catalog games.
+
 ## 2026-07-24 — Creator preview host bridge
 
 ### Requested files

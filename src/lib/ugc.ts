@@ -1,8 +1,17 @@
 import type { Game } from '../games'
 import { getSupabase, type UgcGameRow, type UgcStatus } from './supabase'
 
+export function ugcPlayUrl(slug: string): string {
+  const base = import.meta.env.VITE_SUPABASE_URL
+  if (!base) return ''
+  return `${base}/functions/v1/ugc-play?slug=${encodeURIComponent(slug)}`
+}
+
 export function ugcRowToGame(row: UgcGameRow): Game {
+  // Prefer Edge Function HTML (correct Content-Type). Storage public URLs are
+  // often served as text/plain, which browsers render as source instead of a game.
   const src =
+    ugcPlayUrl(row.slug) ||
     row.html_url ||
     (import.meta.env.VITE_SUPABASE_URL
       ? `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/ugc-games/${row.html_path}`
