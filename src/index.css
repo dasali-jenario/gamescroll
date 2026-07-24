@@ -153,6 +153,19 @@ body {
   background: rgba(232, 93, 4, 0.35);
 }
 
+.share-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: var(--stage);
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
 .feed {
   height: 100%;
   overflow-y: auto;

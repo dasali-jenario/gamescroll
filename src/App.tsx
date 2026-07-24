@@ -32,11 +32,14 @@ function createInitialSession() {
   const sharedParam = readSharedGameParam()
   const preferGame = sharedParam ? getGameById(sharedParam) ?? null : null
   const feed = buildFeedBatch(0, preferGame)
+  const waitingOnUgc = Boolean(sharedParam && !preferGame)
   return {
     sharedParam,
     preferGame,
     feed,
-    playingKey: feed[0]?.key ?? null,
+    // Don't autoplay a random catalog game while we resolve a UGC deep link.
+    playingKey: waitingOnUgc ? null : feed[0]?.key ?? null,
+    waitingOnUgc,
   }
 }
 
@@ -55,6 +58,7 @@ export default function App() {
   const [playingKey, setPlayingKey] = useState<string | null>(
     () => boot.playingKey,
   )
+  const [resolvingShare, setResolvingShare] = useState(() => boot.waitingOnUgc)
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [nudgeVisible, setNudgeVisible] = useState(false)
   const [coachVisible, setCoachVisible] = useState(
@@ -85,12 +89,17 @@ export default function App() {
       if (prefer || community.length) {
         const next = buildFeedBatch(0, prefer, community)
         setFeed(next)
+        setActiveIndex(0)
         if (prefer) {
           setPlayingKey(next[0]?.key ?? null)
           setCoachVisible(false)
+          queueMicrotask(() => {
+            feedRef.current?.scrollTo({ top: 0 })
+          })
         }
         roundRef.current = 1
       }
+      setResolvingShare(false)
     })()
     return () => {
       cancelled = true
@@ -346,6 +355,11 @@ export default function App() {
 
   return (
     <div className={`app${playingKey ? ' is-playing' : ''}`}>
+      {resolvingShare && (
+        <div className="share-loading" role="status">
+          Loading shared game…
+        </div>
+      )}
       <header className="top-bar">
         <div className="brand-block">
           <div className="brand">Gamescroll</div>
