@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
+import { setHtmlBlob, touchHtmlBlob } from './htmlBlobCache'
 
-const blobCache = new Map<string, string>()
-
-function needsHtmlBlob(src: string): boolean {
+export function needsHtmlBlob(src: string): boolean {
   try {
     const host = new URL(src, window.location.origin).hostname
     return (
@@ -18,6 +17,7 @@ function needsHtmlBlob(src: string): boolean {
 /**
  * Supabase Storage (and sometimes Edge) serve UGC HTML as text/plain, which
  * browsers display as source. Fetch and re-wrap as a text/html blob for iframes.
+ * Blob URLs are retained in an LRU cache (see htmlBlobCache).
  */
 export function usePlayableFrameSrc(src: string, enabled: boolean): string {
   const [frameSrc, setFrameSrc] = useState(() =>
@@ -34,14 +34,13 @@ export function usePlayableFrameSrc(src: string, enabled: boolean): string {
       return
     }
 
-    const cached = blobCache.get(src)
+    const cached = touchHtmlBlob(src)
     if (cached) {
       setFrameSrc(cached)
       return
     }
 
     let cancelled = false
-    let created: string | null = null
     ;(async () => {
       try {
         const res = await fetch(src)
@@ -50,8 +49,7 @@ export function usePlayableFrameSrc(src: string, enabled: boolean): string {
         const url = URL.createObjectURL(
           new Blob([text], { type: 'text/html;charset=utf-8' }),
         )
-        created = url
-        blobCache.set(src, url)
+        setHtmlBlob(src, url)
         setFrameSrc(url)
       } catch {
         if (!cancelled) setFrameSrc(src)
@@ -60,8 +58,6 @@ export function usePlayableFrameSrc(src: string, enabled: boolean): string {
 
     return () => {
       cancelled = true
-      // Keep cache for feed reuse; only revoke if we replace later.
-      void created
     }
   }, [src, enabled])
 

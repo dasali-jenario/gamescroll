@@ -1,10 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { autoRestartForBridge } from '../experiments'
 import type { Game } from '../games'
+import { registerFeedBridge } from '../lib/feedMessageHub'
 import { usePlayableFrameSrc } from '../lib/usePlayableFrameSrc'
 
 type Props = {
   game: Game
+  cardKey: string
   isActive: boolean
   isPlaying: boolean
   /** When false (e.g. game-over overlay), iframe ignores pointer input. */
@@ -12,7 +14,7 @@ type Props = {
   autoRestart: boolean
   /** Bumps to re-send start while still playing (play-again after game over). */
   restartKey: number
-  onPlay: () => void
+  onPlay: (cardKey: string) => void
   onScore: (gameId: string, score: number) => void
   onDied: (gameId: string, score: number) => void
   onSwipe: (direction: 'next' | 'prev') => void
@@ -30,8 +32,9 @@ function postToFrame(
   frame?.contentWindow?.postMessage(payload, '*')
 }
 
-export function GameCard({
+export const GameCard = memo(function GameCard({
   game,
+  cardKey,
   isActive,
   isPlaying,
   controlsEnabled,
@@ -48,40 +51,52 @@ export function GameCard({
   const frameSrc = usePlayableFrameSrc(game.src, shouldLoad)
   const autoRestartRef = useRef(autoRestart)
   autoRestartRef.current = autoRestart
+  const isPlayingRef = useRef(isPlaying)
+  isPlayingRef.current = isPlaying
+  const onScoreRef = useRef(onScore)
+  onScoreRef.current = onScore
+  const onDiedRef = useRef(onDied)
+  onDiedRef.current = onDied
+  const onSwipeRef = useRef(onSwipe)
+  onSwipeRef.current = onSwipe
 
   useEffect(() => {
-    const onMessage = (event: MessageEvent) => {
-      const type = event.data?.type
-      if (event.source !== frameRef.current?.contentWindow) return
+    if (!shouldLoad) return
+    return registerFeedBridge({
+      getSource: () => frameRef.current?.contentWindow ?? null,
+      onMessage: (event) => {
+        const type = event.data?.type
+        const playing = isPlayingRef.current
 
-      if (type === 'gamescroll:ready') {
-        readyRef.current = true
-        if (isPlaying) {
-          postToFrame(
-            frameRef.current,
-            'gamescroll:start',
-            autoRestartRef.current,
-          )
+        if (type === 'gamescroll:ready') {
+          readyRef.current = true
+          if (playing) {
+            postToFrame(
+              frameRef.current,
+              'gamescroll:start',
+              autoRestartRef.current,
+            )
+          }
         }
-      }
-      if (type === 'gamescroll:score' && isPlaying) {
-        const score = Number(event.data?.score)
-        if (Number.isFinite(score) && score > 0) onScore(game.id, score)
-      }
-      if (type === 'gamescroll:died' && isPlaying) {
-        const score = Number(event.data?.score)
-        onDied(game.id, Number.isFinite(score) ? score : 0)
-      }
-      if (type === 'gamescroll:swipe-next' && isPlaying) {
-        onSwipe('next')
-      }
-      if (type === 'gamescroll:swipe-prev' && isPlaying) {
-        onSwipe('prev')
-      }
-    }
-    window.addEventListener('message', onMessage)
-    return () => window.removeEventListener('message', onMessage)
-  }, [game.id, isPlaying, onScore, onDied, onSwipe])
+        if (type === 'gamescroll:score' && playing) {
+          const score = Number(event.data?.score)
+          if (Number.isFinite(score) && score > 0) {
+            onScoreRef.current(game.id, score)
+          }
+        }
+        if (type === 'gamescroll:died' && playing) {
+          const score = Number(event.data?.score)
+          onDiedRef.current(game.id, Number.isFinite(score) ? score : 0)
+        }
+        if (type === 'gamescroll:swipe-next' && playing) {
+          onSwipeRef.current('next')
+        }
+        if (type === 'gamescroll:swipe-prev' && playing) {
+          onSwipeRef.current('prev')
+        }
+      },
+    })
+  }, [shouldLoad, game.id])
 
   useEffect(() => {
     if (!shouldLoad) {
@@ -127,7 +142,7 @@ export function GameCard({
         <button
           type="button"
           className="play-layer"
-          onClick={onPlay}
+          onClick={() => onPlay(cardKey)}
           aria-label={`Play ${game.title}`}
         >
           <span className="play-btn">
@@ -139,4 +154,4 @@ export function GameCard({
       )}
     </article>
   )
-}
+})

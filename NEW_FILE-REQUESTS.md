@@ -1,5 +1,22 @@
 # New file requests
 
+## 2026-07-27 — Phase 1 remaining P0 helpers
+
+### Requested files
+- `src/lib/feedMessageHub.ts` — single `window` `message` listener; cards register by `event.source`
+- `src/feedMessageHub.test.ts` — register / dispatch / unregister coverage
+- `src/lib/htmlBlobCache.ts` — LRU (max 10) blob URL cache with revoke on eviction
+- `src/htmlBlobCache.test.ts` — LRU order + revoke behavior
+- `src/usePlayableFrameSrc.test.ts` — `needsHtmlBlob` routing for local vs Supabase/UGC URLs
+
+### Duplicate search
+- Grep `addEventListener('message'|registerFeedBridge|feedMessageHub` under `src/` → per-card listeners in `GameCard.tsx` (+ `CreatorPreview` for create route only); no host hub
+- Grep `blobCache|revokeObjectURL|LRU` under `src/lib/` → unbounded `Map` in `usePlayableFrameSrc.ts`; revoke only in `CreatePage` for preview
+- Glob `src/lib/*message*|src/lib/*blob*|src/lib/*cache*` → none
+
+### Rationale
+Phase 1 roadmap: one postMessage dispatcher, bound UGC blob cache. Pure modules keep dispatch/LRU testable without mounting the feed.
+
 ## 2026-07-27 — Feed sliding-window prune
 
 ### Requested files

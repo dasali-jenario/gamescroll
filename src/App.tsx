@@ -368,6 +368,17 @@ export default function App() {
     setGameOver(null)
   }, [])
 
+  const handlePlay = useCallback(
+    (cardKey: string) => {
+      if (introRunningRef.current) {
+        cancelIntro()
+        return
+      }
+      enterPlay(cardKey)
+    },
+    [cancelIntro, enterPlay],
+  )
+
   const endSwipe = useCallback(
     (clientX: number, clientY: number) => {
       const start = swipeStart.current
@@ -386,17 +397,30 @@ export default function App() {
     const el = feedRef.current
     if (!el) return
 
+    let raf = 0
     const onScroll = () => {
-      if (introRunning) return
-      const index = Math.round(el.scrollTop / Math.max(el.clientHeight, 1))
-      setActiveIndex(index)
-      if (el.scrollTop > 40) dismissNudge()
-      if (index >= feed.length - PREFETCH_WITHIN) appendBatch()
+      if (introRunningRef.current) return
+      if (raf) return
+      raf = window.requestAnimationFrame(() => {
+        raf = 0
+        const index = Math.round(el.scrollTop / Math.max(el.clientHeight, 1))
+        if (index !== activeIndexRef.current) {
+          activeIndexRef.current = index
+          setActiveIndex(index)
+        }
+        if (el.scrollTop > 40) dismissNudge()
+        if (index >= feedRefState.current.length - PREFETCH_WITHIN) {
+          appendBatch()
+        }
+      })
     }
 
     el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
-  }, [dismissNudge, feed.length, appendBatch, introRunning])
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      if (raf) window.cancelAnimationFrame(raf)
+    }
+  }, [dismissNudge, appendBatch])
 
   useEffect(() => {
     const el = feedRef.current
@@ -572,19 +596,14 @@ export default function App() {
         {feed.map((item, index) => (
           <GameCard
             key={item.key}
+            cardKey={item.key}
             game={item.game}
             isActive={Math.abs(index - activeIndex) <= 1}
             isPlaying={playingKey === item.key}
             controlsEnabled={playingKey === item.key && !gameOver}
             autoRestart={autoRestart}
             restartKey={playingKey === item.key ? restartKey : 0}
-            onPlay={() => {
-              if (introRunning) {
-                cancelIntro()
-                return
-              }
-              enterPlay(item.key)
-            }}
+            onPlay={handlePlay}
             onScore={onScore}
             onDied={onDied}
             onSwipe={onGameSwipe}
