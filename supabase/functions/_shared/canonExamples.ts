@@ -69,7 +69,7 @@ function layout(){
   titleY=H*0.18; focusY=H*0.42; focusR=Math.min(W,H)*0.12
 }
 function reset(){ phase='idle'; waitLeft=0; flash=0; setScore(0); layout() }
-function die(){ phase='foul'; waitLeft=0.9; if(window.Juice) Juice.shake(0.45) }
+function die(){ phase='foul'; waitLeft=0.9 }
 function hitBtn(x,y){ return x>=btn.x&&x<=btn.x+btn.w&&y>=btn.y&&y<=btn.y+btn.h }
 function pointerXY(e){
   const r=canvas.getBoundingClientRect()

@@ -5,6 +5,8 @@ import { validateGameBody, validateWrappedHtml } from './lib/gameValidator'
 
 const okBody = `
 const btn={x:0,y:0,w:0,h:0}
+function scorePos(){ return [btn.x+btn.w/2, btn.y] }
+function diePos(){ return [btn.x+btn.w/2, btn.y] }
 function layout(){
   btn.w=Math.min(300, Math.max(200, W*0.72))
   btn.h=64
@@ -14,7 +16,11 @@ function layout(){
 function reset(){ setScore(0); layout() }
 function die(){ reset() }
 function tick(dt){ if (GS.paused) return }
-function draw(){ ctx.fillStyle = '#123'; ctx.fillRect(0,0,W,H); ctx.fillRect(btn.x,btn.y,btn.w,btn.h) }
+function draw(){
+  PF.sky(ctx, W, H, '#123', '#234', '#345')
+  PF.blobs(ctx, W, H, '#456', 4)
+  PF.block(ctx, btn.x, btn.y, btn.w, btn.h, '#fff', '#ccc', 8)
+}
 function onHostStart(){ reset() }
 function onResize(){ layout() }
 canvas.addEventListener('pointerdown', (e) => {
@@ -44,14 +50,34 @@ describe('gameValidator', () => {
     const bad = validateGameBody(`
 function die(){}
 function tick(){}
-function draw(){}
+function draw(){ PF.sky(ctx,W,H,'#000','#111','#222'); PF.dots(ctx,W,H,'#fff',8,1) }
 function onHostStart(){}
+function scorePos(){ return [0,0] }
+function diePos(){ return [0,0] }
 canvas.addEventListener('pointerdown', () => {})
 `)
     expect(bad.ok).toBe(false)
     if (!bad.ok) {
       expect(bad.errors.some((e) => e.includes('layout'))).toBe(true)
       expect(bad.errors.some((e) => e.includes('onResize'))).toBe(true)
+    }
+  })
+
+  it('requires PF.sky and scorePos/diePos like official games', () => {
+    const bad = validateGameBody(`
+function layout(){}
+function onHostStart(){ layout() }
+function onResize(){ layout() }
+function die(){}
+function tick(){}
+function draw(){ ctx.fillRect(0,0,W,H) }
+canvas.addEventListener('pointerdown', () => {})
+`)
+    expect(bad.ok).toBe(false)
+    if (!bad.ok) {
+      expect(bad.errors.some((e) => e.includes('PF.sky'))).toBe(true)
+      expect(bad.errors.some((e) => e.includes('scorePos'))).toBe(true)
+      expect(bad.errors.some((e) => e.includes('diePos'))).toBe(true)
     }
   })
 
@@ -62,7 +88,9 @@ function onHostStart(){ layout() }
 function onResize(){ layout() }
 function die(){}
 function tick(){}
-function draw(){}
+function scorePos(){ return [0,0] }
+function diePos(){ return [0,0] }
+function draw(){ PF.sky(ctx,W,H,'#000','#111','#222'); PF.dots(ctx,W,H,'#fff',8,1) }
 canvas.addEventListener('pointerdown', (e) => { const x = e.clientX })
 `)
     expect(bad.ok).toBe(false)
@@ -105,8 +133,10 @@ function layout(){}
 function onHostStart(){ layout() }
 function onResize(){ layout() }
 function die(){}
+function scorePos(){ return [0,0] }
+function diePos(){ return [0,0] }
 function tick(){ totallyMissingFn() }
-function draw(){}
+function draw(){ PF.sky(ctx,W,H,'#000','#111','#222'); PF.dots(ctx,W,H,'#fff',8,1) }
 canvas.addEventListener('pointerdown', () => {})
 `)
     expect(bad.ok).toBe(false)

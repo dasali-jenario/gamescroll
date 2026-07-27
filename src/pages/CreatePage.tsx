@@ -16,7 +16,7 @@ import type { User } from '@supabase/supabase-js'
 type ChatBubble = { role: 'user' | 'assistant'; content: string }
 
 const WELCOME =
-  "Describe the mini-game you want. I'll ask a few quick questions, then build a single-player HTML5 game for Gamescroll.\n\nAfter the first build, follow-ups edit that game in place (layout, controls, visuals) instead of starting over.\n\nLimits: no multiplayer, no backend, no saved progress."
+  "Describe the mini-game you want. I'll ask a few quick questions, then build a single-player HTML5 canvas game for Gamescroll — same style as the official catalog games.\n\nAfter the first build, follow-ups edit that game in place (layout, controls, visuals) instead of starting over.\n\nLimits: no multiplayer, no backend, no saved progress."
 
 export function CreatePage() {
   const configured = isSupabaseConfigured()

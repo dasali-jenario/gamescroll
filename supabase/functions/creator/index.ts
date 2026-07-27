@@ -365,7 +365,7 @@ async function repairBody(
         content: [
           `The previous game failed checks: ${errors.join('; ')}.`,
           'Return JSON with phase "generated", keep title/tip/accent/bg/mechanic, fixed bodyJs, and a corrected layoutPlan (0–1 fractions, no overlaps).',
-          'Follow canon layout rules: layout/onHostStart/onResize, getBoundingClientRect for pointer coords, no overlapping UI.',
+          'Follow official catalog structure: layout/onHostStart/onResize/scorePos/diePos, PF.sky + PF helpers, getBoundingClientRect for pointer coords, no overlapping UI.',
           `title: ${meta.title}`,
           `tip: ${meta.tip}`,
           `accent: ${meta.accent}`,

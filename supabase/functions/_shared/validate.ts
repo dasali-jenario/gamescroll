@@ -94,6 +94,22 @@ export function validateGameBody(body: string): ValidationResult {
   if (!hasFn(body, 'onResize')) {
     errors.push('game body must define onResize() (usually call layout())')
   }
+  if (!hasFn(body, 'scorePos')) {
+    errors.push('game body must define scorePos() → [x,y] like official games')
+  }
+  if (!hasFn(body, 'diePos')) {
+    errors.push('game body must define diePos() → [x,y] like official games')
+  }
+  if (!/\bPF\.sky\s*\(/.test(body)) {
+    errors.push('draw must use PF.sky(...) for catalog-quality backgrounds')
+  }
+  if (
+    !/\bPF\.(blobs|dots|buddy|block|soft|spike|rr)\s*\(/.test(body)
+  ) {
+    errors.push(
+      'draw must use PF helpers (blobs/dots/buddy/block/soft/…) like official games',
+    )
+  }
   if (!/\blayout\s*\(/.test(body)) {
     errors.push('game body must call layout() (from onHostStart / onResize / reset)')
   }

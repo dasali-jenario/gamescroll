@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { smokeGameBody } from './lib/gameSmoke'
 import { validateGameBody } from './lib/gameValidator'
 
-/** Minimal legal body that paints safely before onHostStart. */
+/** Minimal legal body that paints safely before onHostStart (official PF style). */
 const okBody = `
 const btn={x:0,y:0,w:0,h:0}
+function scorePos(){ return [btn.x+btn.w/2, btn.y] }
+function diePos(){ return [btn.x+btn.w/2, btn.y] }
 function layout(){
   btn.w=Math.min(300, Math.max(200, W*0.72))
   btn.h=64
@@ -14,7 +16,11 @@ function layout(){
 function reset(){ setScore(0); layout() }
 function die(){ reset() }
 function tick(dt){ if (GS.paused) return }
-function draw(){ ctx.fillStyle = '#123'; ctx.fillRect(0,0,W,H); ctx.fillRect(btn.x,btn.y,btn.w,btn.h) }
+function draw(){
+  PF.sky(ctx, W, H, '#123', '#234', '#345')
+  PF.blobs(ctx, W, H, '#456', 4)
+  PF.block(ctx, btn.x, btn.y, btn.w, btn.h, '#fff', '#ccc', 8)
+}
 function onHostStart(){ reset() }
 function onResize(){ layout() }
 canvas.addEventListener('pointerdown', (e) => {

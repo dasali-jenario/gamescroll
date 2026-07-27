@@ -254,7 +254,7 @@ Players can build single-player HTML5 games via the chatbot at `/create` ([setup
 | `approved` | Interleaved into the swipe feed |
 | `rejected` | Creator can iterate and republish |
 
-UGC HTML must pass the same host bridge contract and forbid multiplayer / network / saved-state APIs (`src/lib/gameValidator.ts`).
+UGC HTML must pass the same host bridge contract and forbid multiplayer / network / saved-state APIs (`src/lib/gameValidator.ts`). Creator bodies are also required to match official catalog structure: HTML5/JS canvas with `layout` / `tick` / `draw` / `die` / `onHostStart` / `scorePos` / `diePos` and PF drawing helpers (`PF.sky` + layers), same shell as `scripts/generate-games.mjs`.
 
 ---
 
