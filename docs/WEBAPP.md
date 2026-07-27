@@ -75,7 +75,7 @@ flowchart TB
 | `components/GameCard.tsx` | iframe load + bridge + like/share rail |
 | `components/GameOverOverlay.tsx` | Fail UI when auto-restart is off |
 | `components/SwipeCue.tsx` | Persistent “Swipe / Next game” chrome |
-| `lib/feedIntro.ts` | Jackpot reel sequence + `gs_feed_intro_seen` |
+| `lib/feedIntro.ts` | Jackpot reel sequence (every cold start) |
 | `share.ts` | `?g=` deep links + Web Share / clipboard |
 | `highscores.ts` | Per-game best scores |
 | `metrics.ts` | Anonymous visit counters |
@@ -143,7 +143,7 @@ In-iframe swipe thresholds: distance ≥ `max(140, 0.22 × height)`, duration �
 - CSS snap feed (`.feed`); while playing, scroll is locked.
 - Switch games: iframe fling, right-edge swipe rail, keys `↓`/`j` and `↑`/`k`.
 - **Pause** / Esc freezes the current game; after pause, a nudge encourages swiping to the next card.
-- First visit (including shared `?g=` links): a short jackpot-style feed reel scrolls through a few cards and lands on index `0`, then autoplay starts (`gs_jackpot_intro_seen`).
+- Every cold start (including shared `?g=` links): a jackpot-style feed reel scrolls through a few cards and lands on index `0`, then autoplay starts. Skipped only for `prefers-reduced-motion`.
 - Persistent `SwipeCue` cream chip (“Swipe for the next game”) stays visible in browse and play; dims after the first successful swipe this session.
 - `prefers-reduced-motion`: skip the reel, jump to the landing card, show the cue, autoplay.
 
@@ -187,8 +187,6 @@ Owned by the host (sandboxed games cannot use storage).
 | `gs_visits` / `gs_last_seen` | Daily visit counting |
 | `gs_auto_restart` | Auto-restart preference |
 | `gs_fail_mode` | Legacy fail-mode preference |
-| `gs_jackpot_intro_seen` | Jackpot intro reel completed |
-| `gs_feed_intro_seen` / `gs_swipe_coach_seen` | Legacy keys; no longer gate the reel |
 
 Likes in the rail are in-memory only for the session.
 

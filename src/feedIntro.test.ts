@@ -22,7 +22,7 @@ describe('reelDelayBeforeStep', () => {
   it('is instant for the first step and longer for the landing', () => {
     const count = 6
     expect(reelDelayBeforeStep(0, count)).toBe(0)
-    expect(reelDelayBeforeStep(count - 1, count)).toBe(320)
+    expect(reelDelayBeforeStep(count - 1, count)).toBe(416)
     expect(reelDelayBeforeStep(2, count)).toBeLessThan(
       reelDelayBeforeStep(1, count),
     )

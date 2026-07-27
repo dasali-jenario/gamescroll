@@ -1,5 +1,5 @@
-/** Dedicated key — do not treat legacy coach dismiss as "already saw the reel". */
-const INTRO_SEEN_KEY = 'gs_jackpot_intro_seen'
+/** 1.0 = original pacing; 1.3 = 30% slower. */
+const REEL_PACE = 1.3
 
 /** Build jackpot reel indices: climb through neighbors, then land on 0. */
 export function buildReelSequence(feedLength: number): number[] {
@@ -14,27 +14,11 @@ export function buildReelSequence(feedLength: number): number[] {
 /** Delay (ms) before scrolling to each step after the first. */
 export function reelDelayBeforeStep(stepIndex: number, stepCount: number): number {
   if (stepIndex === 0) return 0
-  if (stepIndex === stepCount - 1) return 320
+  if (stepIndex === stepCount - 1) return Math.round(320 * REEL_PACE)
   const mid = stepCount - 2
   const t = mid <= 1 ? 1 : (stepIndex - 1) / (mid - 1)
   // Fast in the middle, slightly slower near the start.
-  return Math.round(110 - t * 35)
-}
-
-export function hasSeenFeedIntro(): boolean {
-  try {
-    return localStorage.getItem(INTRO_SEEN_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-export function markFeedIntroSeen(): void {
-  try {
-    localStorage.setItem(INTRO_SEEN_KEY, '1')
-  } catch {
-    /* ignore quota / private mode */
-  }
+  return Math.round((110 - t * 35) * REEL_PACE)
 }
 
 export function prefersReducedMotion(): boolean {
@@ -63,7 +47,7 @@ export type RunFeedIntroResult = 'completed' | 'skipped' | 'cancelled'
 
 /**
  * Snap through a short reel of feed cards, then land on index 0.
- * Caller should mark seen + enter play after 'completed' or 'skipped'.
+ * Runs every app start (unless reduced-motion or a single-card feed).
  */
 export async function runFeedIntroReel(opts: {
   feedLength: number
@@ -71,7 +55,7 @@ export async function runFeedIntroReel(opts: {
   signal: AbortSignal
 }): Promise<RunFeedIntroResult> {
   if (opts.signal.aborted) return 'cancelled'
-  if (hasSeenFeedIntro() || prefersReducedMotion() || opts.feedLength <= 1) {
+  if (prefersReducedMotion() || opts.feedLength <= 1) {
     opts.scrollInstant(0)
     return 'skipped'
   }
@@ -85,7 +69,7 @@ export async function runFeedIntroReel(opts: {
       opts.scrollInstant(sequence[i]!)
     }
     // Brief settle beat on the landing card.
-    await sleep(280, opts.signal)
+    await sleep(Math.round(280 * REEL_PACE), opts.signal)
     return 'completed'
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled'

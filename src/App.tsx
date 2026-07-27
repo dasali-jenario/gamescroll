@@ -15,8 +15,6 @@ import {
 } from './games'
 import { loadHighscores, recordHighscore } from './highscores'
 import {
-  hasSeenFeedIntro,
-  markFeedIntroSeen,
   runFeedIntroReel,
 } from './lib/feedIntro'
 import { fetchApprovedUgcGames, fetchUgcBySlug } from './lib/ugc'
@@ -164,7 +162,6 @@ export default function App() {
   scrollInstantRef.current = scrollToIndexInstant
 
   const settleAfterIntro = useCallback(() => {
-    markFeedIntroSeen()
     setIntroRunning(false)
     introAbortRef.current = null
     scrollInstantRef.current(0)
@@ -187,13 +184,6 @@ export default function App() {
     const done = () => {
       if (!alive) return
       settleAfterIntro()
-    }
-
-    if (hasSeenFeedIntro()) {
-      done()
-      return () => {
-        alive = false
-      }
     }
 
     setIntroRunning(true)
