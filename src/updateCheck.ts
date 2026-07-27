@@ -1,8 +1,29 @@
 const VERSION_URL = '/version.json'
-const POLL_MS = 60_000
+/** Check often enough that a fresh deploy reaches open tabs without a manual refresh. */
+const POLL_MS = 12_000
+const RELOAD_PARAM = '_gsb'
 
 type VersionPayload = {
   id?: string
+}
+
+export function buildReloadUrl(href: string, buildId: string): string {
+  const url = new URL(href, 'https://gamescroll.local')
+  url.searchParams.set(RELOAD_PARAM, buildId)
+  return `${url.pathname}${url.search}${url.hash}`
+}
+
+/** Drop the cache-bust query so share links (`?g=`) stay clean after a reload. */
+export function stripReloadParamFromLocation(): void {
+  try {
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has(RELOAD_PARAM)) return
+    url.searchParams.delete(RELOAD_PARAM)
+    const next = `${url.pathname}${url.search}${url.hash}`
+    window.history.replaceState(null, '', next)
+  } catch {
+    /* ignore */
+  }
 }
 
 async function fetchRemoteBuildId(): Promise<string | null> {
@@ -23,7 +44,9 @@ async function fetchRemoteBuildId(): Promise<string | null> {
  * Watch for a newer deploy. Calls `onUpdate` once when the remote build id
  * differs from this page's injected `__BUILD_ID__`. No-op in Vite dev.
  */
-export function watchForDeployUpdate(onUpdate: () => void): () => void {
+export function watchForDeployUpdate(
+  onUpdate: (remoteId: string) => void,
+): () => void {
   if (import.meta.env.DEV) return () => {}
 
   const localId = __BUILD_ID__
@@ -35,7 +58,7 @@ export function watchForDeployUpdate(onUpdate: () => void): () => void {
     const remoteId = await fetchRemoteBuildId()
     if (stopped || notified || !remoteId || remoteId === localId) return
     notified = true
-    onUpdate()
+    onUpdate(remoteId)
   }
 
   const onVisible = () => {
@@ -57,6 +80,11 @@ export function watchForDeployUpdate(onUpdate: () => void): () => void {
   }
 }
 
-export function reloadApp() {
-  window.location.reload()
+/**
+ * Navigate to the same route with a bust query so browsers/CDNs cannot reuse a
+ * stale `index.html` shell (plain `location.reload()` often does on mobile).
+ */
+export function reloadApp(remoteId?: string): void {
+  const id = remoteId && remoteId.length > 0 ? remoteId : Date.now().toString(36)
+  window.location.replace(buildReloadUrl(window.location.href, id))
 }

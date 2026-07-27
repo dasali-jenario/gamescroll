@@ -20,7 +20,7 @@ import {
 import { fetchApprovedUgcGames, fetchUgcBySlug } from './lib/ugc'
 import { trackVisit } from './metrics'
 import { readSharedGameParam } from './share'
-import { reloadApp, watchForDeployUpdate } from './updateCheck'
+import { reloadApp, stripReloadParamFromLocation, watchForDeployUpdate } from './updateCheck'
 
 const PREFETCH_WITHIN = 3
 const SWIPE_MIN_DY = 64
@@ -70,7 +70,12 @@ export default function App() {
   const [restartKey, setRestartKey] = useState(0)
   const playingRef = useRef(playingKey)
   const reloadWhenIdleRef = useRef(false)
+  const pendingReloadIdRef = useRef<string | null>(null)
   playingRef.current = playingKey
+
+  useEffect(() => {
+    stripReloadParamFromLocation()
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -103,18 +108,25 @@ export default function App() {
   }, [boot.preferGame, boot.sharedParam])
 
   useEffect(() => {
-    return watchForDeployUpdate(() => {
+    return watchForDeployUpdate((remoteId) => {
+      pendingReloadIdRef.current = remoteId
       if (playingRef.current) {
         reloadWhenIdleRef.current = true
         return
       }
-      reloadApp()
+      reloadApp(remoteId)
     })
   }, [])
 
+  const applyPendingReload = useCallback(() => {
+    if (!reloadWhenIdleRef.current) return false
+    reloadApp(pendingReloadIdRef.current ?? undefined)
+    return true
+  }, [])
+
   useEffect(() => {
-    if (!playingKey && reloadWhenIdleRef.current) reloadApp()
-  }, [playingKey])
+    if (!playingKey) applyPendingReload()
+  }, [playingKey, applyPendingReload])
 
   const dismissNudge = useCallback(() => setNudgeVisible(false), [])
 
@@ -212,6 +224,7 @@ export default function App() {
   }, [])
 
   const goToNextGame = useCallback(() => {
+    if (applyPendingReload()) return
     if (introRunning) {
       cancelIntro()
       return
@@ -221,9 +234,10 @@ export default function App() {
     setPlayingKey(null)
     setNudgeVisible(false)
     scrollToIndex(activeIndex + 1)
-  }, [activeIndex, scrollToIndex, introRunning, cancelIntro])
+  }, [activeIndex, scrollToIndex, introRunning, cancelIntro, applyPendingReload])
 
   const goToPrevGame = useCallback(() => {
+    if (applyPendingReload()) return
     if (introRunning) {
       cancelIntro()
       return
@@ -233,7 +247,7 @@ export default function App() {
     setPlayingKey(null)
     setNudgeVisible(false)
     scrollToIndex(activeIndex - 1)
-  }, [activeIndex, scrollToIndex, introRunning, cancelIntro])
+  }, [activeIndex, scrollToIndex, introRunning, cancelIntro, applyPendingReload])
 
   const onGameSwipe = useCallback(
     (direction: 'next' | 'prev') => {

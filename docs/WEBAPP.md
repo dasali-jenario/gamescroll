@@ -80,7 +80,7 @@ flowchart TB
 | `highscores.ts` | Per-game best scores |
 | `metrics.ts` | Anonymous visit counters |
 | `experiments.ts` | Auto-restart preference ↔ iframe `onFail` |
-| `updateCheck.ts` | Poll `/version.json` and reload when idle |
+| `updateCheck.ts` | Poll `/version.json` every 12s; cache-bust reload when a new deploy is live |
 
 ### Games (`public/games/` + generator)
 
@@ -220,7 +220,7 @@ Credentials live in gitignored `.env.local` (`HOSTINGER_FTP_*`, Supabase admin t
 
 Production Vite builds also read committed `.env.production` for the **public** Supabase URL + anon key (safe with RLS). Happylab’s auto-deploy needs that so `/create` and UGC deep links work without copying `.env.local` onto the build server.
 
-Each Vite build emits `/version.json` and injects `__BUILD_ID__`. The client polls every 60s (`updateCheck.ts`) and hard-reloads when a new build is live **and** the user is not mid-game.
+Each Vite build emits `/version.json` and injects `__BUILD_ID__`. The client polls every 12s (`updateCheck.ts`), also on tab focus/visibility, and reloads with a cache-busting `?_gsb=` navigation when a new build is live. Mid-game updates wait for Pause or the next swipe so play isn’t interrupted. Hostinger `.htaccess` marks `index.html` / `version.json` as `no-cache` so the shell isn’t sticky.
 
 Git remotes in use:
 

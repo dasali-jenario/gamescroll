@@ -1,5 +1,19 @@
 # New file requests
 
+## 2026-07-27 — Automatic deploy reload without hard refresh
+
+### Requested files
+- `src/updateCheck.test.ts` — URL helper coverage for cache-bust reload links
+- Updates: `src/updateCheck.ts` (12s poll, `?_gsb=` replace reload, strip param on boot), `src/App.tsx` (reload on pause / next-swipe seam), `public/.htaccess` (no-cache HTML/version), `index.html` (Cache-Control meta), `docs/WEBAPP.md`
+
+### Duplicate search
+- Grep `updateCheck|version.json|_gsb|Cache-Control|reloadApp` under `/Users/dasali/gamescroll` → existing `src/updateCheck.ts` + App wiring only; no cache-bust navigation or HTML cache headers
+- Glob `**/{_headers,.htaccess,vercel.json}` → only `public/.htaccess` (SPA rewrite, no cache rules)
+- No service worker / workbox in repo
+
+### Rationale
+Players shouldn’t hard-refresh after deploys; faster polling plus a cache-busting navigation (and Hostinger no-cache for the shell) picks up new builds automatically, deferring only while a game is actively playing.
+
 ## 2026-07-27 — Persistent swipe cue + jackpot feed intro
 
 ### Requested files
