@@ -70,11 +70,12 @@ flowchart TB
 
 | File | Role |
 |------|------|
-| `App.tsx` | Infinite feed, play/pause, swipe, game-over, coach, deploy reload |
+| `App.tsx` | Infinite feed, play/pause, swipe, game-over, jackpot intro, deploy reload |
 | `games.ts` | Catalog of games (`id`, `title`, `tip`, `src`, `accent`) |
 | `components/GameCard.tsx` | iframe load + bridge + like/share rail |
 | `components/GameOverOverlay.tsx` | Fail UI when auto-restart is off |
-| `components/SwipeCoach.tsx` | First-visit swipe tutorial |
+| `components/SwipeCue.tsx` | Persistent “Swipe / Next game” chrome |
+| `lib/feedIntro.ts` | Jackpot reel sequence + `gs_feed_intro_seen` |
 | `share.ts` | `?g=` deep links + Web Share / clipboard |
 | `highscores.ts` | Per-game best scores |
 | `metrics.ts` | Anonymous visit counters |
@@ -140,9 +141,11 @@ In-iframe swipe thresholds: distance ≥ `max(140, 0.22 × height)`, duration �
 ## Feed, controls, and share
 
 - CSS snap feed (`.feed`); while playing, scroll is locked.
-- Switch games: iframe fling, right-edge swipe rail, top-bar ↑/↓, keys `↓`/`j` and `↑`/`k`.
+- Switch games: iframe fling, right-edge swipe rail, keys `↓`/`j` and `↑`/`k`.
 - **Pause** / Esc freezes the current game; after pause, a nudge encourages swiping to the next card.
-- First visit (no share link): `SwipeCoach` until dismissed (`gs_swipe_coach_seen`).
+- First visit (including shared `?g=` links): a short jackpot-style feed reel scrolls through a few cards and lands on index `0`, then autoplay starts (`gs_feed_intro_seen`; migrates legacy `gs_swipe_coach_seen`).
+- Persistent `SwipeCue` (“Swipe / Next game”) stays visible in browse and play; dims after the first successful swipe this session.
+- `prefers-reduced-motion`: skip the reel, jump to the landing card, show the cue, autoplay.
 
 ### Deep links
 
@@ -151,7 +154,7 @@ https://gamescroll.dasali.me/?g=flappy
 https://play.thehappylab.com/?g=pong
 ```
 
-`readSharedGameId()` pins that catalog id first in the feed and autoplays it. Share uses `navigator.share` or clipboard copy of the absolute `?g=` URL.
+`readSharedGameId()` pins that catalog id first in the feed. After boot (and the optional intro reel), the pinned game autoplays. Share uses `navigator.share` or clipboard copy of the absolute `?g=` URL.
 
 ### Query prefs
 
@@ -184,7 +187,8 @@ Owned by the host (sandboxed games cannot use storage).
 | `gs_visits` / `gs_last_seen` | Daily visit counting |
 | `gs_auto_restart` | Auto-restart preference |
 | `gs_fail_mode` | Legacy fail-mode preference |
-| `gs_swipe_coach_seen` | Coach dismissed |
+| `gs_feed_intro_seen` | Jackpot intro reel completed (also set when legacy coach was seen) |
+| `gs_swipe_coach_seen` | Legacy coach flag; still written for migration compatibility |
 
 Likes in the rail are in-memory only for the session.
 

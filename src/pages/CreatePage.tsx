@@ -16,7 +16,7 @@ import type { User } from '@supabase/supabase-js'
 type ChatBubble = { role: 'user' | 'assistant'; content: string }
 
 const WELCOME =
-  "Describe the mini-game you want. I'll ask a few quick questions, then build a single-player HTML5 game for Gamescroll.\n\nLimits: no multiplayer, no backend, no saved progress."
+  "Describe the mini-game you want. I'll ask a few quick questions, then build a single-player HTML5 game for Gamescroll.\n\nAfter the first build, follow-ups edit that game in place (layout, controls, visuals) instead of starting over.\n\nLimits: no multiplayer, no backend, no saved progress."
 
 export function CreatePage() {
   const configured = isSupabaseConfigured()
@@ -303,6 +303,25 @@ export function CreatePage() {
                         onClick={() => {
                           setDraft(g)
                           setPreviewHtml(null)
+                          const prior = Array.isArray(g.conversation)
+                            ? (g.conversation as ChatBubble[]).filter(
+                                (m) =>
+                                  m &&
+                                  (m.role === 'user' || m.role === 'assistant') &&
+                                  typeof m.content === 'string',
+                              )
+                            : []
+                          setMessages(
+                            prior.length > 0
+                              ? prior
+                              : [
+                                  { role: 'assistant', content: WELCOME },
+                                  {
+                                    role: 'assistant',
+                                    content: `Loaded "${g.title}". Tell me what to change — I'll edit the existing game.`,
+                                  },
+                                ],
+                          )
                         }}
                       >
                         {g.title}

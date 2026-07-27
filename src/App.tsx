@@ -2,11 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { GameCard } from './components/GameCard'
 import { GameOverOverlay } from './components/GameOverOverlay'
-import {
-  hasSeenSwipeCoach,
-  markSwipeCoachSeen,
-  SwipeCoach,
-} from './components/SwipeCoach'
+import { SwipeCue } from './components/SwipeCue'
 import {
   persistAutoRestart,
   resolveAutoRestart,
@@ -18,6 +14,11 @@ import {
   type Game,
 } from './games'
 import { loadHighscores, recordHighscore } from './highscores'
+import {
+  hasSeenFeedIntro,
+  markFeedIntroSeen,
+  runFeedIntroReel,
+} from './lib/feedIntro'
 import { fetchApprovedUgcGames, fetchUgcBySlug } from './lib/ugc'
 import { trackVisit } from './metrics'
 import { readSharedGameParam } from './share'
@@ -37,8 +38,7 @@ function createInitialSession() {
     sharedParam,
     preferGame,
     feed,
-    // Don't autoplay a random catalog game while we resolve a UGC deep link.
-    playingKey: waitingOnUgc ? null : feed[0]?.key ?? null,
+    // Hold autoplay until boot + optional jackpot reel finish.
     waitingOnUgc,
   }
 }
@@ -49,21 +49,22 @@ export default function App() {
   const appendingRef = useRef(false)
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
   const communityRef = useRef<Game[]>([])
+  const introAbortRef = useRef<AbortController | null>(null)
+  const feedRefState = useRef<FeedItem[]>([])
   useEffect(() => {
     trackVisit()
   }, [])
   const boot = useMemo(() => createInitialSession(), [])
 
   const [feed, setFeed] = useState<FeedItem[]>(() => boot.feed)
-  const [playingKey, setPlayingKey] = useState<string | null>(
-    () => boot.playingKey,
-  )
+  feedRefState.current = feed
+  const [playingKey, setPlayingKey] = useState<string | null>(null)
   const [resolvingShare, setResolvingShare] = useState(() => boot.waitingOnUgc)
+  const [bootReady, setBootReady] = useState(false)
+  const [introRunning, setIntroRunning] = useState(false)
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [nudgeVisible, setNudgeVisible] = useState(false)
-  const [coachVisible, setCoachVisible] = useState(
-    () => !boot.sharedParam && !hasSeenSwipeCoach(),
-  )
+  const [cueDimmed, setCueDimmed] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const [highscores, setHighscores] = useState(loadHighscores)
   const [autoRestart, setAutoRestart] = useState(() => resolveAutoRestart())
@@ -90,16 +91,13 @@ export default function App() {
         const next = buildFeedBatch(0, prefer, community)
         setFeed(next)
         setActiveIndex(0)
-        if (prefer) {
-          setPlayingKey(next[0]?.key ?? null)
-          setCoachVisible(false)
-          queueMicrotask(() => {
-            feedRef.current?.scrollTo({ top: 0 })
-          })
-        }
+        queueMicrotask(() => {
+          feedRef.current?.scrollTo({ top: 0 })
+        })
         roundRef.current = 1
       }
       setResolvingShare(false)
+      setBootReady(true)
     })()
     return () => {
       cancelled = true
@@ -137,16 +135,21 @@ export default function App() {
   }, [])
 
   const scrollToIndex = useCallback(
-    (index: number) => {
+    (index: number, behavior: ScrollBehavior = 'smooth') => {
       const el = feedRef.current
       if (!el) return
       const max = feed.length - 1
       const clamped = Math.max(0, Math.min(max, index))
       if (clamped >= max - PREFETCH_WITHIN) appendBatch()
-      el.scrollTo({ top: clamped * el.clientHeight, behavior: 'smooth' })
+      el.scrollTo({ top: clamped * el.clientHeight, behavior })
       setActiveIndex(clamped)
     },
     [feed.length, appendBatch],
+  )
+
+  const scrollToIndexInstant = useCallback(
+    (index: number) => scrollToIndex(index, 'auto'),
+    [scrollToIndex],
   )
 
   const enterPlay = useCallback((key: string) => {
@@ -155,6 +158,63 @@ export default function App() {
     setNudgeVisible(false)
   }, [])
 
+  const enterPlayRef = useRef(enterPlay)
+  enterPlayRef.current = enterPlay
+  const scrollInstantRef = useRef(scrollToIndexInstant)
+  scrollInstantRef.current = scrollToIndexInstant
+
+  const settleAfterIntro = useCallback(() => {
+    markFeedIntroSeen()
+    setIntroRunning(false)
+    introAbortRef.current = null
+    scrollInstantRef.current(0)
+    const key = feedRefState.current[0]?.key
+    if (key) enterPlayRef.current(key)
+  }, [])
+
+  const cancelIntro = useCallback(() => {
+    introAbortRef.current?.abort()
+    settleAfterIntro()
+  }, [settleAfterIntro])
+
+  useEffect(() => {
+    if (!bootReady || resolvingShare) return
+
+    let alive = true
+    const ac = new AbortController()
+    introAbortRef.current = ac
+
+    const done = () => {
+      if (!alive) return
+      settleAfterIntro()
+    }
+
+    if (hasSeenFeedIntro()) {
+      done()
+      return () => {
+        alive = false
+      }
+    }
+
+    setIntroRunning(true)
+    void runFeedIntroReel({
+      feedLength: feedRefState.current.length,
+      scrollInstant: (index) => {
+        if (alive) scrollInstantRef.current(index)
+      },
+      signal: ac.signal,
+    }).then((result) => {
+      if (!alive || result === 'cancelled') return
+      done()
+    })
+
+    return () => {
+      alive = false
+      ac.abort()
+      if (introAbortRef.current === ac) introAbortRef.current = null
+    }
+  }, [bootReady, resolvingShare, settleAfterIntro])
+
   const pausePlay = useCallback(() => {
     setGameOver(null)
     setPlayingKey(null)
@@ -162,27 +222,28 @@ export default function App() {
   }, [])
 
   const goToNextGame = useCallback(() => {
+    if (introRunning) {
+      cancelIntro()
+      return
+    }
+    setCueDimmed(true)
     setGameOver(null)
     setPlayingKey(null)
     setNudgeVisible(false)
     scrollToIndex(activeIndex + 1)
-  }, [activeIndex, scrollToIndex])
+  }, [activeIndex, scrollToIndex, introRunning, cancelIntro])
 
   const goToPrevGame = useCallback(() => {
+    if (introRunning) {
+      cancelIntro()
+      return
+    }
+    setCueDimmed(true)
     setGameOver(null)
     setPlayingKey(null)
     setNudgeVisible(false)
     scrollToIndex(activeIndex - 1)
-  }, [activeIndex, scrollToIndex])
-
-  const dismissCoach = useCallback(
-    (via: 'tap' | 'swipe') => {
-      markSwipeCoachSeen()
-      setCoachVisible(false)
-      if (via === 'swipe') goToNextGame()
-    },
-    [goToNextGame],
-  )
+  }, [activeIndex, scrollToIndex, introRunning, cancelIntro])
 
   const onGameSwipe = useCallback(
     (direction: 'next' | 'prev') => {
@@ -246,6 +307,7 @@ export default function App() {
     if (!el) return
 
     const onScroll = () => {
+      if (introRunning) return
       const index = Math.round(el.scrollTop / Math.max(el.clientHeight, 1))
       setActiveIndex(index)
       if (el.scrollTop > 40) dismissNudge()
@@ -254,7 +316,7 @@ export default function App() {
 
     el.addEventListener('scroll', onScroll, { passive: true })
     return () => el.removeEventListener('scroll', onScroll)
-  }, [dismissNudge, feed.length, appendBatch])
+  }, [dismissNudge, feed.length, appendBatch, introRunning])
 
   useEffect(() => {
     const el = feedRef.current
@@ -274,21 +336,38 @@ export default function App() {
     }
   }, [playingKey])
 
+  // Tap / key / swipe cancels the jackpot reel early.
   useEffect(() => {
+    if (!introRunning) return
+
+    const cancel = () => cancelIntro()
     const onKey = (e: KeyboardEvent) => {
-      if (coachVisible) {
-        if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          dismissCoach('tap')
-          return
-        }
-        if (e.key === 'ArrowDown' || e.key === 'j') {
-          e.preventDefault()
-          dismissCoach('swipe')
-          return
-        }
-        return
+      if (
+        e.key === 'Escape' ||
+        e.key === 'Enter' ||
+        e.key === ' ' ||
+        e.key === 'ArrowDown' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'j' ||
+        e.key === 'k'
+      ) {
+        e.preventDefault()
+        cancel()
       }
+    }
+
+    window.addEventListener('pointerdown', cancel)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('pointerdown', cancel)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [introRunning, cancelIntro])
+
+  useEffect(() => {
+    if (introRunning) return
+
+    const onKey = (e: KeyboardEvent) => {
       if (gameOver) {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
@@ -317,8 +396,7 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [
-    coachVisible,
-    dismissCoach,
+    introRunning,
     gameOver,
     playAgain,
     playingKey,
@@ -329,7 +407,7 @@ export default function App() {
 
   // After pause: swipe up anywhere from the lower part of the screen advances.
   useEffect(() => {
-    if (playingKey || !nudgeVisible) return
+    if (playingKey || !nudgeVisible || introRunning) return
 
     const EDGE = 120
     const onDown = (e: PointerEvent) => {
@@ -349,12 +427,16 @@ export default function App() {
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onCancel)
     }
-  }, [playingKey, nudgeVisible, endSwipe])
+  }, [playingKey, nudgeVisible, endSwipe, introRunning])
 
-  const inputEnabled = !!playingKey && !gameOver
+  const inputEnabled = !!playingKey && !gameOver && !introRunning
+  const showCue =
+    bootReady && !resolvingShare && !gameOver && !introRunning && !nudgeVisible
 
   return (
-    <div className={`app${playingKey ? ' is-playing' : ''}`}>
+    <div
+      className={`app${playingKey ? ' is-playing' : ''}${introRunning ? ' is-intro' : ''}`}
+    >
       {resolvingShare && (
         <div className="share-loading" role="status">
           Loading shared game…
@@ -373,7 +455,7 @@ export default function App() {
           )}
         </div>
         <div className="stats" aria-label="Session stats">
-          {!playingKey && (
+          {!playingKey && !introRunning && (
             <Link to="/create" className="create-link">
               Create
             </Link>
@@ -388,7 +470,9 @@ export default function App() {
           >
             Auto-restart {autoRestart ? 'On' : 'Off'}
           </button>
-          <span className="mode">{playingKey ? 'Playing' : 'Browse'}</span>
+          <span className="mode">
+            {introRunning ? 'Browse' : playingKey ? 'Playing' : 'Browse'}
+          </span>
           {playingKey && (
             <button type="button" className="pause-btn" onClick={pausePlay}>
               Pause
@@ -412,7 +496,13 @@ export default function App() {
             liked={!!liked[item.game.id]}
             autoRestart={autoRestart}
             restartKey={playingKey === item.key ? restartKey : 0}
-            onPlay={() => enterPlay(item.key)}
+            onPlay={() => {
+              if (introRunning) {
+                cancelIntro()
+                return
+              }
+              enterPlay(item.key)
+            }}
             onScore={onScore}
             onDied={onDied}
             onSwipe={onGameSwipe}
@@ -426,9 +516,16 @@ export default function App() {
         ))}
       </div>
 
+      {introRunning && (
+        <div className="feed-intro-label" aria-live="polite">
+          More games
+          <span className="feed-intro-chevron" aria-hidden="true" />
+        </div>
+      )}
+
       {/* While playing, the iframe eats touches — this host-owned right-edge
           rail stays above it so vertical swipes there always switch games. */}
-      {inputEnabled && !coachVisible && (
+      {inputEnabled && (
         <div
           className="swipe-rail"
           aria-label="Swipe up or down to switch games"
@@ -447,12 +544,14 @@ export default function App() {
         </div>
       )}
 
-      {nudgeVisible && !playingKey && !coachVisible && (
+      {nudgeVisible && !playingKey && !introRunning && (
         <button type="button" className="nudge" onClick={goToNextGame}>
           <span className="nudge-chevron" aria-hidden="true" />
           Swipe up for the next game
         </button>
       )}
+
+      {showCue && <SwipeCue dimmed={cueDimmed} />}
 
       {gameOver && playingKey && (
         <GameOverOverlay
@@ -462,8 +561,6 @@ export default function App() {
           onPlayAnother={goToNextGame}
         />
       )}
-
-      {coachVisible && <SwipeCoach onDismiss={dismissCoach} />}
     </div>
   )
 }

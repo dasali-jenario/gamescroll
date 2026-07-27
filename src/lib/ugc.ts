@@ -91,13 +91,26 @@ export async function invokeCreator<T = unknown>(
   if (error) {
     let detail = error.message
     const ctx = (error as { context?: Response }).context
-    if (ctx && typeof ctx.json === 'function') {
-      try {
-        const payload = (await ctx.json()) as { error?: string }
-        if (payload?.error) detail = payload.error
-      } catch {
-        /* keep FunctionsHttpError message */
+    if (ctx) {
+      if (ctx.status === 504 || /gateway timeout|504/i.test(detail)) {
+        return {
+          data: null,
+          error:
+            'Creator timed out — the game pipeline took too long. Try again, or make a smaller tweak.',
+        }
       }
+      if (typeof ctx.json === 'function') {
+        try {
+          const payload = (await ctx.json()) as { error?: string }
+          if (payload?.error) detail = payload.error
+        } catch {
+          /* keep FunctionsHttpError message */
+        }
+      }
+    }
+    if (/gateway timeout|504/i.test(detail)) {
+      detail =
+        'Creator timed out — the game pipeline took too long. Try again, or make a smaller tweak.'
     }
     return { data: null, error: detail }
   }

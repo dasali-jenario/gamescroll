@@ -36,6 +36,7 @@ export type UgcGameRow = {
   html_path: string
   html_url: string | null
   brief: Record<string, unknown> | null
+  conversation?: unknown
   created_at: string
   updated_at: string
   published_at: string | null

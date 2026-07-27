@@ -1,0 +1,210 @@
+/** Smoke-run a UGC game body against a fake host. Deno copy: supabase/functions/_shared/smoke.ts — keep in sync. */
+
+export type SmokeResult = { ok: true } | { ok: false; errors: string[] }
+
+type ApiFns = {
+  tick?: (dt: number) => void
+  draw?: (now: number) => void
+  die?: () => void
+  onHostStart?: () => void
+  onResize?: () => void
+  layout?: () => void
+}
+
+function stubCtx() {
+  const noop = () => {}
+  return new Proxy(
+    {},
+    {
+      get: (_t, prop) => {
+        if (prop === 'canvas') return { width: 390, height: 844 }
+        if (prop === 'getTransform') {
+          return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 })
+        }
+        if (prop === 'measureText') {
+          return (text: string) => ({ width: String(text).length * 10 })
+        }
+        return noop
+      },
+    },
+  )
+}
+
+function stubCanvas() {
+  const listeners: Record<string, Array<(e: unknown) => void>> = {}
+  return {
+    width: 390,
+    height: 844,
+    style: {},
+    getContext: () => stubCtx(),
+    getBoundingClientRect: () => ({
+      left: 0,
+      top: 0,
+      width: 390,
+      height: 844,
+      right: 390,
+      bottom: 844,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    }),
+    addEventListener: (type: string, fn: (e: unknown) => void) => {
+      ;(listeners[type] ||= []).push(fn)
+    },
+    removeEventListener: (type: string, fn: (e: unknown) => void) => {
+      listeners[type] = (listeners[type] || []).filter((f) => f !== fn)
+    },
+    dispatchEvent: () => true,
+    __listeners: listeners,
+  }
+}
+
+/**
+ * Load bodyJs in a fake Gamescroll host and exercise onHostStart → layout → tick → draw.
+ * Catches ReferenceError / TypeError before upload.
+ */
+export function smokeGameBody(bodyJs: string): SmokeResult {
+  const errors: string[] = []
+  if (!bodyJs.trim()) return { ok: false, errors: ['game body is empty'] }
+
+  const canvas = stubCanvas()
+  const ctx = stubCtx()
+  const GS = {
+    paused: false,
+    reported: true,
+    onFail: 'replay' as const,
+    post: () => {},
+    begin: () => {},
+    halt: () => {
+      GS.paused = true
+    },
+  }
+  // Proxy stubs so any Juice/PF helper the body reaches for resolves to a no-op.
+  const noopProxy = (extra: Record<string, unknown> = {}) =>
+    new Proxy(extra, {
+      get: (target, prop) => (prop in target ? target[prop as string] : () => {}),
+      set: (target, prop, value) => {
+        target[prop as string] = value
+        return true
+      },
+    })
+  const Juice = noopProxy()
+  const PF = noopProxy({ t: 0 })
+
+  let score = 0
+  const setScore = (n: number) => {
+    score = Math.max(0, n | 0)
+  }
+  const bump = (n?: number) => {
+    setScore(score + (n || 1))
+  }
+
+  const addEventListener = (
+    type: string,
+    fn: EventListenerOrEventListenerObject,
+  ) => {
+    // no-op global listeners in smoke (pointer handlers register fine)
+    void type
+    void fn
+  }
+
+  let api: ApiFns = {}
+  try {
+    // Host bindings match wrap.ts free variables. new Function is intentional here
+    // (game bodies themselves are forbidden from using it).
+    const loader = new Function(
+      'canvas',
+      'ctx',
+      'GS',
+      'Juice',
+      'PF',
+      'setScore',
+      'bump',
+      'addEventListener',
+      `
+      let W = 390, H = 844, score = 0;
+      ${bodyJs}
+      return {
+        tick: typeof tick === 'function' ? tick : undefined,
+        draw: typeof draw === 'function' ? draw : undefined,
+        die: typeof die === 'function' ? die : undefined,
+        onHostStart: typeof onHostStart === 'function' ? onHostStart : undefined,
+        onResize: typeof onResize === 'function' ? onResize : undefined,
+        layout: typeof layout === 'function' ? layout : undefined,
+      };
+      `,
+    )
+    api = loader(
+      canvas,
+      ctx,
+      GS,
+      Juice,
+      PF,
+      setScore,
+      bump,
+      addEventListener,
+    ) as ApiFns
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { ok: false, errors: [`smoke load failed: ${msg}`] }
+  }
+
+  if (!api.tick) errors.push('smoke: tick is not defined after load')
+  if (!api.draw) errors.push('smoke: draw is not defined after load')
+  if (!api.die) errors.push('smoke: die is not defined after load')
+  if (!api.onHostStart) errors.push('smoke: onHostStart is not defined after load')
+  if (!api.layout) errors.push('smoke: layout is not defined after load')
+  if (errors.length) return { ok: false, errors }
+
+  try {
+    api.onHostStart!()
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    errors.push(`smoke onHostStart threw: ${msg}`)
+  }
+  try {
+    api.layout!()
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    errors.push(`smoke layout threw: ${msg}`)
+  }
+  try {
+    if (api.onResize) api.onResize()
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    errors.push(`smoke onResize threw: ${msg}`)
+  }
+  try {
+    api.tick!(0.016)
+    GS.paused = true
+    api.tick!(0.016)
+    GS.paused = false
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    errors.push(`smoke tick threw: ${msg}`)
+  }
+  try {
+    api.draw!(performance.now())
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    errors.push(`smoke draw threw: ${msg}`)
+  }
+
+  // Fire a synthetic pointerdown if the body registered one on canvas.
+  try {
+    const downs = canvas.__listeners.pointerdown || []
+    for (const fn of downs) {
+      fn({
+        clientX: 195,
+        clientY: 700,
+        pointerId: 1,
+        preventDefault: () => {},
+      })
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    errors.push(`smoke pointerdown threw: ${msg}`)
+  }
+
+  return errors.length ? { ok: false, errors } : { ok: true }
+}

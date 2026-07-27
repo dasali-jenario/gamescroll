@@ -1,5 +1,73 @@
 # New file requests
 
+## 2026-07-27 — Persistent swipe cue + jackpot feed intro
+
+### Requested files
+- `src/lib/feedIntro.ts` — jackpot reel sequence, `gs_feed_intro_seen` (+ migrate `gs_swipe_coach_seen`), reduced-motion skip
+- `src/components/SwipeCue.tsx` — persistent “Swipe / Next game” chrome (dims after first swipe)
+- `src/feedIntro.test.ts` — unit tests for reel sequence / delays
+- Updates: `src/App.tsx` (delay autoplay, reel for cold start + `?g=` shares, cue wiring), `src/index.css`, `docs/WEBAPP.md`, `README.md`
+- Removed: `src/components/SwipeCoach.tsx` (blocking one-shot overlay replaced by reel + cue)
+
+### Duplicate search
+- Grep `SwipeCoach|swipe.?coach|SwipeCue|feedIntro|gs_feed_intro|gs_swipe_coach` under `/Users/dasali/gamescroll` → coach overlay + `gs_swipe_coach_seen` only; no reel helper or persistent cue component
+- Pitch mock `pitch/gamescroll-ux-mock.html` has `.swipe-cue` (marketing only, not wired into React)
+- Existing related UX kept: `.nudge` (post-pause), `.swipe-rail` (play-mode edge capture) — not duplicated
+- Glob `src/components/*` → GameCard, GameOverOverlay, SwipeCoach, CreatorPreview; no SwipeCue
+- Glob `src/lib/*` → no feedIntro / onboarding module
+
+### Rationale
+Blocking coach was easy to miss after dismiss and skipped on shares; a real-feed jackpot reel teaches “more games” visually (including `?g=`), and a persistent labeled cue keeps discoverability in browse and play.
+
+## 2026-07-24 — Creator polish (patch edits + juice rules + anti-patterns)
+
+### Requested files
+- `src/lib/patchBody.ts` — search/replace patch application for stored game bodies (unique-match enforcement, `all` flag)
+- `supabase/functions/_shared/patchBody.ts` — Deno copy (keep in sync)
+- `src/patchBody.test.ts` — unit tests
+- Updates: `_shared/canonExamples.ts` (`JUICE_RULES`, `ANTI_PATTERNS`), `creator/index.ts` (patch flow, chat trimming, prompt sections), `gameValidator.ts` + Deno `validate.ts` (host-owned effect checks), `gameSmoke.ts` + Deno `smoke.ts` (Proxy stubs), `docs/CREATOR.md`, `gameValidator.test.ts`
+
+### Duplicate search
+- Grep `patchBody|applyPatches|ANTI_PATTERNS|trimConversation` → nothing existing
+- Grep `bodyJs|brief` → only creator/index.ts + validator/smoke helpers; no existing diff/patch mechanism (iterate always sent a full body)
+- Juice/PF rules folded into existing `canonExamples.ts` rather than a new prompt file; `trimConversation` kept inline in `creator/index.ts` (single caller)
+
+### Rationale
+Polish pass: cheaper/safer small tweaks via patches, explicit effects-library contract, hard negatives for known failure modes, and shorter prompts that rely on stored code instead of long transcripts.
+
+## 2026-07-24 — Creator medium quality (mechanics + layoutPlan + wireframe QA)
+
+### Requested files
+- `src/lib/layoutPlan.ts` — layoutPlan parse/validate, ASCII wireframe, Edge-friendly PNG preview for vision QA
+- `src/lib/mechanics.ts` — mechanic family inference + template seeds
+- `supabase/functions/_shared/layoutPlan.ts` / `mechanics.ts` — Deno copies (keep in sync)
+- `src/layoutPlan.test.ts` — unit tests
+- Updates: `creator/index.ts` (templates, layoutPlan gate, vision critique, `OPENAI_MODEL_FAST` routing), `docs/CREATOR.md`
+
+### Duplicate search
+- Grep `layoutPlan|inferMechanic|OPENAI_MODEL_FAST|mechanicTemplate|wireframe` → none existing
+- Grep `smokeGame|canonExample|critiqueAndFix` → prior high-impact helpers only; extended in place rather than duplicating validators
+- No Playwright/browser screenshot pipeline in repo — PNG wireframe from layoutPlan is the Edge-viable visual QA stand-in
+
+### Rationale
+Medium-impact creator upgrades: coherent mechanic skeletons, machine-checkable layout contracts, visual layout QA without a headless browser, and cheaper models for iterate/repair.
+
+## 2026-07-24 — Creator quality gate (smoke + canon + critique)
+
+### Requested files
+- `src/lib/gameSmoke.ts` — fake-host smoke-run for UGC `bodyJs` (load → onHostStart/layout/tick/draw/pointer)
+- `supabase/functions/_shared/smoke.ts` — Deno copy of gameSmoke (keep in sync)
+- `supabase/functions/_shared/canonExamples.ts` — few-shot complete bodyJs examples for creator system prompt
+- Updates: `gameValidator.ts` (+ Deno `validate.ts`), `creator/index.ts` quality pipeline, `gameValidator.test.ts`, `docs/CREATOR.md`
+
+### Duplicate search
+- Grep `smokeGame|canonExample|critiqueAndFix|quality critique` → no existing smoke/canon/critique helpers
+- Grep `validateGameBody` → only `gameValidator.ts` / `_shared/validate.ts` / creator / tests (extended in place, no second validator)
+- Catalog games under `public/games/*` are full HTML shells, not injectable bodyJs examples — new canon file is the right shape for the Edge Function prompt
+
+### Rationale
+Creator quality was prompt-only; static checks missed layout/input bugs, and there was no runtime or second-pass review before upload.
+
 ## 2026-07-24 — UGC playable HTML blob + ugc-play function
 
 ### Requested files

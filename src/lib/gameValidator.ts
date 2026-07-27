@@ -31,12 +31,38 @@ const FORBIDDEN_PATTERNS: { re: RegExp; reason: string }[] = [
   { re: /\bimport\s*\(/, reason: 'dynamic import is not allowed' },
 ]
 
+/** Effects the host shell already drives; calling them again double-fires or breaks the loop. */
+const HOST_OWNED_PATTERNS: { re: RegExp; reason: string }[] = [
+  { re: /\bJuice\.init\s*\(/, reason: 'Juice.init is host-owned — remove the call' },
+  { re: /\bJuice\.resize\s*\(/, reason: 'Juice.resize is host-owned — remove the call' },
+  { re: /\bJuice\.update\s*\(/, reason: 'Juice.update is host-owned — remove the call' },
+  {
+    re: /\bJuice\.onScore\s*\(/,
+    reason: 'bump() already fires Juice.onScore — do not call it directly',
+  },
+  {
+    re: /\bJuice\.onDie\s*\(/,
+    reason: 'die() already fires Juice.onDie — do not call it directly',
+  },
+  { re: /\bPF\.t\s*(\+|-|\*|\/)?=(?!=)/, reason: 'PF.t is advanced by the host loop — do not assign it' },
+]
+
 export const MAX_HTML_BYTES = 350_000
 export const MAX_BODY_BYTES = 120_000
 
 export type ValidationResult =
   | { ok: true }
   | { ok: false; errors: string[] }
+
+function hasFn(body: string, name: string): boolean {
+  return (
+    new RegExp(`\\bfunction\\s+${name}\\b`).test(body) ||
+    new RegExp(`\\b${name}\\s*=\\s*function\\b`).test(body) ||
+    new RegExp(`\\b${name}\\s*=\\s*\\(`).test(body) ||
+    new RegExp(`\\bconst\\s+${name}\\s*=`).test(body) ||
+    new RegExp(`\\blet\\s+${name}\\s*=`).test(body)
+  )
+}
 
 export function validateGameBody(body: string): ValidationResult {
   const errors: string[] = []
@@ -47,14 +73,29 @@ export function validateGameBody(body: string): ValidationResult {
   for (const { re, reason } of FORBIDDEN_PATTERNS) {
     if (re.test(body)) errors.push(reason)
   }
-  if (!/\bfunction\s+tick\b/.test(body) && !/\btick\s*=\s*function\b/.test(body)) {
+  for (const { re, reason } of HOST_OWNED_PATTERNS) {
+    if (re.test(body)) errors.push(reason)
+  }
+  if (!hasFn(body, 'tick')) {
     errors.push('game body must define tick(dt)')
   }
-  if (!/\bfunction\s+draw\b/.test(body) && !/\bdraw\s*=\s*function\b/.test(body)) {
+  if (!hasFn(body, 'draw')) {
     errors.push('game body must define draw(now)')
   }
-  if (!/\bfunction\s+die\b/.test(body) && !/\bdie\s*=\s*function\b/.test(body)) {
+  if (!hasFn(body, 'die')) {
     errors.push('game body must define die()')
+  }
+  if (!hasFn(body, 'layout')) {
+    errors.push('game body must define layout() and size UI from W/H')
+  }
+  if (!hasFn(body, 'onHostStart')) {
+    errors.push('game body must define onHostStart()')
+  }
+  if (!hasFn(body, 'onResize')) {
+    errors.push('game body must define onResize() (usually call layout())')
+  }
+  if (!/\blayout\s*\(/.test(body)) {
+    errors.push('game body must call layout() (from onHostStart / onResize / reset)')
   }
   if (
     !/\.addEventListener\s*\(\s*['"]pointerdown['"]/.test(body) &&
@@ -66,6 +107,15 @@ export function validateGameBody(body: string): ValidationResult {
   }
   if (/\bcreateElement\s*\(\s*['"]button['"]/.test(body) || /\b<button\b/i.test(body)) {
     errors.push('do not create HTML buttons — draw UI on the canvas and hit-test taps')
+  }
+  // Pointer position used without canvas mapping → wrong hit tests on scaled/letterboxed canvases.
+  if (
+    /\.clientX|\.clientY/.test(body) &&
+    !/\bgetBoundingClientRect\s*\(/.test(body)
+  ) {
+    errors.push(
+      'map pointer coords with getBoundingClientRect (clientX/Y alone is not enough)',
+    )
   }
   return errors.length ? { ok: false, errors } : { ok: true }
 }

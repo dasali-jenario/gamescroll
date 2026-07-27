@@ -1,4 +1,22 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { ANTI_PATTERNS, JUICE_RULES, canonExampleFor } from '../_shared/canonExamples.ts'
+import {
+  applyBodyPatches,
+  parseBodyPatches,
+  type BodyPatch,
+} from '../_shared/patchBody.ts'
+import {
+  layoutPlanAscii,
+  parseLayoutPlan,
+  validateLayoutPlan,
+  type LayoutRect,
+} from '../_shared/layoutPlan.ts'
+import {
+  inferMechanicFromMessages,
+  mechanicSeedMessage,
+  type MechanicFamily,
+} from '../_shared/mechanics.ts'
+import { smokeGameBody } from '../_shared/smoke.ts'
 import { wrapGameHtml } from '../_shared/wrap.ts'
 import { validateGameBody, validateWrappedHtml } from '../_shared/validate.ts'
 
@@ -16,12 +34,62 @@ type LlmGamePayload = {
   accent: string
   bg: string
   bodyJs: string
+  layoutPlan: LayoutRect[]
+  mechanic?: MechanicFamily | string
+  /** Small iterate edits: applied to the stored body instead of a full rewrite. */
+  patches?: BodyPatch[]
 }
 
 type LlmTurn = {
   reply: string
   phase: 'interview' | 'generated' | 'iterated'
   game: LlmGamePayload | null
+}
+
+type ModelKind = 'generate' | 'iterate' | 'fast'
+
+function resolveModel(kind: ModelKind): string {
+  const strong = Deno.env.get('OPENAI_MODEL') || 'gpt-4.1'
+  const fast = Deno.env.get('OPENAI_MODEL_FAST') || strong
+  return kind === 'generate' ? strong : fast
+}
+
+function normalizeGame(raw: Partial<LlmGamePayload> | null | undefined): LlmGamePayload | null {
+  if (!raw) return null
+  const bodyJs = typeof raw.bodyJs === 'string' ? raw.bodyJs : ''
+  const patches = parseBodyPatches(raw.patches)
+  if (!bodyJs.trim() && patches.length === 0) return null
+  return {
+    title: String(raw.title || 'Untitled').slice(0, 64),
+    tip: String(raw.tip || 'Tap to play').slice(0, 120),
+    accent: String(raw.accent || '#e9c46a'),
+    bg: String(raw.bg || raw.accent || '#264653'),
+    bodyJs,
+    layoutPlan: parseLayoutPlan(raw.layoutPlan),
+    mechanic: raw.mechanic,
+    patches,
+  }
+}
+
+const MAX_HISTORY_TURNS = 12
+const MAX_HISTORY_CHARS = 6_000
+
+/**
+ * Keep the opening brief plus recent turns; the stored bodyJs carries the game state,
+ * so long interview transcripts only dilute the edit request.
+ */
+function trimConversation(messages: ChatMessage[]): ChatMessage[] {
+  const clipped = messages.map((m) => ({
+    role: m.role,
+    content: m.content.length > MAX_HISTORY_CHARS
+      ? `${m.content.slice(0, MAX_HISTORY_CHARS)}…`
+      : m.content,
+  }))
+  if (clipped.length <= MAX_HISTORY_TURNS) return clipped
+  const firstUserIdx = clipped.findIndex((m) => m.role === 'user')
+  const head = firstUserIdx >= 0 ? [clipped[firstUserIdx]] : []
+  const tail = clipped.slice(-(MAX_HISTORY_TURNS - head.length))
+  return [...head, ...tail]
 }
 
 const SYSTEM_PROMPT = `You are Gamescroll's game creator assistant. You help people invent tiny single-player HTML5 canvas minigames for a TikTok-style feed.
@@ -33,6 +101,9 @@ Hard product limits (never violate):
 - Games MUST be fully playable: every visible control must respond to pointer input
 - Portrait-first mobile: design for tall phones in a TikTok-style full-bleed frame (typically W < H). Landscape is secondary — still call layout() from onResize, but primary composition is portrait.
 
+MECHANIC FAMILIES:
+When a MECHANIC TEMPLATE seed is provided, follow that family. Also set game.mechanic to one of: reaction | timing | dodge | drag | stack | custom.
+
 PORTRAIT / MOBILE LAYOUT (required):
 - Assume safe playfield inset: top ~12% of H (host score HUD lives near the top), bottom ~10% of H (thumbs / home indicator), sides ~5% of W.
 - Primary action buttons: lower third (about y = H*0.68 to H*0.82), centered, width ~70% of W (min 200, max 320), height >= 56px (prefer 64–72 on large phones).
@@ -42,6 +113,35 @@ PORTRAIT / MOBILE LAYOUT (required):
 - Hit targets >= 48px. Prefer full-width tap zones when the prompt is "tap anywhere".
 - One-thumb play: avoid requiring simultaneous multi-touch or top-corner precision taps.
 - Vertical motion/scroll should stay inside the canvas (feed swipe is separate). Don't place critical UI in the extreme top 80px.
+
+LAYOUT PLAN (required on every generate/iterate with a game):
+- Include game.layoutPlan: an array of rects {id, x, y, w, h, band} where x,y,w,h are fractions of W/H in 0–1.
+- band is one of: hud | title | focal | hint | cta | other
+- Rects must not overlap (leave ≥12px gap on a ~390×844 phone). CTA band center y ≈ 0.68–0.82. Focal center y ≈ 0.28–0.58.
+- layout() in bodyJs must realize these rects (same ids / roles). Keep plan and code in sync when iterating.
+
+NO OVERLAP / CLEAR COMPOSITION (required on every generate and iterate):
+- Treat every interactive or important visual as a layout rect with x,y,w,h set in layout().
+- Rects must not overlap (including text labels sitting on buttons/targets). Leave >= 12px gap between distinct UI groups.
+- Stack vertically with clear bands: HUD-safe top → focal play area → instructions (optional) → primary CTA bottom. Never pile title + score + buttons + targets in the same band.
+- Draw text with baseline/alignment that keeps glyphs inside their reserved rect; measure roughly (charWidth ≈ fontSize*0.55) so long labels do not spill into neighbors.
+- If the user asks to add something, place it in empty space (or shrink/move existing rects in layout()) — do not drop new elements on top of existing ones.
+- After any layout change, mentally verify: buttons clear of play objects, labels clear of each other, nothing under the host score HUD.
+
+ITERATE ON EXISTING CODE (critical):
+- When a CURRENT GAME CODE block is provided, you are EDITING that game — not inventing a new one.
+- Start from the provided bodyJs. Apply only the user's requested change. Preserve working mechanics, variable names, state machine, colors, and structure unless the user asks to change them.
+- Prefer surgical edits: adjust layout(), draw(), handlers, or a small helper. Do NOT rewrite the whole game from scratch for tweaks like "make the button bigger", "add a score", "fix overlap", or "change color".
+- phase must be "iterated" when CURRENT GAME CODE was provided; keep title/tip/accent/bg unless the user asks to change them.
+- Update layoutPlan to match the edited layout().
+- If CURRENT GAME CODE is missing/broken and the user wants a new game, you may generate fresh code with phase "generated".
+
+PATCH EDITS (preferred for small tweaks):
+- For localised changes (button size/position, colour, speed, label, one new rect), return game.patches instead of game.bodyJs:
+  "patches": [{"find": "exact snippet from the current body", "replace": "new snippet", "all": false}]
+- Each find must be copied character-for-character from CURRENT GAME CODE and must match exactly one place (include surrounding lines to make it unique), or set "all": true to replace every occurrence.
+- Keep patches minimal and ordered; still return layoutPlan for the resulting layout.
+- Return a full game.bodyJs (and no patches) only for structural rewrites: new mechanic, new state machine, or the tweak touches most of the file.
 
 Interview: ask at most 4 short follow-ups (mechanic, controls, fail condition, visual vibe). Then generate.
 
@@ -54,12 +154,17 @@ When generating or iterating, respond with ONLY valid JSON (no markdown fences):
     "tip": "one-line how to play",
     "accent": "#rrggbb",
     "bg": "#rrggbb",
-    "bodyJs": "javascript game body"
+    "mechanic": "reaction" | "timing" | "dodge" | "drag" | "stack" | "custom",
+    "layoutPlan": [{"id":"title","x":0.1,"y":0.14,"w":0.8,"h":0.06,"band":"title"}],
+    "bodyJs": "javascript game body",
+    "patches": [{"find":"...","replace":"...","all":false}]
   }
 }
+Send either bodyJs (new game / rewrite) or patches (small edit to CURRENT GAME CODE), not both.
 
 During interview, phase="interview" and game=null.
-When ready to build (or after a tweak request), phase="generated" or "iterated" and game must be set.
+When ready to build the first version, phase="generated" and game must be set.
+When CURRENT GAME CODE was provided and you applied a tweak, phase="iterated" and game must be set.
 
 CRITICAL host runtime (bodyJs runs inside a shell that already provides canvas, ctx, W, H, score, setScore, bump, die wrapper, GS, Juice):
 1. The host posts gamescroll:start after ready. Until then GS.paused === true.
@@ -72,57 +177,13 @@ CRITICAL host runtime (bodyJs runs inside a shell that already provides canvas, 
 8. Timers / light sequences must advance in tick(dt) while !GS.paused — never rely only on setTimeout for core gameplay (setTimeout is ok as a helper, but state machine in tick is required).
 9. On fail call die() (host may auto-replay). On success use bump() or setScore() with reaction time in ms as the score when relevant.
 10. Keep body under ~80KB. No fetch, WebSocket, localStorage, eval, Worker, import().
+11. Do NOT draw a second large score counter — the host already shows score at the top. Use bump()/setScore() only.
+12. Always define layout, onHostStart, onResize; call layout() from those and from reset.
 
-Working pattern for a race-start reaction timer (adapt visuals, keep the state machine):
-let phase='idle' // idle | waiting | go | result | foul
-let waitLeft=0, reactAt=0, lastMs=0
-const btn={x:0,y:0,w:0,h:0}
-function layout(){
-  btn.w=Math.min(300, Math.max(200, W*0.72))
-  btn.h=Math.max(56, Math.min(72, H*0.08))
-  btn.x=(W-btn.w)/2
-  btn.y=H*0.74
-}
-
-function reset(){ phase='idle'; waitLeft=0; reactAt=0; setScore(0); layout() }
-function die(){ phase='foul'; waitLeft=0.9 }
-function hitBtn(x,y){ return x>=btn.x&&x<=btn.x+btn.w&&y>=btn.y&&y<=btn.y+btn.h }
-function onHostStart(){ reset() }
-function onResize(){ layout() }
-canvas.addEventListener('pointerdown', (e)=>{
-  if(GS.paused) return
-  const r=canvas.getBoundingClientRect()
-  const x=(e.clientX-r.left)*(W/r.width), y=(e.clientY-r.top)*(H/r.height)
-  if(phase==='idle' && hitBtn(x,y)){
-    phase='waiting'; waitLeft=1.2+Math.random()*2.2; return
-  }
-  if(phase==='waiting'){ die(); return }
-  if(phase==='go'){
-    lastMs=Math.max(1, Math.round((performance.now()-reactAt)))
-    setScore(lastMs); phase='result'; waitLeft=1.6; return
-  }
-  if(phase==='result' || phase==='foul'){ if(hitBtn(x,y)) reset() }
-})
-function tick(dt){
-  if(GS.paused) return
-  if(phase==='waiting'){
-    waitLeft-=dt
-    if(waitLeft<=0){ phase='go'; reactAt=performance.now() }
-  } else if(phase==='result' || phase==='foul'){
-    waitLeft-=dt
-    if(waitLeft<=0) reset()
-  }
-}
-function draw(){
-  ctx.fillStyle='#1b1f3b'; ctx.fillRect(0,0,W,H)
-  // draw lights + button label from phase (red/orange/green)
-  // ... comic race lights ...
-  ctx.fillStyle='#fff'; ctx.font='700 22px sans-serif'; ctx.textAlign='center'
-  const label=phase==='idle'?'START':phase==='waiting'?'WAIT':phase==='go'?'TAP!':phase==='foul'?'TOO EARLY':'AGAIN'
-  ctx.fillText(label, W/2, btn.y+36)
-}
-
-You MUST define tick, draw, die, and register pointerdown. Prefer onHostStart to call reset().
+You MUST define tick, draw, die, layout, onHostStart, onResize, and register pointerdown.
+When a CANON EXAMPLE is provided in the conversation, copy its structure (layout/onHostStart/tick/draw/pointer mapping) and adapt visuals/mechanics.
+${JUICE_RULES}
+${ANTI_PATTERNS}
 `
 
 
@@ -145,19 +206,102 @@ function slugify(title: string): string {
 
 function extractJson(text: string): LlmTurn {
   const trimmed = text.trim()
+  let parsed: Record<string, unknown>
   try {
-    return JSON.parse(trimmed) as LlmTurn
+    parsed = JSON.parse(trimmed) as Record<string, unknown>
   } catch {
     const start = trimmed.indexOf('{')
     const end = trimmed.lastIndexOf('}')
     if (start >= 0 && end > start) {
-      return JSON.parse(trimmed.slice(start, end + 1)) as LlmTurn
+      parsed = JSON.parse(trimmed.slice(start, end + 1)) as Record<string, unknown>
+    } else {
+      throw new Error('Model did not return JSON')
     }
-    throw new Error('Model did not return JSON')
+  }
+  const phase = parsed.phase
+  const reply = typeof parsed.reply === 'string' ? parsed.reply : ''
+  const game = normalizeGame(parsed.game as Partial<LlmGamePayload> | null)
+  return {
+    reply,
+    phase:
+      phase === 'generated' || phase === 'iterated' || phase === 'interview'
+        ? phase
+        : game
+          ? 'generated'
+          : 'interview',
+    game,
   }
 }
 
-async function callOpenAi(messages: ChatMessage[]): Promise<LlmTurn> {
+type ExistingDraft = {
+  id: string
+  slug: string
+  title: string
+  tip: string
+  accent: string
+  html_path: string
+  brief: Record<string, unknown> | null
+}
+
+function briefBodyJs(brief: Record<string, unknown> | null | undefined): string | null {
+  if (!brief) return null
+  const raw = brief.bodyJs
+  return typeof raw === 'string' && raw.trim() ? raw : null
+}
+
+function briefBg(brief: Record<string, unknown> | null | undefined): string | null {
+  if (!brief) return null
+  const raw = brief.bg
+  return typeof raw === 'string' && raw.trim() ? raw : null
+}
+
+/** Recover bodyJs from wrapped HTML when brief.bodyJs is missing (older drafts). */
+function extractBodyFromHtml(html: string): string | null {
+  const marker = 'if (window.Juice) Juice.init('
+  const startHint = html.indexOf(marker)
+  if (startHint < 0) return null
+  const afterInit = html.indexOf('\n', startHint)
+  if (afterInit < 0) return null
+  const endMarker = '\n    ;(function () {\n      const __halt = GS.halt'
+  const end = html.indexOf(endMarker, afterInit)
+  if (end < 0) return null
+  const body = html.slice(afterInit + 1, end).replace(/\n$/, '')
+  return body.trim() ? body : null
+}
+
+function buildIterateContext(existing: {
+  title: string
+  tip: string
+  accent: string
+  bg: string
+  bodyJs: string
+  layoutPlan?: LayoutRect[]
+  mechanic?: string
+}): ChatMessage {
+  return {
+    role: 'user',
+    content: [
+      'CURRENT GAME CODE — edit this in place for the latest user request.',
+      'Return a full bodyJs derived from this source with only the requested changes.',
+      'Keep layoutPlan in sync with layout(); fix any overlapping UI / bad positioning while you edit.',
+      `title: ${existing.title}`,
+      `tip: ${existing.tip}`,
+      `accent: ${existing.accent}`,
+      `bg: ${existing.bg}`,
+      `mechanic: ${existing.mechanic || 'custom'}`,
+      `layoutPlan: ${JSON.stringify(existing.layoutPlan || [])}`,
+      'bodyJs:',
+      '```javascript',
+      existing.bodyJs,
+      '```',
+    ].join('\n'),
+  }
+}
+
+async function callOpenAi(
+  messages: ChatMessage[],
+  opts?: { temperature?: number; modelKind?: ModelKind; maxTokens?: number },
+): Promise<LlmTurn> {
   const key = Deno.env.get('OPENAI_API_KEY')
   if (!key) throw new Error('OPENAI_API_KEY is not set on the Edge Function')
 
@@ -168,8 +312,9 @@ async function callOpenAi(messages: ChatMessage[]): Promise<LlmTurn> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: Deno.env.get('OPENAI_MODEL') || 'gpt-4.1',
-      temperature: 0.7,
+      model: resolveModel(opts?.modelKind || 'generate'),
+      temperature: opts?.temperature ?? 0.7,
+      max_tokens: opts?.maxTokens ?? 12_000,
       response_format: { type: 'json_object' },
       messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
     }),
@@ -200,16 +345,190 @@ async function repairBody(
   bodyJs: string,
   errors: string[],
   prior: ChatMessage[],
+  meta: LlmGamePayload,
 ): Promise<LlmGamePayload> {
-  const turn = await callOpenAi([
-    ...prior,
-    {
-      role: 'user',
-      content: `The previous bodyJs failed validation: ${errors.join('; ')}. Return JSON with phase "generated", a fixed game.bodyJs, and keep title/tip/accent/bg.`,
+  // Keep repair lean — full chat history was a major timeout source.
+  const recent = prior.slice(-4)
+  const turn = await callOpenAi(
+    [
+      ...recent,
+      {
+        role: 'user',
+        content: [
+          `The previous game failed checks: ${errors.join('; ')}.`,
+          'Return JSON with phase "generated", keep title/tip/accent/bg/mechanic, fixed bodyJs, and a corrected layoutPlan (0–1 fractions, no overlaps).',
+          'Follow canon layout rules: layout/onHostStart/onResize, getBoundingClientRect for pointer coords, no overlapping UI.',
+          `title: ${meta.title}`,
+          `tip: ${meta.tip}`,
+          `accent: ${meta.accent}`,
+          `bg: ${meta.bg}`,
+          `mechanic: ${meta.mechanic || 'custom'}`,
+          `prior layoutPlan: ${JSON.stringify(meta.layoutPlan)}`,
+          'Broken bodyJs to repair:',
+          '```javascript',
+          bodyJs.length > 24_000 ? `${bodyJs.slice(0, 24_000)}\n/* truncated */` : bodyJs,
+          '```',
+        ].join('\n'),
+      },
+    ],
+    { temperature: 0.2, modelKind: 'fast', maxTokens: 10_000 },
+  )
+  const fixed = turn.game
+  if (!fixed) throw new Error('Repair pass did not return a game')
+  return fixed
+}
+
+type CritiqueTurn = LlmTurn & { issues?: string[]; ok?: boolean }
+
+/** Text-only layout/code QA — vision PNG was too slow and caused 504s. */
+async function critiqueAndFix(
+  game: LlmGamePayload,
+): Promise<{ game: LlmGamePayload; issues: string[]; changed: boolean }> {
+  const key = Deno.env.get('OPENAI_API_KEY')
+  if (!key) return { game, issues: ['critique skipped: no API key'], changed: false }
+
+  const ascii = layoutPlanAscii(game.layoutPlan)
+  const bodySnippet =
+    game.bodyJs.length > 10_000
+      ? `${game.bodyJs.slice(0, 6_000)}\n/* … */\n${game.bodyJs.slice(-3_000)}`
+      : game.bodyJs
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json',
     },
-  ])
-  if (!turn.game) throw new Error('Repair pass did not return a game')
-  return turn.game
+    body: JSON.stringify({
+      model: resolveModel('fast'),
+      temperature: 0.15,
+      max_tokens: 8_000,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: `You are a strict QA reviewer for Gamescroll canvas minigames. Respond with ONLY JSON:
+{"ok":true|false,"issues":["..."],"reply":"short","phase":"generated","game":null|full game object}
+
+If the body + layoutPlan already pass every checklist item, set ok=true, game=null, issues=[].
+If anything fails, set ok=false, list issues, and return a FIXED complete game (title/tip/accent/bg/mechanic/layoutPlan/bodyJs) with minimal changes.
+
+Checklist:
+1. layout() matches layoutPlan; called from onHostStart/onResize/reset
+2. No overlapping rects; CTA lower third; focal center band; clear of host HUD (y≳0.12)
+3. tick respects GS.paused; pointer coords via getBoundingClientRect when using clientX/Y
+4. Fail → die(); scoring via bump/setScore — no second score HUD
+5. Required fns: tick, draw, die, layout, onHostStart, onResize`,
+        },
+        {
+          role: 'user',
+          content: [
+            `title: ${game.title}`,
+            `tip: ${game.tip}`,
+            `mechanic: ${game.mechanic || 'custom'}`,
+            `layoutPlan: ${JSON.stringify(game.layoutPlan)}`,
+            ascii,
+            'bodyJs:',
+            '```javascript',
+            bodySnippet,
+            '```',
+          ].join('\n'),
+        },
+      ],
+    }),
+  })
+  if (!res.ok) {
+    return { game, issues: [`critique skipped: OpenAI ${res.status}`], changed: false }
+  }
+  const payload = await res.json()
+  const content = payload.choices?.[0]?.message?.content
+  if (!content || typeof content !== 'string') {
+    return { game, issues: ['critique skipped: empty response'], changed: false }
+  }
+  let parsed: CritiqueTurn
+  try {
+    parsed = extractJson(content) as CritiqueTurn
+    const raw = JSON.parse(
+      content.trim().startsWith('{')
+        ? content.trim()
+        : content.slice(content.indexOf('{'), content.lastIndexOf('}') + 1),
+    ) as { ok?: boolean; issues?: unknown }
+    parsed.ok = raw.ok
+    parsed.issues = Array.isArray(raw.issues) ? raw.issues.map(String) : []
+  } catch {
+    return { game, issues: ['critique skipped: bad JSON'], changed: false }
+  }
+  const issues = parsed.issues || []
+  if (parsed.ok === true || !parsed.game?.bodyJs) {
+    return { game, issues, changed: false }
+  }
+  return { game: parsed.game, issues, changed: true }
+}
+
+function checkGame(
+  game: LlmGamePayload,
+): { ok: true } | { ok: false; errors: string[] } {
+  const errors: string[] = []
+  const staticCheck = validateGameBody(game.bodyJs)
+  if (!staticCheck.ok) errors.push(...staticCheck.errors)
+  const planCheck = validateLayoutPlan(game.layoutPlan)
+  if (!planCheck.ok) errors.push(...planCheck.errors)
+  if (errors.length) return { ok: false, errors }
+  const smoke = smokeGameBody(game.bodyJs)
+  if (!smoke.ok) return smoke
+  return { ok: true }
+}
+
+/** Leave headroom under Supabase's ~150s request idle timeout. */
+const QUALITY_DEADLINE_MS = 95_000
+
+async function ensureGameQuality(
+  game: LlmGamePayload,
+  prior: ChatMessage[],
+  opts?: { skipCritique?: boolean; startedAt?: number },
+): Promise<
+  | { ok: true; game: LlmGamePayload; critiqueIssues: string[] }
+  | { ok: false; errors: string[]; game: LlmGamePayload }
+> {
+  const startedAt = opts?.startedAt ?? Date.now()
+  const remaining = () => QUALITY_DEADLINE_MS - (Date.now() - startedAt)
+  let current = game
+  let check = checkGame(current)
+  if (!check.ok) {
+    if (remaining() < 25_000) {
+      return { ok: false, errors: check.errors, game: current }
+    }
+    current = await repairBody(current.bodyJs, check.errors, prior, current)
+    check = checkGame(current)
+    if (!check.ok) return { ok: false, errors: check.errors, game: current }
+  }
+
+  if (opts?.skipCritique || remaining() < 35_000) {
+    return {
+      ok: true,
+      game: current,
+      critiqueIssues: opts?.skipCritique
+        ? ['critique skipped: clean patch iterate']
+        : ['critique skipped: time budget'],
+    }
+  }
+
+  const critique = await critiqueAndFix(current)
+  current = critique.game
+  if (critique.changed) {
+    check = checkGame(current)
+    if (!check.ok) {
+      if (remaining() < 25_000) {
+        // Prefer shipping the pre-critique body over timing out.
+        return { ok: true, game, critiqueIssues: [...critique.issues, ...check.errors] }
+      }
+      current = await repairBody(current.bodyJs, check.errors, prior, current)
+      check = checkGame(current)
+      if (!check.ok) return { ok: false, errors: check.errors, game: current }
+    }
+  }
+
+  return { ok: true, game: current, critiqueIssues: critique.issues }
 }
 
 Deno.serve(async (req) => {
@@ -241,6 +560,7 @@ Deno.serve(async (req) => {
     const action = body.action as string
 
     if (action === 'chat') {
+      const startedAt = Date.now()
       const messages = (body.messages || []) as ChatMessage[]
       const gameId = body.gameId as string | undefined
       const userMessages = messages.filter((m) => m.role !== 'system')
@@ -256,25 +576,176 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'Daily creator limit reached. Try again tomorrow.' }, 429)
       }
 
-      let turn = await callOpenAi(userMessages)
+      let existing: ExistingDraft | null = null
+      let existingBodyJs: string | null = null
+      let existingBg = '#264653'
+      let existingLayoutPlan: LayoutRect[] = []
+      let existingMechanic: string | undefined
+      if (gameId) {
+        const { data: row, error: loadErr } = await admin
+          .from('ugc_games')
+          .select('id, slug, title, tip, accent, html_path, brief')
+          .eq('id', gameId)
+          .eq('creator_id', user.id)
+          .maybeSingle()
+        if (loadErr) return jsonResponse({ error: loadErr.message }, 500)
+        if (row) {
+          existing = row as ExistingDraft
+          existingBodyJs = briefBodyJs(existing.brief)
+          existingBg = briefBg(existing.brief) || existing.accent || existingBg
+          existingLayoutPlan = parseLayoutPlan(existing.brief?.layoutPlan)
+          existingMechanic =
+            typeof existing.brief?.mechanic === 'string'
+              ? existing.brief.mechanic
+              : undefined
+          if (!existingBodyJs && existing.html_path) {
+            const { data: file, error: dlErr } = await admin.storage
+              .from('ugc-games')
+              .download(existing.html_path)
+            if (!dlErr && file) {
+              const html = await file.text()
+              existingBodyJs = extractBodyFromHtml(html)
+            }
+          }
+        }
+      }
+
+      const llmMessages: ChatMessage[] = trimConversation(userMessages)
+      const mechanic = existingBodyJs
+        ? ((existingMechanic as MechanicFamily) ||
+          inferMechanicFromMessages(userMessages))
+        : inferMechanicFromMessages(userMessages)
+
+      if (!existingBodyJs) {
+        // Seed first builds with a mechanic family template + one matching canon example.
+        const seed: ChatMessage = {
+          role: 'user',
+          content: [
+            mechanicSeedMessage(mechanic),
+            '',
+            'Copy this canon structure (adapt visuals/mechanics):',
+            canonExampleFor(mechanic),
+          ].join('\n'),
+        }
+        const lastUserIdx = (() => {
+          for (let i = llmMessages.length - 1; i >= 0; i--) {
+            if (llmMessages[i].role === 'user') return i
+          }
+          return -1
+        })()
+        if (lastUserIdx >= 0) llmMessages.splice(lastUserIdx, 0, seed)
+        else llmMessages.push(seed)
+      }
+
+      if (existing && existingBodyJs) {
+        // Insert before the latest user turn so the model sees code + the tweak request.
+        const lastUserIdx = (() => {
+          for (let i = llmMessages.length - 1; i >= 0; i--) {
+            if (llmMessages[i].role === 'user') return i
+          }
+          return -1
+        })()
+        const ctx = buildIterateContext({
+          title: existing.title,
+          tip: existing.tip,
+          accent: existing.accent,
+          bg: existingBg,
+          bodyJs: existingBodyJs,
+          layoutPlan: existingLayoutPlan,
+          mechanic: existingMechanic || mechanic,
+        })
+        if (lastUserIdx >= 0) llmMessages.splice(lastUserIdx, 0, ctx)
+        else llmMessages.push(ctx)
+      }
+
+      const turn = await callOpenAi(llmMessages, {
+        temperature: existingBodyJs ? 0.35 : 0.7,
+        modelKind: existingBodyJs ? 'iterate' : 'generate',
+      })
 
       if (turn.game && (turn.phase === 'generated' || turn.phase === 'iterated')) {
         let game = turn.game
-        let bodyCheck = validateGameBody(game.bodyJs)
-        if (!bodyCheck.ok) {
-          game = await repairBody(game.bodyJs, bodyCheck.errors, userMessages)
-          bodyCheck = validateGameBody(game.bodyJs)
-          if (!bodyCheck.ok) {
-            return jsonResponse({
-              reply:
-                turn.reply ||
-                'I hit a snag generating safe game code. Try tweaking your description.',
-              phase: 'interview',
-              game: null,
-              validationErrors: bodyCheck.errors,
-            })
+        // Prefer preserving identity/meta on iterate unless the model returned new values.
+        if (existing && existingBodyJs) {
+          game = {
+            ...game,
+            title: (game.title || existing.title).slice(0, 64),
+            tip: (game.tip || existing.tip).slice(0, 120),
+            accent: game.accent || existing.accent,
+            bg: game.bg || existingBg,
+            layoutPlan:
+              game.layoutPlan.length > 0 ? game.layoutPlan : existingLayoutPlan,
+            mechanic: game.mechanic || existingMechanic || mechanic,
+          }
+        } else if (!game.mechanic) {
+          game = { ...game, mechanic }
+        }
+
+        let editMode: 'full' | 'patch' = 'full'
+        const patches = game.patches || []
+        if (patches.length && !game.bodyJs.trim()) {
+          const patched = existingBodyJs
+            ? applyBodyPatches(existingBodyJs, patches)
+            : { ok: false as const, errors: ['no stored game body to patch'] }
+          if (patched.ok) {
+            game = { ...game, bodyJs: patched.body }
+            editMode = 'patch'
+          } else {
+            // Ambiguous or stale patch: ask once for the whole body instead.
+            const retry = await callOpenAi(
+              [
+                ...llmMessages,
+                {
+                  role: 'user',
+                  content: `Those patches could not be applied: ${patched.errors.join('; ')}. Return the complete corrected game.bodyJs for this game (no patches).`,
+                },
+              ],
+              { temperature: 0.2, modelKind: 'iterate' },
+            )
+            if (retry.game?.bodyJs.trim()) {
+              game = {
+                ...game,
+                bodyJs: retry.game.bodyJs,
+                layoutPlan: retry.game.layoutPlan.length
+                  ? retry.game.layoutPlan
+                  : game.layoutPlan,
+              }
+            } else {
+              return jsonResponse({
+                reply:
+                  'I could not apply that edit cleanly. Try describing the change again.',
+                phase: 'interview',
+                game: null,
+                validationErrors: patched.errors,
+              })
+            }
           }
         }
+
+        if (!game.bodyJs.trim()) {
+          return jsonResponse({
+            reply: 'The generated game came back empty. Try describing it again.',
+            phase: 'interview',
+            game: null,
+            validationErrors: ['model returned no bodyJs'],
+          })
+        }
+
+        const quality = await ensureGameQuality(game, llmMessages, {
+          startedAt,
+          skipCritique: editMode === 'patch',
+        })
+        if (!quality.ok) {
+          return jsonResponse({
+            reply:
+              turn.reply ||
+              'I hit a snag generating safe playable game code. Try tweaking your description.',
+            phase: 'interview',
+            game: null,
+            validationErrors: quality.errors,
+          })
+        }
+        game = quality.game
 
         const html = wrapGameHtml({
           title: game.title,
@@ -293,8 +764,9 @@ Deno.serve(async (req) => {
           })
         }
 
-        const slug = slugify(game.title)
-        const path = `${user.id}/${slug}.html`
+        // Keep stable slug/path when updating an existing draft so iterates overwrite in place.
+        const slug = existing?.slug || slugify(game.title)
+        const path = existing?.html_path || `${user.id}/${slug}.html`
         const bytes = new TextEncoder().encode(html)
         const { error: uploadError } = await admin.storage
           .from('ugc-games')
@@ -317,7 +789,15 @@ Deno.serve(async (req) => {
           status: 'draft' as const,
           html_path: path,
           html_url: playUrl || publicUrl.publicUrl,
-          brief: { bg: game.bg, lastReply: turn.reply },
+          brief: {
+            bg: game.bg,
+            lastReply: turn.reply,
+            bodyJs: game.bodyJs,
+            layoutPlan: game.layoutPlan,
+            mechanic: game.mechanic || mechanic,
+            editMode,
+            critiqueIssues: quality.critiqueIssues.slice(0, 12),
+          },
           conversation: userMessages.concat({
             role: 'assistant' as const,
             content: turn.reply,
@@ -325,7 +805,7 @@ Deno.serve(async (req) => {
         }
 
         let saved
-        if (gameId) {
+        if (existing) {
           const { data, error } = await admin
             .from('ugc_games')
             .update({
@@ -339,7 +819,7 @@ Deno.serve(async (req) => {
               status: 'draft',
               rejection_note: null,
             })
-            .eq('id', gameId)
+            .eq('id', existing.id)
             .eq('creator_id', user.id)
             .select('*')
             .single()
@@ -357,7 +837,7 @@ Deno.serve(async (req) => {
 
         return jsonResponse({
           reply: turn.reply || `Built "${game.title}". Preview it, then publish when ready.`,
-          phase: turn.phase,
+          phase: existingBodyJs ? 'iterated' : turn.phase,
           game: saved,
           previewHtml: html,
         })

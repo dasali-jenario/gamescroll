@@ -14,7 +14,7 @@ With these keys in `.env.local`:
 - `SUPABASE_DB_PASSWORD`
 - `SUPABASE_ACCESS_TOKEN` (from [Account → Access Tokens](https://supabase.com/dashboard/account/tokens))
 - `OPENAI_API_KEY`
-- optional: `SUPABASE_REGION`, `OPENAI_MODEL`
+- optional: `SUPABASE_REGION`, `OPENAI_MODEL`, `OPENAI_MODEL_FAST`
 
 Run:
 
@@ -48,6 +48,12 @@ Or ask Cursor to run that SQL for you.
 ## Flow
 
 1. User opens `/create`, magic-link signs in.
-2. Chat interviews → Edge Function generates bridge-compatible HTML → Storage + `ugc_games` draft.
-3. **Publish** → `published` (shareable via `?g=<slug>` immediately).
-4. Moderator **Approve** → `approved` (enters main feed mix).
+2. Chat interviews → Edge Function generates bridge-compatible HTML → Storage + `ugc_games` draft (`brief.bodyJs` stores the editable game body).
+3. Before upload, each body is quality-gated: static layout/input checks → **layoutPlan** overlap/safe-area validation → smoke-run → (optional) LLM text critique → repair if needed. Critique is skipped on clean patch iterates and when a ~95s time budget is low, to stay under Supabase’s ~150s idle timeout.
+4. First builds infer a **mechanic family** (reaction/timing/dodge/drag/stack) and seed a template; iterates use `OPENAI_MODEL_FAST` when set (else `OPENAI_MODEL`).
+5. Follow-up prompts load that `bodyJs` + `layoutPlan` (or recover body from stored HTML for older drafts) and ask the model to **edit in place**. Small tweaks come back as `patches` (search/replace) applied server-side; `brief.editMode` records `patch` or `full`, and unappliable patches fall back to one full-body retry.
+6. Only recent chat turns are sent to the model (first brief + last ~12 turns); the stored body carries the game state.
+7. **Publish** → `published` (shareable via `?g=<slug>` immediately).
+8. Moderator **Approve** → `approved` (enters main feed mix).
+
+Optional Edge secret: `OPENAI_MODEL_FAST` (cheaper/faster model for iterate, repair, critique). Default falls back to `OPENAI_MODEL` / `gpt-4.1`.

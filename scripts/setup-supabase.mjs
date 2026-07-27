@@ -6,7 +6,7 @@
  *   SUPABASE_PROJECT_REF
  *   SUPABASE_DB_PASSWORD
  * Optional:
- *   OPENAI_API_KEY, OPENAI_MODEL
+ *   OPENAI_API_KEY, OPENAI_MODEL, OPENAI_MODEL_FAST
  *   SUPABASE_ACCESS_TOKEN (else ~/.supabase/access-token)
  *   SUPABASE_DB_URL (override connection string)
  *
@@ -265,6 +265,7 @@ log('Linking project (for functions deploy)…')
   if (env.OPENAI_API_KEY) {
     secretArgs.push(`OPENAI_API_KEY=${env.OPENAI_API_KEY}`)
     if (env.OPENAI_MODEL) secretArgs.push(`OPENAI_MODEL=${env.OPENAI_MODEL}`)
+    if (env.OPENAI_MODEL_FAST) secretArgs.push(`OPENAI_MODEL_FAST=${env.OPENAI_MODEL_FAST}`)
     log('Setting Edge secrets (PUBLIC_SITE_URL + OPENAI_API_KEY)…')
   } else {
     log('Setting Edge secrets (PUBLIC_SITE_URL only; add OPENAI_API_KEY to .env.local and re-run)')
