@@ -5,11 +5,12 @@
   --stage: #0f1419;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --chrome-top: calc(3.35rem + env(safe-area-inset-top));
+  /* Bottom like/share nav — playfield never overlaps this. */
+  --bottom-nav: calc(3.85rem + env(safe-area-inset-bottom));
   /* Host chrome gutters around the playable iframe (keep game UI out of app chrome). */
-  --action-band: 3.15rem;
-  --play-inset-left: 0.65rem;
-  --play-inset-right: 3rem; /* swipe rail */
-  --play-inset-bottom: calc(3.4rem + env(safe-area-inset-bottom)); /* swipe cue + home */
+  --play-inset-left: 0.5rem;
+  --play-inset-right: 2.75rem; /* swipe rail */
+  --play-inset-bottom: var(--bottom-nav);
 }
 
 * {
@@ -200,6 +201,7 @@ body {
 .stage {
   position: absolute;
   inset: 0;
+  bottom: var(--bottom-nav);
   transition:
     top 0.2s var(--ease),
     right 0.2s var(--ease),
@@ -207,9 +209,10 @@ body {
     left 0.2s var(--ease);
 }
 
-/* Play mode: letterbox the iframe so game hit-targets can't sit under app chrome. */
+/* Play mode: letterbox the iframe so game hit-targets can't sit under app chrome.
+   Aspect: top bar + bottom nav + slim side gutters → taller portrait playfield. */
 .card.is-playing .stage {
-  top: calc(var(--chrome-top) + var(--action-band));
+  top: var(--chrome-top);
   right: var(--play-inset-right);
   bottom: var(--play-inset-bottom);
   left: var(--play-inset-left);
@@ -237,8 +240,8 @@ body {
 .meta {
   position: absolute;
   left: 1rem;
-  right: 4.5rem;
-  bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  right: 1rem;
+  bottom: calc(var(--bottom-nav) + 1rem);
   z-index: 20;
   pointer-events: none;
   transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
@@ -265,47 +268,64 @@ body {
   opacity: 0.92;
 }
 
-/* Like (top-left) + Share (top-right), in the action band above the playfield. */
-.rail {
+/* Like + Share sit in a bottom navigation bar so they never overlap the playfield. */
+.bottom-nav {
   position: absolute;
-  top: calc(var(--chrome-top) + 0.15rem);
-  left: 0.45rem;
-  right: 0.45rem;
-  bottom: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 25;
+  height: var(--bottom-nav);
+  box-sizing: border-box;
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
-  align-items: flex-start;
+  justify-content: space-evenly;
+  align-items: center;
+  padding: 0.35rem 1.25rem env(safe-area-inset-bottom);
   pointer-events: none;
-  transition: top 0.2s var(--ease), right 0.2s var(--ease);
+  background: linear-gradient(
+    to top,
+    rgba(15, 20, 25, 0.92) 55%,
+    rgba(15, 20, 25, 0.72) 100%
+  );
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
 }
 
-.card.is-playing .rail {
-  right: calc(var(--play-inset-right) + 0.15rem);
-  left: calc(var(--play-inset-left) + 0.1rem);
+.card.is-playing .bottom-nav {
+  background: var(--stage);
+  border-top-color: rgba(255, 255, 255, 0.08);
 }
 
-.like-btn,
-.share-btn {
-  width: 48px;
-  height: 48px;
+.nav-btn {
+  min-width: 4.5rem;
+  height: 3.15rem;
   border: none;
-  background: rgba(15, 20, 25, 0.35);
-  backdrop-filter: blur(6px);
-  border-radius: 50%;
+  background: transparent;
   color: #fff;
   cursor: pointer;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
-  padding: 0;
+  padding: 0.2rem 0.75rem;
   pointer-events: auto;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+}
+
+.nav-label {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.82;
+  line-height: 1;
 }
 
 .like-btn svg {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -313,8 +333,8 @@ body {
 }
 
 .share-btn svg {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -335,8 +355,9 @@ body {
 
 .share-note {
   position: absolute;
-  top: calc(100% + 0.35rem);
-  right: 0;
+  bottom: calc(100% + 0.4rem);
+  left: 50%;
+  transform: translateX(-50%);
   white-space: nowrap;
   font-size: 0.72rem;
   font-weight: 600;
@@ -351,8 +372,8 @@ body {
 }
 
 @keyframes share-note-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 .like-btn.liked svg {
@@ -361,9 +382,17 @@ body {
   animation: heart-pop 0.45s var(--ease);
 }
 
+.like-btn.liked .nav-label {
+  color: var(--accent);
+  opacity: 1;
+}
+
 .play-layer {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--bottom-nav);
   z-index: 15;
   display: grid;
   place-items: center;
@@ -401,7 +430,7 @@ body {
 .nudge {
   position: fixed;
   left: 50%;
-  bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  bottom: calc(var(--bottom-nav) + 0.75rem);
   transform: translateX(-50%);
   z-index: 50;
   border: none;
@@ -425,7 +454,7 @@ body {
   display: grid;
   place-items: center;
   padding: calc(var(--chrome-top) + 1rem) 1.25rem
-    calc(1.5rem + env(safe-area-inset-bottom));
+    calc(var(--bottom-nav) + 1rem);
   background: linear-gradient(
     180deg,
     rgba(15, 20, 25, 0.35) 0%,
@@ -516,9 +545,9 @@ body {
   position: fixed;
   top: var(--chrome-top);
   right: 0;
-  bottom: env(safe-area-inset-bottom);
+  bottom: var(--bottom-nav);
   z-index: 45;
-  width: 3rem;
+  width: 2.75rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -589,7 +618,7 @@ body {
 .swipe-cue {
   position: fixed;
   left: 50%;
-  bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  bottom: calc(var(--bottom-nav) + 0.75rem);
   transform: translateX(-50%);
   z-index: 46;
   display: flex;
@@ -644,7 +673,7 @@ body {
 .feed-intro-label {
   position: fixed;
   left: 50%;
-  bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  bottom: calc(var(--bottom-nav) + 0.75rem);
   transform: translateX(-50%);
   z-index: 48;
   display: flex;

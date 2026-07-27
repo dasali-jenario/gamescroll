@@ -226,6 +226,7 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
   }
 
   // Letterboxed / short playfields (host chrome insets) must still paint.
+  // Matches taller portrait frame: top bar + bottom nav, no top action band.
   try {
     const short = new Function(
       'canvas',
@@ -237,7 +238,7 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
       'bump',
       'addEventListener',
       `
-      let W = 320, H = 520, score = 0;
+      let W = 320, H = 560, score = 0;
       ${bodyJs}
       if (typeof layout === 'function') layout();
       if (typeof draw === 'function') draw(0);
