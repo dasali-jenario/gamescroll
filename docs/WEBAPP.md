@@ -74,7 +74,7 @@ flowchart TB
 | `games.ts` | Catalog of games (`id`, `title`, `tip`, `src`, `accent`) |
 | `components/GameCard.tsx` | iframe load + bridge + like/share rail |
 | `components/GameOverOverlay.tsx` | Fail UI when auto-restart is off |
-| `components/SwipeCue.tsx` | Persistent “Swipe / Next game” chrome |
+| `components/SwipeCue.tsx` | Brief “Swipe / Next game” chip (5s after intro) |
 | `lib/feedIntro.ts` | Jackpot reel sequence (every cold start) |
 | `share.ts` | `?g=` deep links + Web Share / clipboard |
 | `highscores.ts` | Per-game best scores |
@@ -144,7 +144,7 @@ In-iframe swipe thresholds: distance ≥ `max(140, 0.22 × height)`, duration �
 - Switch games: iframe fling, right-edge swipe rail, keys `↓`/`j` and `↑`/`k`.
 - **Pause** / Esc freezes the current game; after pause, a nudge encourages swiping to the next card.
 - Every cold start (including shared `?g=` links): a jackpot-style feed reel scrolls through a few cards and lands on index `0`, then autoplay starts. Skipped only for `prefers-reduced-motion`.
-- Persistent `SwipeCue` cream chip (“Swipe for the next game”) stays visible in browse and play; dims after the first successful swipe this session.
+- `SwipeCue` cream chip (“Swipe for the next game”) shows for 5 seconds after the intro (or until the first swipe), then hides.
 - `prefers-reduced-motion`: skip the reel, jump to the landing card, show the cue, autoplay.
 
 ### Deep links

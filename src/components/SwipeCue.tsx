@@ -1,12 +1,8 @@
-type Props = {
-  dimmed?: boolean
-}
-
-/** Always-on chrome teaching that the feed is vertically swipeable. */
-export function SwipeCue({ dimmed = false }: Props) {
+/** Brief chrome teaching that the feed is vertically swipeable. */
+export function SwipeCue() {
   return (
     <div
-      className={`swipe-cue${dimmed ? ' is-dimmed' : ''}`}
+      className="swipe-cue"
       role="status"
       aria-label="Swipe up for the next game"
     >

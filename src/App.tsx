@@ -62,7 +62,9 @@ export default function App() {
   const [introRunning, setIntroRunning] = useState(false)
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [nudgeVisible, setNudgeVisible] = useState(false)
-  const [cueDimmed, setCueDimmed] = useState(false)
+  const [cueVisible, setCueVisible] = useState(false)
+  const cueTimerRef = useRef<number | null>(null)
+  const cueSpentRef = useRef(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const [highscores, setHighscores] = useState(loadHighscores)
   const [autoRestart, setAutoRestart] = useState(() => resolveAutoRestart())
@@ -129,6 +131,33 @@ export default function App() {
   }, [playingKey, applyPendingReload])
 
   const dismissNudge = useCallback(() => setNudgeVisible(false), [])
+
+  const dismissCue = useCallback(() => {
+    cueSpentRef.current = true
+    setCueVisible(false)
+    if (cueTimerRef.current != null) {
+      window.clearTimeout(cueTimerRef.current)
+      cueTimerRef.current = null
+    }
+  }, [])
+
+  // Show the swipe hint briefly after boot/intro, then hide — don't block the game UI.
+  useEffect(() => {
+    if (!bootReady || resolvingShare || introRunning || cueSpentRef.current) {
+      return
+    }
+    setCueVisible(true)
+    const id = window.setTimeout(() => {
+      cueSpentRef.current = true
+      setCueVisible(false)
+      cueTimerRef.current = null
+    }, 5000)
+    cueTimerRef.current = id
+    return () => {
+      window.clearTimeout(id)
+      if (cueTimerRef.current === id) cueTimerRef.current = null
+    }
+  }, [bootReady, resolvingShare, introRunning])
 
   const activeGame = feed[activeIndex]?.game
   const activeHighscore = activeGame ? highscores[activeGame.id] ?? 0 : 0
@@ -229,12 +258,12 @@ export default function App() {
       cancelIntro()
       return
     }
-    setCueDimmed(true)
+    dismissCue()
     setGameOver(null)
     setPlayingKey(null)
     setNudgeVisible(false)
     scrollToIndex(activeIndex + 1)
-  }, [activeIndex, scrollToIndex, introRunning, cancelIntro, applyPendingReload])
+  }, [activeIndex, scrollToIndex, introRunning, cancelIntro, applyPendingReload, dismissCue])
 
   const goToPrevGame = useCallback(() => {
     if (applyPendingReload()) return
@@ -242,12 +271,12 @@ export default function App() {
       cancelIntro()
       return
     }
-    setCueDimmed(true)
+    dismissCue()
     setGameOver(null)
     setPlayingKey(null)
     setNudgeVisible(false)
     scrollToIndex(activeIndex - 1)
-  }, [activeIndex, scrollToIndex, introRunning, cancelIntro, applyPendingReload])
+  }, [activeIndex, scrollToIndex, introRunning, cancelIntro, applyPendingReload, dismissCue])
 
   const onGameSwipe = useCallback(
     (direction: 'next' | 'prev') => {
@@ -435,7 +464,12 @@ export default function App() {
 
   const inputEnabled = !!playingKey && !gameOver && !introRunning
   const showCue =
-    bootReady && !resolvingShare && !gameOver && !introRunning && !nudgeVisible
+    cueVisible &&
+    bootReady &&
+    !resolvingShare &&
+    !gameOver &&
+    !introRunning &&
+    !nudgeVisible
 
   return (
     <div
@@ -555,7 +589,7 @@ export default function App() {
         </button>
       )}
 
-      {showCue && <SwipeCue dimmed={cueDimmed} />}
+      {showCue && <SwipeCue />}
 
       {gameOver && playingKey && (
         <GameOverOverlay

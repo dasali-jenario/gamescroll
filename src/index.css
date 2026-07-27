@@ -573,10 +573,6 @@ body {
   animation: tip-in 0.5s var(--ease) 0.15s both;
 }
 
-.swipe-cue.is-dimmed {
-  opacity: 0.72;
-}
-
 .swipe-cue-chevron {
   width: 0.55rem;
   height: 0.55rem;
