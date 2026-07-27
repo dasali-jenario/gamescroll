@@ -498,13 +498,13 @@ export default function App() {
         <div className="stats" aria-label="Session stats">
           <button
             type="button"
-            className={`auto-restart-btn${autoRestart ? ' is-on' : ''}`}
+            className={`auto-restart-btn${autoRestart ? ' is-on' : ' is-off'}`}
             onClick={toggleAutoRestart}
             aria-pressed={autoRestart}
-            aria-label={`Auto-restart ${autoRestart ? 'on' : 'off'}. Tap to ${autoRestart ? 'disable' : 'enable'}.`}
+            aria-label={`Restart ${autoRestart ? 'on' : 'off'}. Tap to ${autoRestart ? 'disable' : 'enable'} auto-restart.`}
             title="Toggle auto-restart on fail"
           >
-            Auto-restart {autoRestart ? 'On' : 'Off'}
+            Restart
           </button>
           <span className="mode">
             {introRunning ? 'Browse' : playingKey ? 'Playing' : 'Browse'}

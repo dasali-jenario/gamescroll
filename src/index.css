@@ -140,18 +140,25 @@ body {
 
 .stats .auto-restart-btn {
   pointer-events: auto;
-  color: rgba(255, 255, 255, 0.7);
+  color: #fff;
   font: inherit;
   font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   cursor: pointer;
+  border-color: transparent;
 }
 
 .stats .auto-restart-btn.is-on {
   color: #fff;
-  border-color: rgba(232, 93, 4, 0.75);
-  background: rgba(232, 93, 4, 0.35);
+  border-color: rgba(46, 196, 122, 0.85);
+  background: rgba(46, 196, 122, 0.55);
+}
+
+.stats .auto-restart-btn.is-off {
+  color: #fff;
+  border-color: rgba(230, 57, 70, 0.85);
+  background: rgba(230, 57, 70, 0.55);
 }
 
 .stats .pause-btn {
