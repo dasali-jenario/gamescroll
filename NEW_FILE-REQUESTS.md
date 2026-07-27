@@ -1,5 +1,48 @@
 # New file requests
 
+## 2026-07-27 — UGC idle-draw regression tests + live check
+
+### Requested files
+- `src/ugcIdleSmoke.test.ts` — catches Wordle-class blank-screen (draw before onHostStart / empty grid)
+- `scripts/check-ugc-games.mjs` — smokes all approved `source=user` UGC bodies from Supabase (`npm run check:ugc`)
+- Updates: `src/lib/gameSmoke.ts` + Deno `_shared/smoke.ts` (idle draw + letterboxed playfield), `scripts/fix-wordle-mini.mjs`, `package.json`
+
+### Duplicate search
+- Grep `smokeGameBody|idle draw|check-ugc|ugcIdle` → existing `gameSmoke.ts` only ran draw *after* onHostStart (missed browse-mode crash)
+- Glob `src/**/*smoke*` / `scripts/check*` → no live UGC checker; closest `gameValidator.test.ts` smoke section
+- Wordle lives only in Supabase `ugc_games` (no repo fixture before)
+
+### Rationale
+Blank teal Wordle was an idle-draw throw that killed rAF; smoke must mirror host boot order and CI should re-check live approved UGC.
+
+## 2026-07-27 — Fix Wordle Mini blank screen
+
+### Requested files
+- `scripts/fix-wordle-mini.mjs` — hotfixes approved UGC Wordle Mini (boot layout + empty grid so draw does not crash)
+
+### Duplicate search
+- Grep `wordle|Wordle` under repo → none (UGC-only in Supabase `ugc_games`)
+- Existing wrap/validator: `src/lib/gameWrap.ts`, `src/lib/gameValidator.ts`, `supabase/functions/_shared/wrap.ts` — no auto `layout()` after body; draw errors killed rAF
+- Closest tooling: `scripts/seed-official-games.mjs`, creator Edge Function republish path
+
+### Rationale
+Wordle Mini painted a blank teal shell because `draw()` read `layoutRects` / empty `grid` before `onHostStart`, threw, and stopped the frame loop.
+
+## 2026-07-27 — Official games in ugc_games + source column
+
+### Requested files
+- `supabase/migrations/20260727130000_ugc_games_source.sql` — `ugc_source` enum (`official` | `user`), nullable `creator_id` for official rows, seed all catalog games
+- `scripts/seed-official-games.mjs` — apply migration + upload `public/games/*.html` to Storage as `official/<id>.html`
+
+### Duplicate search
+- Grep `ugc_games|ugc_source|is_official|source.*official` under `/Users/dasali/gamescroll` → table exists in `20260723120000_ugc_games.sql` with no official/user distinction; catalog lives only in `src/games.ts` + `public/games/*.html`
+- Glob `supabase/migrations/*` → only the original UGC migration
+- Glob `scripts/*seed*` / `scripts/*official*` → none; closest is `scripts/setup-supabase.mjs` (schema + Edge deploy) and `scripts/generate-games.mjs` (HTML generation)
+- `src/lib/ugc.ts` fetches approved UGC only — no official seed path
+
+### Rationale
+Put the full official catalog in `ugc_games` alongside community games, tagged by `source`, so the table is a complete game registry.
+
 ## 2026-07-27 — Shape Slicer catalog game
 
 ### Requested files

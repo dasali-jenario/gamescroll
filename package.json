@@ -10,6 +10,7 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:ugc": "node --experimental-strip-types scripts/check-ugc-games.mjs",
     "quality": "npm run typecheck && npm run test",
     "cap:sync": "npm run build && npx cap sync android",
     "build:apk": "npm run cap:sync && node scripts/build-apk.mjs"

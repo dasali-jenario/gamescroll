@@ -60,8 +60,10 @@ function stubCanvas() {
 }
 
 /**
- * Load bodyJs in a fake Gamescroll host and exercise onHostStart → layout → tick → draw.
- * Catches ReferenceError / TypeError before upload.
+ * Load bodyJs in a fake Gamescroll host and exercise the real boot order:
+ * load → host layout() → idle draw (browse, still paused) → onHostStart → tick/draw/pointer.
+ * Catches ReferenceError / TypeError before upload — including blank-screen bugs where
+ * draw assumes onHostStart already ran.
  */
 export function smokeGameBody(bodyJs: string): SmokeResult {
   const errors: string[] = []
@@ -70,8 +72,8 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
   const canvas = stubCanvas()
   const ctx = stubCtx()
   const GS = {
-    paused: false,
-    reported: true,
+    paused: true,
+    reported: false,
     onFail: 'replay' as const,
     post: () => {},
     begin: () => {},
@@ -156,7 +158,24 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
   if (!api.layout) errors.push('smoke: layout is not defined after load')
   if (errors.length) return { ok: false, errors }
 
+  // Host wrap calls layout() once after the body evaluates (browse preview).
   try {
+    api.layout!()
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    errors.push(`smoke host layout() threw: ${msg}`)
+  }
+
+  // Critical: feed paints while GS.paused — before gamescroll:start / onHostStart.
+  try {
+    api.draw!(0)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    errors.push(`smoke idle draw (before start) threw: ${msg}`)
+  }
+
+  try {
+    GS.paused = false
     api.onHostStart!()
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -184,7 +203,7 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
     errors.push(`smoke tick threw: ${msg}`)
   }
   try {
-    api.draw!(performance.now())
+    api.draw!(typeof performance !== 'undefined' ? performance.now() : 16)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     errors.push(`smoke draw threw: ${msg}`)
@@ -204,6 +223,42 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     errors.push(`smoke pointerdown threw: ${msg}`)
+  }
+
+  // Letterboxed / short playfields (host chrome insets) must still paint.
+  try {
+    const short = new Function(
+      'canvas',
+      'ctx',
+      'GS',
+      'Juice',
+      'PF',
+      'setScore',
+      'bump',
+      'addEventListener',
+      `
+      let W = 320, H = 520, score = 0;
+      ${bodyJs}
+      if (typeof layout === 'function') layout();
+      if (typeof draw === 'function') draw(0);
+      if (typeof onHostStart === 'function') { GS.paused = false; onHostStart(); }
+      if (typeof draw === 'function') draw(1);
+      return true;
+      `,
+    )
+    short(
+      canvas,
+      ctx,
+      { ...GS, paused: true },
+      Juice,
+      PF,
+      setScore,
+      bump,
+      addEventListener,
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    errors.push(`smoke letterboxed playfield threw: ${msg}`)
   }
 
   return errors.length ? { ok: false, errors } : { ok: true }

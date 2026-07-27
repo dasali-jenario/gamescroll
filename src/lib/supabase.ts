@@ -25,14 +25,18 @@ export function getSupabase(): SupabaseClient | null {
 
 export type UgcStatus = 'draft' | 'published' | 'approved' | 'rejected'
 
+/** official = Gamescroll catalog; user = community creator */
+export type UgcSource = 'official' | 'user'
+
 export type UgcGameRow = {
   id: string
-  creator_id: string
+  creator_id: string | null
   slug: string
   title: string
   tip: string
   accent: string
   status: UgcStatus
+  source: UgcSource
   html_path: string
   html_url: string | null
   brief: Record<string, unknown> | null

@@ -1,5 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
-import { ANTI_PATTERNS, JUICE_RULES, canonExampleFor } from '../_shared/canonExamples.ts'
+import {
+  ANTI_PATTERNS,
+  JUICE_RULES,
+  OFFICIAL_STRUCTURE,
+  canonExampleFor,
+} from '../_shared/canonExamples.ts'
 import {
   applyBodyPatches,
   parseBodyPatches,
@@ -92,7 +97,9 @@ function trimConversation(messages: ChatMessage[]): ChatMessage[] {
   return [...head, ...tail]
 }
 
-const SYSTEM_PROMPT = `You are Gamescroll's game creator assistant. You help people invent tiny single-player HTML5 canvas minigames for a TikTok-style feed.
+const SYSTEM_PROMPT = `You are Gamescroll's game creator assistant. You invent tiny single-player HTML5 canvas minigames for a TikTok-style feed.
+
+Quality bar: bodyJs must match the same structure, feel, and requirements as official catalog games authored in scripts/generate-games.mjs — plain HTML5 + JavaScript canvas bodies in the shared wrap shell (not React, not Phaser, not external engines).
 
 Hard product limits (never violate):
 - No multiplayer, no networking, no backends
@@ -100,12 +107,12 @@ Hard product limits (never violate):
 - Touch-first: tap, hold, drag, or swipe only
 - Games MUST be fully playable: every visible control must respond to pointer input
 - Portrait-first mobile: design for tall phones in a TikTok-style full-bleed frame (typically W < H). Landscape is secondary — still call layout() from onResize, but primary composition is portrait.
-
+${OFFICIAL_STRUCTURE}
 MECHANIC FAMILIES:
 When a MECHANIC TEMPLATE seed is provided, follow that family. Also set game.mechanic to one of: reaction | timing | dodge | drag | stack | custom.
 
 PORTRAIT / MOBILE LAYOUT (required):
-- Assume safe playfield inset: top ~12% of H (host score HUD lives near the top), bottom ~10% of H (thumbs / home indicator), sides ~5% of W.
+- Assume safe playfield inset: top ~8% of H (in-game score HUD), bottom ~8% of H, sides ~4% of W. The host letterboxes the iframe away from app chrome (top bar, like/share, swipe rail, swipe cue) — do not draw interactive hit targets into the extreme corners.
 - Primary action buttons: lower third (about y = H*0.68 to H*0.82), centered, width ~70% of W (min 200, max 320), height >= 56px (prefer 64–72 on large phones).
 - Main focal content (lights, player, targets): center band y ≈ H*0.28 to H*0.58 — not tiny at the top.
 - Use relative layout from W/H in a layout() function; call layout() from onHostStart, onResize, and reset. Never hard-code 1920x1080 or desktop positions.
@@ -166,10 +173,10 @@ During interview, phase="interview" and game=null.
 When ready to build the first version, phase="generated" and game must be set.
 When CURRENT GAME CODE was provided and you applied a tweak, phase="iterated" and game must be set.
 
-CRITICAL host runtime (bodyJs runs inside a shell that already provides canvas, ctx, W, H, score, setScore, bump, die wrapper, GS, Juice):
+CRITICAL host runtime (bodyJs runs inside the same shell as official games — canvas, ctx, W, H, score, setScore, bump, die wrapper, GS, Juice, PF):
 1. The host posts gamescroll:start after ready. Until then GS.paused === true.
 2. Implement onHostStart() to reset into a playable idle state. Do NOT wait for a fake HTML Start button that never receives host start.
-3. tick(dt) must early-return when GS.paused; draw() always paints the current UI.
+3. tick(dt) must early-return when GS.paused; draw() always paints the current UI (safe when called before onHostStart after layout()).
 4. NEVER create HTML <button>, <input>, or other DOM controls. Draw all UI on canvas #c.
 5. ALWAYS register canvas or window pointer handlers, e.g. canvas.addEventListener('pointerdown', handler).
 6. Map taps with getBoundingClientRect: const r=canvas.getBoundingClientRect(); const x=(e.clientX-r.left)*(W/r.width); const y=(e.clientY-r.top)*(H/r.height)
@@ -178,10 +185,11 @@ CRITICAL host runtime (bodyJs runs inside a shell that already provides canvas, 
 9. On fail call die() (host may auto-replay). On success use bump() or setScore() with reaction time in ms as the score when relevant.
 10. Keep body under ~80KB. No fetch, WebSocket, localStorage, eval, Worker, import().
 11. Do NOT draw a second large score counter — the host already shows score at the top. Use bump()/setScore() only.
-12. Always define layout, onHostStart, onResize; call layout() from those and from reset.
+12. Always define layout, onHostStart, onResize, scorePos, diePos; call layout() from those and from reset; end the body with layout() or reset().
+13. draw() MUST use PF.sky (plus blobs/dots and buddy/block/soft as appropriate) — catalog visual quality.
 
-You MUST define tick, draw, die, layout, onHostStart, onResize, and register pointerdown.
-When a CANON EXAMPLE is provided in the conversation, copy its structure (layout/onHostStart/tick/draw/pointer mapping) and adapt visuals/mechanics.
+You MUST define tick, draw, die, layout, onHostStart, onResize, scorePos, diePos, and register pointerdown.
+When a CANON EXAMPLE is provided in the conversation, copy its structure (PF draw, layout/onHostStart/tick/draw/pointer mapping) and adapt visuals/mechanics — do not downgrade to flat fillRect stubs.
 ${JUICE_RULES}
 ${ANTI_PATTERNS}
 `
@@ -414,11 +422,12 @@ If the body + layoutPlan already pass every checklist item, set ok=true, game=nu
 If anything fails, set ok=false, list issues, and return a FIXED complete game (title/tip/accent/bg/mechanic/layoutPlan/bodyJs) with minimal changes.
 
 Checklist:
-1. layout() matches layoutPlan; called from onHostStart/onResize/reset
+1. layout() matches layoutPlan; called from onHostStart/onResize/reset; body ends with layout()/reset()
 2. No overlapping rects; CTA lower third; focal center band; clear of host HUD (y≳0.12)
 3. tick respects GS.paused; pointer coords via getBoundingClientRect when using clientX/Y
-4. Fail → die(); scoring via bump/setScore — no second score HUD
-5. Required fns: tick, draw, die, layout, onHostStart, onResize`,
+4. Fail → die(); scoring via bump/setScore — no second score HUD; scorePos+diePos defined
+5. Required fns: tick, draw, die, layout, onHostStart, onResize, scorePos, diePos
+6. draw uses PF.sky (+ PF layers / buddy/block) like official catalog games — not flat fillRect-only`
         },
         {
           role: 'user',
@@ -623,7 +632,7 @@ Deno.serve(async (req) => {
           content: [
             mechanicSeedMessage(mechanic),
             '',
-            'Copy this canon structure (adapt visuals/mechanics):',
+            'Copy this canon structure — same HTML5/JS + PF style as official Gamescroll games (adapt visuals/mechanics, keep quality):',
             canonExampleFor(mechanic),
           ].join('\n'),
         }

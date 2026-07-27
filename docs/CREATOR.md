@@ -24,7 +24,8 @@ node scripts/setup-supabase.mjs
 
 That script (via Management API + CLI):
 
-1. Applies `supabase/migrations/20260723120000_ugc_games.sql`
+1. Applies `supabase/migrations/20260723120000_ugc_games.sql` and `20260727130000_ugc_games_source.sql` (`source`: `official` | `user`)
+2. Optional: `node scripts/seed-official-games.mjs` uploads catalog HTML to Storage and ensures official rows exist
 2. Writes `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` into `.env.local`
 3. Sets Edge secrets (`PUBLIC_SITE_URL`, `OPENAI_API_KEY`)
 4. Deploys the `creator` Edge Function
@@ -49,7 +50,8 @@ Or ask Cursor to run that SQL for you.
 
 1. User opens `/create`, magic-link signs in.
 2. Chat interviews → Edge Function generates bridge-compatible HTML → Storage + `ugc_games` draft (`brief.bodyJs` stores the editable game body).
-3. Before upload, each body is quality-gated: static layout/input checks → **layoutPlan** overlap/safe-area validation → smoke-run → (optional) LLM text critique → repair if needed. Critique is skipped on clean patch iterates and when a ~95s time budget is low, to stay under Supabase’s ~150s idle timeout.
+3. Before upload, each body is quality-gated: static layout/input checks → **layoutPlan** overlap/safe-area validation → smoke-run (incl. **idle draw before start** + letterboxed playfield) → (optional) LLM text critique → repair if needed. Critique is skipped on clean patch iterates and when a ~95s time budget is low, to stay under Supabase’s ~150s idle timeout.
+4. Background check for live approved UGC: `npm run check:ugc` (smokes every `source=user` approved body in Supabase).
 4. First builds infer a **mechanic family** (reaction/timing/dodge/drag/stack) and seed a template; iterates use `OPENAI_MODEL_FAST` when set (else `OPENAI_MODEL`).
 5. Follow-up prompts load that `bodyJs` + `layoutPlan` (or recover body from stored HTML for older drafts) and ask the model to **edit in place**. Small tweaks come back as `patches` (search/replace) applied server-side; `brief.editMode` records `patch` or `full`, and unappliable patches fall back to one full-body retry.
 6. Only recent chat turns are sent to the model (first brief + last ~12 turns); the stored body carries the game state.

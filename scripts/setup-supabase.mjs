@@ -183,30 +183,36 @@ if (!accessToken) {
 
 log('Applying migrations via Management SQL API…')
 {
-  const migrationPath = join(root, 'supabase/migrations/20260723120000_ugc_games.sql')
-  const migrationSql = readFileSync(migrationPath, 'utf8')
-  const { res, text } = await managementFetch(
-    `/projects/${projectRef}/database/query`,
-    accessToken,
-    {
-      method: 'POST',
-      body: JSON.stringify({ query: migrationSql }),
-    },
-  )
-  if (!res.ok) {
-    const already =
-      /already exists/i.test(text) ||
-      text.includes('42710') ||
-      text.includes('42P07')
-    if (already) {
-      log('Schema already present — skipping migration')
+  const migrations = [
+    'supabase/migrations/20260723120000_ugc_games.sql',
+    'supabase/migrations/20260727130000_ugc_games_source.sql',
+  ]
+  for (const rel of migrations) {
+    const migrationPath = join(root, rel)
+    const migrationSql = readFileSync(migrationPath, 'utf8')
+    const { res, text } = await managementFetch(
+      `/projects/${projectRef}/database/query`,
+      accessToken,
+      {
+        method: 'POST',
+        body: JSON.stringify({ query: migrationSql }),
+      },
+    )
+    if (!res.ok) {
+      const already =
+        /already exists/i.test(text) ||
+        text.includes('42710') ||
+        text.includes('42P07')
+      if (already) {
+        log(`Schema already present — skipping ${rel}`)
+      } else {
+        throw new Error(
+          `Migration SQL failed for ${rel} (${res.status}): ${redact(text, secrets).slice(0, 800)}`,
+        )
+      }
     } else {
-      throw new Error(
-        `Migration SQL failed (${res.status}): ${redact(text, secrets).slice(0, 800)}`,
-      )
+      log(`Migration applied: ${rel}`)
     }
-  } else {
-    log('Migration applied (ugc_games, moderators, storage policies)')
   }
 }
 

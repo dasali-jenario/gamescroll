@@ -95,8 +95,13 @@ export function validateLayoutPlan(raw: unknown): LayoutPlanResult {
         errors.push(`layoutPlan focal "${r.id}" should sit in the center band (y ≈ 0.28–0.58)`)
       }
     }
-    if (r.band !== 'hud' && r.y < 0.1 && r.h > 0.04) {
-      errors.push(`layoutPlan "${r.id}" sits under the host score HUD (keep y ≳ 0.12)`)
+    if (r.band !== 'hud' && r.y < 0.08 && r.h > 0.04) {
+      errors.push(`layoutPlan "${r.id}" sits under the in-game score HUD (keep y ≳ 0.10)`)
+    }
+    if (r.band === 'cta' || r.band === 'focal') {
+      if (r.x < 0.02 || r.x + r.w > 0.98) {
+        errors.push(`layoutPlan "${r.id}" should keep ≥2% side margin from the playfield edge`)
+      }
     }
   }
 

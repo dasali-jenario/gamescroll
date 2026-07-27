@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { GameCard } from './components/GameCard'
 import { GameOverOverlay } from './components/GameOverOverlay'
 import { SwipeCue } from './components/SwipeCue'
@@ -493,11 +492,6 @@ export default function App() {
           )}
         </div>
         <div className="stats" aria-label="Session stats">
-          {!playingKey && !introRunning && (
-            <Link to="/create" className="create-link">
-              Create
-            </Link>
-          )}
           <button
             type="button"
             className={`auto-restart-btn${autoRestart ? ' is-on' : ''}`}

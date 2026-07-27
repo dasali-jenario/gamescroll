@@ -1,17 +1,19 @@
 import type { Game } from '../games'
 import { getSupabase, type UgcGameRow, type UgcStatus } from './supabase'
 
-export function ugcPlayUrl(slug: string): string {
+export function ugcPlayUrl(slug: string, cacheKey?: string | null): string {
   const base = import.meta.env.VITE_SUPABASE_URL
   if (!base) return ''
-  return `${base}/functions/v1/ugc-play?slug=${encodeURIComponent(slug)}`
+  const v = cacheKey ? `&v=${encodeURIComponent(cacheKey)}` : ''
+  return `${base}/functions/v1/ugc-play?slug=${encodeURIComponent(slug)}${v}`
 }
 
 export function ugcRowToGame(row: UgcGameRow): Game {
   // Prefer Edge Function HTML (correct Content-Type). Storage public URLs are
   // often served as text/plain, which browsers render as source instead of a game.
+  const bust = row.updated_at || row.id
   const src =
-    ugcPlayUrl(row.slug) ||
+    ugcPlayUrl(row.slug, bust) ||
     row.html_url ||
     (import.meta.env.VITE_SUPABASE_URL
       ? `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/ugc-games/${row.html_path}`
@@ -32,6 +34,7 @@ export async function fetchApprovedUgcGames(limit = 40): Promise<Game[]> {
     .from('ugc_games')
     .select('*')
     .eq('status', 'approved')
+    .eq('source', 'user')
     .order('approved_at', { ascending: false })
     .limit(limit)
   if (error || !data) return []
