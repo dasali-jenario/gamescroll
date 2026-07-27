@@ -1,5 +1,5 @@
-/** 1.0 = original pacing; 1.3 = 30% slower. */
-const REEL_PACE = 1.3
+/** 1.0 = original pacing; higher = slower. */
+const REEL_PACE = 1.95
 
 /** Build jackpot reel indices: climb through neighbors, then land on 0. */
 export function buildReelSequence(feedLength: number): number[] {
