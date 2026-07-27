@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BottomNav } from './components/BottomNav'
 import { GameCard } from './components/GameCard'
 import { GameOverOverlay } from './components/GameOverOverlay'
 import { SwipeCue } from './components/SwipeCue'
@@ -485,6 +486,9 @@ export default function App() {
           <div className="game-title">
             {activeGame?.title ?? ''}
           </div>
+          {activeGame?.tip && (
+            <p className="game-tip">{activeGame.tip}</p>
+          )}
           {playingKey && activeHighscore > 0 && (
             <div className="highscore" aria-label={`High score ${activeHighscore}`}>
               Best {activeHighscore}
@@ -525,7 +529,6 @@ export default function App() {
             isActive={Math.abs(index - activeIndex) <= 1}
             isPlaying={playingKey === item.key}
             controlsEnabled={playingKey === item.key && !gameOver}
-            liked={!!liked[item.game.id]}
             autoRestart={autoRestart}
             restartKey={playingKey === item.key ? restartKey : 0}
             onPlay={() => {
@@ -538,15 +541,22 @@ export default function App() {
             onScore={onScore}
             onDied={onDied}
             onSwipe={onGameSwipe}
-            onLike={() => {
-              setLiked((prev) => ({
-                ...prev,
-                [item.game.id]: !prev[item.game.id],
-              }))
-            }}
           />
         ))}
       </div>
+
+      <BottomNav
+        game={activeGame}
+        liked={!!(activeGame && liked[activeGame.id])}
+        isPlaying={!!playingKey}
+        onLike={() => {
+          if (!activeGame) return
+          setLiked((prev) => ({
+            ...prev,
+            [activeGame.id]: !prev[activeGame.id],
+          }))
+        }}
+      />
 
       {introRunning && (
         <div className="feed-intro-label" aria-live="polite">

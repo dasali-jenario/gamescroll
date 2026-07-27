@@ -72,7 +72,8 @@ flowchart TB
 |------|------|
 | `App.tsx` | Infinite feed, play/pause, swipe, game-over, jackpot intro, deploy reload |
 | `games.ts` | Catalog of games (`id`, `title`, `tip`, `src`, `accent`) |
-| `components/GameCard.tsx` | iframe load + bridge + like/share bottom nav |
+| `components/GameCard.tsx` | iframe load + bridge |
+| `components/BottomNav.tsx` | fixed bottom like/share nav for the active game |
 | `components/GameOverOverlay.tsx` | Fail UI when auto-restart is off |
 | `components/SwipeCue.tsx` | Brief “Swipe / Next game” chip (5s after intro) |
 | `lib/feedIntro.ts` | Jackpot reel sequence (every cold start) |
@@ -143,7 +144,7 @@ In-iframe swipe thresholds: distance ≥ `max(140, 0.22 × height)`, duration �
 - CSS snap feed (`.feed`); while playing, scroll is locked.
 - Switch games: iframe fling, right-edge swipe rail, keys `↓`/`j` and `↑`/`k`.
 - While playing, the iframe is letterboxed away from host chrome (top bar, bottom like/share nav, swipe rail) so game hit-targets cannot sit under app UI. Removing the old top action band gives a taller portrait playfield.
-- Like and Share sit in a bottom navigation bar under the playfield (never overlaid on the game).
+- Like and Share sit in a viewport-fixed bottom navigation bar under the playfield (never overlaid on the game, never scrolls with the feed).
 - **Pause** / Esc freezes the current game; after pause, a nudge encourages swiping to the next card.
 - Every cold start (including shared `?g=` links): a jackpot-style feed reel scrolls through a few cards and lands on index `0`, then autoplay starts. Skipped only for `prefers-reduced-motion`.
 - `SwipeCue` cream chip (“Swipe for the next game”) shows for 5 seconds after the intro (or until the first swipe), then hides.

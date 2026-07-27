@@ -1,5 +1,18 @@
 # New file requests
 
+## 2026-07-27 — Fixed bottom like/share nav
+
+### Requested files
+- `src/components/BottomNav.tsx` — viewport-fixed Like / Share bar for the active feed game
+
+### Duplicate search
+- Grep `bottom-nav|BottomNav|like-btn|share-btn` under `/Users/dasali/gamescroll/src` → nav markup lived inside `GameCard.tsx` (`position: absolute` on each card)
+- Glob `src/components/*` → GameCard, GameOverOverlay, SwipeCue, CreatorPreview; no bottom-nav / action-bar component
+- Pitch mock has `.rail` like/share on cards only — not a fixed host chrome bar
+
+### Rationale
+A per-card absolute nav scrolls away and can stack if made `fixed` inside each card; one host-level fixed bar keeps like/share pinned to the screen bottom.
+
 ## 2026-07-27 — UGC idle-draw regression tests + live check
 
 ### Requested files
