@@ -1886,6 +1886,287 @@ Object.assign(games, {
     reset()
 `,
   },
+
+  slicer: {
+    title: 'Shape Slicer',
+    bg: '#7b2cbf',
+    accent: '#ff6d00',
+    body: `
+    const PALETTES = [
+      { a: '#4cc9f0', b: '#4361ee', card: '#fff6e8', ink: '#1d3557' },
+      { a: '#ff6d00', b: '#ff006e', card: '#fff0f3', ink: '#3c096c' },
+      { a: '#80ed99', b: '#06d6a0', card: '#f0fff4', ink: '#1b4332' },
+      { a: '#ffd166', b: '#f77f00', card: '#fff9e6', ink: '#7f5539' },
+      { a: '#c77dff', b: '#7b2cbf', card: '#f8f0ff', ink: '#240046' },
+      { a: '#48cae4', b: '#0077b6', card: '#e8f7ff', ink: '#023e8a' },
+    ]
+    let poly = [], palette = PALETTES[0], phase = 'aim'
+    let drag = null, cut = null, pieceA = null, pieceB = null
+    let pctA = 50, pctB = 50, lastPts = 0, missFlash = 0
+    let btn = { x: 0, y: 0, w: 0, h: 0 }
+
+    function side(a, b, p) {
+      return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
+    }
+    function segHit(a, b, p, q) {
+      const d1 = side(a, b, p), d2 = side(a, b, q)
+      if (d1 === 0 && d2 === 0) return null
+      if (d1 * d2 > 0) return null
+      const t = d1 / (d1 - d2)
+      return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t }
+    }
+    function clipPoly(src, a, b, keepPos) {
+      const out = []
+      for (let i = 0; i < src.length; i++) {
+        const cur = src[i], prev = src[(i + src.length - 1) % src.length]
+        const curIn = keepPos ? side(a, b, cur) >= -1e-6 : side(a, b, cur) <= 1e-6
+        const prevIn = keepPos ? side(a, b, prev) >= -1e-6 : side(a, b, prev) <= 1e-6
+        if (curIn !== prevIn) {
+          const hit = segHit(a, b, prev, cur)
+          if (hit) out.push(hit)
+        }
+        if (curIn) out.push(cur)
+      }
+      return out
+    }
+    function polyArea(pts) {
+      if (!pts || pts.length < 3) return 0
+      let s = 0
+      for (let i = 0; i < pts.length; i++) {
+        const p = pts[i], q = pts[(i + 1) % pts.length]
+        s += p.x * q.y - q.x * p.y
+      }
+      return Math.abs(s) * 0.5
+    }
+    function centroid(pts) {
+      let x = 0, y = 0
+      for (const p of pts) { x += p.x; y += p.y }
+      return { x: x / pts.length, y: y / pts.length }
+    }
+    function fillPoly(pts, color) {
+      if (!pts || pts.length < 3) return
+      ctx.beginPath()
+      ctx.moveTo(pts[0].x, pts[0].y)
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
+      ctx.closePath()
+      ctx.fillStyle = color
+      ctx.fill()
+    }
+    function strokePoly(pts, color, width) {
+      if (!pts || pts.length < 3) return
+      ctx.beginPath()
+      ctx.moveTo(pts[0].x, pts[0].y)
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y)
+      ctx.closePath()
+      ctx.strokeStyle = color
+      ctx.lineWidth = width
+      ctx.stroke()
+    }
+    function roundRectPath(x, y, w, h, r) {
+      const rr = Math.min(r, w * 0.5, h * 0.5)
+      ctx.beginPath()
+      ctx.moveTo(x + rr, y)
+      ctx.arcTo(x + w, y, x + w, y + h, rr)
+      ctx.arcTo(x + w, y + h, x, y + h, rr)
+      ctx.arcTo(x, y + h, x, y, rr)
+      ctx.arcTo(x, y, x + w, y, rr)
+      ctx.closePath()
+    }
+    function makeShape() {
+      const n = 3 + Math.floor(Math.random() * 5)
+      const cx = W * 0.5, cy = H * 0.42
+      const base = Math.min(W, H) * (0.2 + Math.random() * 0.07)
+      const rot = Math.random() * Math.PI * 2
+      const pts = []
+      for (let i = 0; i < n; i++) {
+        const a = rot + (i / n) * Math.PI * 2
+        const rr = base * (0.72 + Math.random() * 0.38)
+        pts.push({ x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr * 0.92 })
+      }
+      return pts
+    }
+    function nextRound(keepScore) {
+      palette = PALETTES[Math.floor(Math.random() * PALETTES.length)]
+      poly = makeShape()
+      phase = 'aim'
+      drag = null
+      cut = null
+      pieceA = pieceB = null
+      pctA = pctB = 50
+      lastPts = 0
+      if (!keepScore) setScore(0)
+    }
+    function diePos() { return [W * 0.5, H * 0.42] }
+    function scorePos() { return [W * 0.5, H * 0.42] }
+    function reset() { nextRound(false) }
+    function onHostStart() { reset() }
+    function die() { reset() }
+    function onResize() {
+      if (phase === 'aim' || phase === 'drawing') poly = makeShape()
+    }
+    function evaluateCut(a, b) {
+      const len = Math.hypot(b.x - a.x, b.y - a.y)
+      if (len < 28) { missFlash = 0.45; return }
+      const A = clipPoly(poly, a, b, true)
+      const B = clipPoly(poly, a, b, false)
+      const areaA = polyArea(A), areaB = polyArea(B), total = areaA + areaB
+      if (A.length < 3 || B.length < 3 || total < 40) { missFlash = 0.55; return }
+      pieceA = A; pieceB = B
+      pctA = Math.round((areaA / total) * 100)
+      pctB = 100 - pctA
+      const err = Math.abs(50 - pctA)
+      lastPts = Math.max(0, Math.round(120 - err * 4))
+      cut = { a, b }
+      phase = 'result'
+      if (lastPts > 0) bump(lastPts)
+      else if (window.Juice) Juice.onDie(W * 0.5, H * 0.42)
+    }
+    function hitNewShape(x, y) {
+      return phase === 'result' && x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h
+    }
+    function tick(dt) {
+      if (missFlash > 0) missFlash = Math.max(0, missFlash - dt)
+    }
+    function draw() {
+      PF.sky(ctx, W, H, '#240046', '#7b2cbf', '#ff006e')
+      PF.blobs(ctx, W, H, '#ffd166', 7)
+      PF.dots(ctx, W, H, '#ffffff', 18, 0.35)
+
+      const cardX = W * 0.06, cardW = W * 0.88
+      const cardY = H * 0.14, cardH = H * 0.52
+      roundRectPath(cardX, cardY, cardW, cardH, 28)
+      ctx.fillStyle = palette.card
+      ctx.fill()
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'
+      roundRectPath(cardX + 3, cardY + 3, cardW - 6, 18, 12)
+      ctx.fill()
+
+      // Target chip
+      const chipY = H * 0.045
+      roundRectPath(W * 0.08, chipY, W * 0.84, 52, 16)
+      ctx.fillStyle = 'rgba(255,255,255,0.92)'
+      ctx.fill()
+      ctx.fillStyle = '#4361ee'
+      roundRectPath(W * 0.1, chipY + 10, 32, 32, 10)
+      ctx.fill()
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2
+      ctx.beginPath(); ctx.arc(W * 0.1 + 16, chipY + 26, 8, 0, Math.PI * 2); ctx.stroke()
+      ctx.beginPath(); ctx.arc(W * 0.1 + 16, chipY + 26, 3, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill()
+      ctx.fillStyle = '#6c757d'
+      ctx.font = '700 10px "Segoe UI", sans-serif'
+      ctx.fillText('TARGET RATIO', W * 0.1 + 44, chipY + 20)
+      ctx.fillStyle = palette.ink
+      ctx.font = '800 16px "Segoe UI", sans-serif'
+      ctx.fillText('50 : 50 Split', W * 0.1 + 44, chipY + 40)
+
+      if (phase === 'result' && pieceA && pieceB) {
+        fillPoly(pieceA, palette.a)
+        fillPoly(pieceB, palette.b)
+        strokePoly(pieceA, 'rgba(255,255,255,0.85)', 3)
+        strokePoly(pieceB, 'rgba(255,255,255,0.85)', 3)
+        if (cut) {
+          ctx.strokeStyle = '#1a1612'
+          ctx.lineWidth = 3
+          ctx.setLineDash([8, 6])
+          ctx.beginPath(); ctx.moveTo(cut.a.x, cut.a.y); ctx.lineTo(cut.b.x, cut.b.y); ctx.stroke()
+          ctx.setLineDash([])
+        }
+        const ca = centroid(pieceA), cb = centroid(pieceB)
+        ctx.font = '800 22px "Segoe UI", sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillStyle = '#fff'
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)'
+        ctx.lineWidth = 4
+        ctx.strokeText(pctA + '%', ca.x, ca.y + 8)
+        ctx.fillText(pctA + '%', ca.x, ca.y + 8)
+        ctx.strokeText(pctB + '%', cb.x, cb.y + 8)
+        ctx.fillText(pctB + '%', cb.x, cb.y + 8)
+        ctx.textAlign = 'left'
+      } else {
+        fillPoly(poly, palette.a)
+        strokePoly(poly, 'rgba(255,255,255,0.9)', 4)
+        if (drag) {
+          ctx.strokeStyle = missFlash > 0 ? '#ff006e' : '#1a1612'
+          ctx.lineWidth = 4
+          ctx.lineCap = 'round'
+          ctx.beginPath(); ctx.moveTo(drag.a.x, drag.a.y); ctx.lineTo(drag.b.x, drag.b.y); ctx.stroke()
+          ctx.fillStyle = '#ff006e'
+          ctx.beginPath(); ctx.arc(drag.a.x, drag.a.y, 6, 0, Math.PI * 2); ctx.fill()
+          ctx.beginPath(); ctx.arc(drag.b.x, drag.b.y, 6, 0, Math.PI * 2); ctx.fill()
+        }
+      }
+
+      // Bottom panel
+      const panelY = H * 0.72, panelH = H * 0.22
+      roundRectPath(W * 0.06, panelY, W * 0.88, panelH, 24)
+      ctx.fillStyle = 'rgba(255,255,255,0.95)'
+      ctx.fill()
+      ctx.fillStyle = '#ff006e'
+      ctx.beginPath(); ctx.arc(W * 0.5, panelY + 28, 18, 0, Math.PI * 2); ctx.fill()
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5
+      ctx.beginPath()
+      ctx.moveTo(W * 0.5 - 6, panelY + 24); ctx.lineTo(W * 0.5 + 2, panelY + 28); ctx.lineTo(W * 0.5 - 6, panelY + 32)
+      ctx.moveTo(W * 0.5 - 2, panelY + 22); ctx.lineTo(W * 0.5 + 7, panelY + 28); ctx.lineTo(W * 0.5 - 2, panelY + 34)
+      ctx.stroke()
+
+      ctx.textAlign = 'center'
+      if (phase === 'result') {
+        ctx.fillStyle = palette.ink
+        ctx.font = '800 18px "Segoe UI", sans-serif'
+        ctx.fillText(pctA + '%  ·  ' + pctB + '%', W * 0.5, panelY + 62)
+        ctx.fillStyle = lastPts > 0 ? '#06d6a0' : '#e63946'
+        ctx.font = '700 13px "Segoe UI", sans-serif'
+        ctx.fillText(lastPts > 0 ? ('+' + lastPts + ' points') : 'Too uneven — try again', W * 0.5, panelY + 82)
+        btn.w = Math.min(220, W * 0.55); btn.h = 44
+        btn.x = (W - btn.w) * 0.5; btn.y = panelY + panelH - 58
+        roundRectPath(btn.x, btn.y, btn.w, btn.h, 14)
+        ctx.fillStyle = '#ff6d00'
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.font = '800 15px "Segoe UI", sans-serif'
+        ctx.fillText('New shape', W * 0.5, btn.y + 28)
+      } else {
+        ctx.fillStyle = palette.ink
+        ctx.font = '800 17px "Segoe UI", sans-serif'
+        ctx.fillText('Draw a line to slice', W * 0.5, panelY + 64)
+        ctx.fillStyle = '#6c757d'
+        ctx.font = '600 12px "Segoe UI", sans-serif'
+        ctx.fillText('Cut as close to 50 / 50 as you can', W * 0.5, panelY + 86)
+      }
+      ctx.textAlign = 'left'
+      if (missFlash > 0) {
+        ctx.fillStyle = 'rgba(255,0,110,' + (missFlash * 0.25) + ')'
+        ctx.fillRect(0, 0, W, H)
+      }
+    }
+    addEventListener('pointerdown', e => {
+      if (GS.paused) return
+      if (hitNewShape(e.clientX, e.clientY)) {
+        nextRound(true)
+        return
+      }
+      if (phase === 'result') return
+      drag = { a: { x: e.clientX, y: e.clientY }, b: { x: e.clientX, y: e.clientY } }
+      phase = 'drawing'
+    })
+    addEventListener('pointermove', e => {
+      if (GS.paused || !drag || phase !== 'drawing') return
+      drag.b = { x: e.clientX, y: e.clientY }
+    })
+    addEventListener('pointerup', e => {
+      if (GS.paused || !drag || phase !== 'drawing') return
+      drag.b = { x: e.clientX, y: e.clientY }
+      const a = drag.a, b = drag.b
+      drag = null
+      evaluateCut(a, b)
+      if (phase !== 'result') phase = 'aim'
+    })
+    addEventListener('pointercancel', () => {
+      if (phase === 'drawing') { drag = null; phase = 'aim' }
+    })
+    reset()
+`,
+  },
 })
 
 const obsolete = ['aim.html', 'dodge.html', 'flap.html', 'react.html', 'orbit.html', 'light.html', 'helix.html', 'shield.html']

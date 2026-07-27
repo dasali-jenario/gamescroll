@@ -32,6 +32,7 @@ export const games: Game[] = [
   { id: 'rain', title: 'Rain Dodger', tip: 'Drag sideways under the rain', src: '/games/rain.html', accent: '#415a77' },
   { id: 'magnet', title: 'Magnet Flip', tip: 'Tap to reverse polarity', src: '/games/magnet.html', accent: '#9d4edd' },
   { id: 'breakout', title: 'Mini Breakout', tip: 'Bounce through endless bricks', src: '/games/breakout.html', accent: '#e9c46a' },
+  { id: 'slicer', title: 'Shape Slicer', tip: 'Draw a line to split the shape 50/50', src: '/games/slicer.html', accent: '#ff6d00' },
 ]
 
 export type FeedItem = {

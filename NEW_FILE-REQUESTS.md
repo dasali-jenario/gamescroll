@@ -1,5 +1,19 @@
 # New file requests
 
+## 2026-07-27 — Shape Slicer catalog game
+
+### Requested files
+- `public/games/slicer.html` — generated Shape Slicer minigame (draw a cut, show slice %, score closeness to 50/50, New shape)
+- Updates: `scripts/generate-games.mjs` (slicer body), `src/games.ts` (catalog entry)
+
+### Duplicate search
+- Grep `slicer|Shape Slicer|split.?poly|50.?50` under `/Users/dasali/gamescroll` → none
+- Glob `public/games/*` → no slicer; closest `shapes.html` is hole-matching, not area-split
+- Pitch mock has no slice/cut mechanic
+
+### Rationale
+New endless catalog game: colorful polygon split by a player-drawn line, points from how close the areas are to 50/50, with on-canvas percentages and a New shape control.
+
 ## 2026-07-27 — Automatic deploy reload without hard refresh
 
 ### Requested files
