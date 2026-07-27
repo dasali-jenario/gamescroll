@@ -9,7 +9,7 @@
   --bottom-nav: calc(3.85rem + env(safe-area-inset-bottom));
   /* Host chrome gutters around the playable iframe (keep game UI out of app chrome). */
   --play-inset-left: 0.5rem;
-  --play-inset-right: 2.75rem; /* swipe rail */
+  --play-inset-right: 0.5rem;
   --play-inset-bottom: var(--bottom-nav);
 }
 
@@ -233,7 +233,7 @@ body {
 }
 
 /* Play mode: letterbox the iframe so game hit-targets can't sit under app chrome.
-   Aspect: top bar + bottom nav + slim side gutters → taller portrait playfield. */
+   Aspect: top bar + bottom nav + slim equal side gutters → taller portrait playfield. */
 .card.is-playing .stage {
   top: var(--chrome-top);
   right: var(--play-inset-right);
@@ -534,20 +534,28 @@ body {
   }
 }
 
+/* Invisible right-edge swipe capture while playing (no dark rail — that skewed the playfield). */
 .swipe-rail {
   position: fixed;
   top: var(--chrome-top);
   right: 0;
   bottom: var(--bottom-nav);
   z-index: 45;
+  width: 0.75rem;
+  touch-action: none;
+  background: transparent;
+}
+
+/* Pre-play scroll hint — dark rail + chevrons; hidden once the first game starts. */
+.swipe-rail--hint {
   width: 2.75rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  touch-action: none;
-  background: linear-gradient(to left, rgba(15, 20, 25, 0.3), transparent);
+  pointer-events: none;
+  background: linear-gradient(to left, rgba(15, 20, 25, 0.55), transparent);
 }
 
 .swipe-rail-dot {

@@ -1,5 +1,20 @@
 # New file requests
 
+## 2026-07-27 — Play presentation contract + tests
+
+### Requested files
+- `src/lib/playPresentation.ts` — symmetric play insets, rail-hint lifecycle, portrait playfield geometry
+- `src/playPresentation.test.ts` — unit + CSS/App source contract for game presentation
+- Updates: `src/App.tsx` (uses `shouldShowRailHint` / `shouldShowSilentSwipeRail` / `RAIL_HINT_CLASS`)
+
+### Duplicate search
+- Grep `playPresentation|playInsets|shouldShowRailHint|PLAY_INSET_SIDE|railHintVisible` under `/Users/dasali/gamescroll` → only App/CSS swipe-rail wiring; no presentation helper
+- Glob `src/**/*present*|src/**/*letterbox*|src/**/*inset*` → none
+- Existing related: `layoutPlan` (UGC in-game layout), `gameSmoke` letterbox smoke (canvas paint), catalogIntegrity (HTML files) — none cover host feed letterbox / dark rail lifecycle
+
+### Rationale
+Lock equal side gutters and “dark rail disappears after first game starts” so presentation regressions fail in CI.
+
 ## 2026-07-27 — Phase 1 feed telemetry batcher
 
 ### Requested files

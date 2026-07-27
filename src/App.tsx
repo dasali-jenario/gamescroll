@@ -25,6 +25,11 @@ import {
   runFeedIntroReel,
 } from './lib/feedIntro'
 import { appendFeedWindow } from './lib/feedWindow'
+import {
+  RAIL_HINT_CLASS,
+  shouldShowRailHint,
+  shouldShowSilentSwipeRail,
+} from './lib/playPresentation'
 import { fetchApprovedUgcGames, fetchUgcBySlug } from './lib/ugc'
 import { trackVisit, noteFeedSwipe, trackFeedPruned } from './metrics'
 import { readSharedGameParam } from './share'
@@ -78,6 +83,8 @@ export default function App() {
   const [cueVisible, setCueVisible] = useState(false)
   const cueTimerRef = useRef<number | null>(null)
   const cueSpentRef = useRef(false)
+  /** Dark scroll rail — visible until the first game starts, then gone for good. */
+  const [railHintVisible, setRailHintVisible] = useState(true)
   const [activeIndex, setActiveIndex] = useState(0)
   activeIndexRef.current = activeIndex
   const [highscores, setHighscores] = useState(loadHighscores)
@@ -247,6 +254,7 @@ export default function App() {
     setGameOver(null)
     setPlayingKey(key)
     setNudgeVisible(false)
+    setRailHintVisible(false)
   }, [])
 
   const enterPlayRef = useRef(enterPlay)
@@ -546,7 +554,12 @@ export default function App() {
     }
   }, [playingKey, nudgeVisible, endSwipe, introRunning])
 
-  const inputEnabled = !!playingKey && !gameOver && !introRunning
+  const showRailHint = shouldShowRailHint({ railHintVisible, playingKey })
+  const showSilentRail = shouldShowSilentSwipeRail({
+    playingKey,
+    gameOver: !!gameOver,
+    introRunning,
+  })
   const showCue =
     cueVisible &&
     bootReady &&
@@ -644,9 +657,17 @@ export default function App() {
         </div>
       )}
 
-      {/* While playing, the iframe eats touches — this host-owned right-edge
-          rail stays above it so vertical swipes there always switch games. */}
-      {inputEnabled && (
+      {/* Dark scroll rail: onboarding hint until the first game starts.
+          After play begins, only a thin invisible edge strip remains so
+          swipes still work while the iframe eats touches. */}
+      {showRailHint && (
+        <div className={`swipe-rail ${RAIL_HINT_CLASS}`} aria-hidden="true">
+          <span className="swipe-rail-chevron up" />
+          <span className="swipe-rail-dot" />
+          <span className="swipe-rail-chevron down" />
+        </div>
+      )}
+      {showSilentRail && (
         <div
           className="swipe-rail"
           aria-label="Swipe up or down to switch games"
@@ -658,11 +679,7 @@ export default function App() {
           onPointerCancel={() => {
             swipeStart.current = null
           }}
-        >
-          <span className="swipe-rail-chevron up" aria-hidden="true" />
-          <span className="swipe-rail-dot" aria-hidden="true" />
-          <span className="swipe-rail-chevron down" aria-hidden="true" />
-        </div>
+        />
       )}
 
       {nudgeVisible && !playingKey && !introRunning && (
