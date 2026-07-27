@@ -143,8 +143,8 @@ In-iframe swipe thresholds: distance ≥ `max(140, 0.22 × height)`, duration �
 - CSS snap feed (`.feed`); while playing, scroll is locked.
 - Switch games: iframe fling, right-edge swipe rail, keys `↓`/`j` and `↑`/`k`.
 - **Pause** / Esc freezes the current game; after pause, a nudge encourages swiping to the next card.
-- First visit (including shared `?g=` links): a short jackpot-style feed reel scrolls through a few cards and lands on index `0`, then autoplay starts (`gs_feed_intro_seen`; migrates legacy `gs_swipe_coach_seen`).
-- Persistent `SwipeCue` (“Swipe / Next game”) stays visible in browse and play; dims after the first successful swipe this session.
+- First visit (including shared `?g=` links): a short jackpot-style feed reel scrolls through a few cards and lands on index `0`, then autoplay starts (`gs_jackpot_intro_seen`).
+- Persistent `SwipeCue` cream chip (“Swipe for the next game”) stays visible in browse and play; dims after the first successful swipe this session.
 - `prefers-reduced-motion`: skip the reel, jump to the landing card, show the cue, autoplay.
 
 ### Deep links
@@ -187,8 +187,8 @@ Owned by the host (sandboxed games cannot use storage).
 | `gs_visits` / `gs_last_seen` | Daily visit counting |
 | `gs_auto_restart` | Auto-restart preference |
 | `gs_fail_mode` | Legacy fail-mode preference |
-| `gs_feed_intro_seen` | Jackpot intro reel completed (also set when legacy coach was seen) |
-| `gs_swipe_coach_seen` | Legacy coach flag; still written for migration compatibility |
+| `gs_jackpot_intro_seen` | Jackpot intro reel completed |
+| `gs_feed_intro_seen` / `gs_swipe_coach_seen` | Legacy keys; no longer gate the reel |
 
 Likes in the rail are in-memory only for the session.
 

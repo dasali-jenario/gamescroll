@@ -555,48 +555,60 @@ body {
 .swipe-cue {
   position: fixed;
   left: 50%;
-  bottom: calc(1.35rem + env(safe-area-inset-bottom));
+  bottom: calc(1.5rem + env(safe-area-inset-bottom));
   transform: translateX(-50%);
-  z-index: 42;
+  z-index: 46;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.55rem;
   pointer-events: none;
-  color: rgba(243, 238, 228, 0.92);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+  padding: 0.7rem 1rem 0.7rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(243, 238, 228, 0.96);
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   opacity: 1;
-  transition: opacity 0.45s var(--ease);
+  transition: opacity 0.45s var(--ease), transform 0.45s var(--ease);
   animation: tip-in 0.5s var(--ease) 0.15s both;
 }
 
 .swipe-cue.is-dimmed {
-  opacity: 0.45;
+  opacity: 0.72;
 }
 
 .swipe-cue-chevron {
-  width: 0.7rem;
-  height: 0.7rem;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
+  width: 0.55rem;
+  height: 0.55rem;
+  flex-shrink: 0;
+  border-right: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
   transform: rotate(45deg);
-  animation: swipe-cue-bounce 1.4s var(--ease) infinite;
+  animation: swipe-cue-bounce 1.2s var(--ease) infinite;
+}
+
+.swipe-cue-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  line-height: 1.15;
 }
 
 .swipe-cue-label {
   font-family: 'IBM Plex Sans', sans-serif;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .swipe-cue-sub {
   font-family: 'IBM Plex Sans', sans-serif;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 500;
-  letter-spacing: 0.02em;
-  color: rgba(243, 238, 228, 0.72);
+  letter-spacing: 0.01em;
+  color: rgba(26, 22, 18, 0.72);
 }
 
 .feed-intro-label {
@@ -606,25 +618,26 @@ body {
   transform: translateX(-50%);
   z-index: 48;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.55rem;
   pointer-events: none;
+  padding: 0.7rem 1rem 0.7rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(243, 238, 228, 0.96);
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   font-family: 'IBM Plex Sans', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(243, 238, 228, 0.95);
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  font-size: 0.85rem;
+  font-weight: 600;
   animation: tip-in 0.35s var(--ease) both;
 }
 
 .feed-intro-chevron {
-  width: 0.65rem;
-  height: 0.65rem;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
   transform: rotate(45deg);
   animation: swipe-cue-bounce 1s var(--ease) infinite;
 }

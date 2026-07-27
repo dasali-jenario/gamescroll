@@ -518,8 +518,8 @@ export default function App() {
 
       {introRunning && (
         <div className="feed-intro-label" aria-live="polite">
-          More games
           <span className="feed-intro-chevron" aria-hidden="true" />
+          More games this way
         </div>
       )}
 

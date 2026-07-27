@@ -1,5 +1,5 @@
-const INTRO_SEEN_KEY = 'gs_feed_intro_seen'
-const LEGACY_COACH_KEY = 'gs_swipe_coach_seen'
+/** Dedicated key — do not treat legacy coach dismiss as "already saw the reel". */
+const INTRO_SEEN_KEY = 'gs_jackpot_intro_seen'
 
 /** Build jackpot reel indices: climb through neighbors, then land on 0. */
 export function buildReelSequence(feedLength: number): number[] {
@@ -23,12 +23,7 @@ export function reelDelayBeforeStep(stepIndex: number, stepCount: number): numbe
 
 export function hasSeenFeedIntro(): boolean {
   try {
-    if (localStorage.getItem(INTRO_SEEN_KEY) === '1') return true
-    if (localStorage.getItem(LEGACY_COACH_KEY) === '1') {
-      localStorage.setItem(INTRO_SEEN_KEY, '1')
-      return true
-    }
-    return false
+    return localStorage.getItem(INTRO_SEEN_KEY) === '1'
   } catch {
     return false
   }
@@ -37,7 +32,6 @@ export function hasSeenFeedIntro(): boolean {
 export function markFeedIntroSeen(): void {
   try {
     localStorage.setItem(INTRO_SEEN_KEY, '1')
-    localStorage.setItem(LEGACY_COACH_KEY, '1')
   } catch {
     /* ignore quota / private mode */
   }

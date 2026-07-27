@@ -7,11 +7,14 @@ export function SwipeCue({ dimmed = false }: Props) {
   return (
     <div
       className={`swipe-cue${dimmed ? ' is-dimmed' : ''}`}
-      aria-hidden="true"
+      role="status"
+      aria-label="Swipe up for the next game"
     >
-      <span className="swipe-cue-chevron" />
-      <span className="swipe-cue-label">Swipe</span>
-      <span className="swipe-cue-sub">Next game</span>
+      <span className="swipe-cue-chevron" aria-hidden="true" />
+      <span className="swipe-cue-copy">
+        <span className="swipe-cue-label">Swipe</span>
+        <span className="swipe-cue-sub">for the next game</span>
+      </span>
     </div>
   )
 }
