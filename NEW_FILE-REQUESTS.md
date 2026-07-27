@@ -1,5 +1,19 @@
 # New file requests
 
+## 2026-07-27 — Feed sliding-window prune
+
+### Requested files
+- `src/lib/feedWindow.ts` — pure `appendFeedWindow` (cap ~78 items, keep-behind, scroll-index remap)
+- `src/feedWindow.test.ts` — unit coverage for prune / no-prune / intro skip
+
+### Duplicate search
+- Grep `appendBatch|FEED_WINDOW|prune|sliding|feedWindow` under `/Users/dasali/gamescroll` → only unbounded `[...prev, ...next]` in `src/App.tsx`
+- Glob `src/lib/*feed*` → `feedIntro.ts` only (jackpot reel), no windowing helper
+- Plan Phase 1 locks custom prune (no `@tanstack/react-virtual` yet)
+
+### Rationale
+Infinite feed only appended; long sessions mount unbounded cards. Pure helper keeps prune math testable and lets App compensate `scrollTop` after DOM slice.
+
 ## 2026-07-27 — Fixed bottom like/share nav
 
 ### Requested files

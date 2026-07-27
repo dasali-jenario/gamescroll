@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { BottomNav } from './components/BottomNav'
 import { GameCard } from './components/GameCard'
 import { GameOverOverlay } from './components/GameOverOverlay'
@@ -17,6 +24,7 @@ import { loadHighscores, recordHighscore } from './highscores'
 import {
   runFeedIntroReel,
 } from './lib/feedIntro'
+import { appendFeedWindow } from './lib/feedWindow'
 import { fetchApprovedUgcGames, fetchUgcBySlug } from './lib/ugc'
 import { trackVisit } from './metrics'
 import { readSharedGameParam } from './share'
@@ -49,6 +57,10 @@ export default function App() {
   const communityRef = useRef<Game[]>([])
   const introAbortRef = useRef<AbortController | null>(null)
   const feedRefState = useRef<FeedItem[]>([])
+  /** After prune, snap scroll to remapped activeIndex before paint. */
+  const pendingPruneRef = useRef(false)
+  const activeIndexRef = useRef(0)
+  const introRunningRef = useRef(false)
   useEffect(() => {
     trackVisit()
   }, [])
@@ -60,12 +72,14 @@ export default function App() {
   const [resolvingShare, setResolvingShare] = useState(() => boot.waitingOnUgc)
   const [bootReady, setBootReady] = useState(false)
   const [introRunning, setIntroRunning] = useState(false)
+  introRunningRef.current = introRunning
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [nudgeVisible, setNudgeVisible] = useState(false)
   const [cueVisible, setCueVisible] = useState(false)
   const cueTimerRef = useRef<number | null>(null)
   const cueSpentRef = useRef(false)
   const [activeIndex, setActiveIndex] = useState(0)
+  activeIndexRef.current = activeIndex
   const [highscores, setHighscores] = useState(loadHighscores)
   const [autoRestart, setAutoRestart] = useState(() => resolveAutoRestart())
   const [gameOver, setGameOver] = useState<GameOverState | null>(null)
@@ -93,8 +107,11 @@ export default function App() {
       if (cancelled) return
 
       if (prefer || community.length) {
+        pendingPruneRef.current = false
         const next = buildFeedBatch(0, prefer, community)
+        feedRefState.current = next
         setFeed(next)
+        activeIndexRef.current = 0
         setActiveIndex(0)
         queueMicrotask(() => {
           feedRef.current?.scrollTo({ top: 0 })
@@ -162,28 +179,58 @@ export default function App() {
   const activeGame = feed[activeIndex]?.game
   const activeHighscore = activeGame ? highscores[activeGame.id] ?? 0 : 0
 
-  const appendBatch = useCallback(() => {
-    if (appendingRef.current) return
+  const appendBatch = useCallback((): number => {
+    if (appendingRef.current) return 0
     appendingRef.current = true
     const next = buildFeedBatch(roundRef.current, null, communityRef.current)
     roundRef.current += 1
-    setFeed((prev) => [...prev, ...next])
+    const result = appendFeedWindow(feedRefState.current, next, {
+      activeIndex: activeIndexRef.current,
+      allowPrune: !introRunningRef.current,
+    })
+    feedRefState.current = result.feed
+    if (result.removedCount > 0) {
+      pendingPruneRef.current = true
+      activeIndexRef.current = result.activeIndex
+      setActiveIndex(result.activeIndex)
+    }
+    setFeed(result.feed)
     queueMicrotask(() => {
       appendingRef.current = false
     })
+    return result.removedCount
   }, [])
+
+  // Keep the remapped active card glued in place after front-of-feed prune.
+  useLayoutEffect(() => {
+    if (!pendingPruneRef.current) return
+    pendingPruneRef.current = false
+    const el = feedRef.current
+    if (!el) return
+    el.scrollTop = activeIndexRef.current * el.clientHeight
+  }, [feed])
 
   const scrollToIndex = useCallback(
     (index: number, behavior: ScrollBehavior = 'smooth') => {
       const el = feedRef.current
       if (!el) return
-      const max = feed.length - 1
-      const clamped = Math.max(0, Math.min(max, index))
-      if (clamped >= max - PREFETCH_WITHIN) appendBatch()
-      el.scrollTo({ top: clamped * el.clientHeight, behavior })
+      let target = index
+      let length = feedRefState.current.length
+      if (target >= length - PREFETCH_WITHIN) {
+        const removed = appendBatch()
+        target -= removed
+        length = feedRefState.current.length
+      }
+      const clamped = Math.max(0, Math.min(Math.max(length - 1, 0), target))
+      activeIndexRef.current = clamped
       setActiveIndex(clamped)
+      if (pendingPruneRef.current) {
+        // Scroll snap runs in useLayoutEffect after the pruned DOM commits.
+        return
+      }
+      el.scrollTo({ top: clamped * el.clientHeight, behavior })
     },
-    [feed.length, appendBatch],
+    [appendBatch],
   )
 
   const scrollToIndexInstant = useCallback(
