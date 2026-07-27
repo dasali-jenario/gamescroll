@@ -26,7 +26,7 @@ import {
 } from './lib/feedIntro'
 import { appendFeedWindow } from './lib/feedWindow'
 import { fetchApprovedUgcGames, fetchUgcBySlug } from './lib/ugc'
-import { trackVisit } from './metrics'
+import { trackVisit, noteFeedSwipe, trackFeedPruned } from './metrics'
 import { readSharedGameParam } from './share'
 import { reloadApp, stripReloadParamFromLocation, watchForDeployUpdate } from './updateCheck'
 
@@ -193,6 +193,11 @@ export default function App() {
       pendingPruneRef.current = true
       activeIndexRef.current = result.activeIndex
       setActiveIndex(result.activeIndex)
+      trackFeedPruned({
+        feedLen: result.feed.length,
+        activeIndex: result.activeIndex,
+        removed: result.removedCount,
+      })
     }
     setFeed(result.feed)
     queueMicrotask(() => {
@@ -310,6 +315,10 @@ export default function App() {
     setPlayingKey(null)
     setNudgeVisible(false)
     scrollToIndex(activeIndex + 1)
+    noteFeedSwipe({
+      feedLen: feedRefState.current.length,
+      activeIndex: activeIndexRef.current,
+    })
   }, [activeIndex, scrollToIndex, introRunning, cancelIntro, applyPendingReload, dismissCue])
 
   const goToPrevGame = useCallback(() => {
@@ -323,6 +332,10 @@ export default function App() {
     setPlayingKey(null)
     setNudgeVisible(false)
     scrollToIndex(activeIndex - 1)
+    noteFeedSwipe({
+      feedLen: feedRefState.current.length,
+      activeIndex: activeIndexRef.current,
+    })
   }, [activeIndex, scrollToIndex, introRunning, cancelIntro, applyPendingReload, dismissCue])
 
   const onGameSwipe = useCallback(

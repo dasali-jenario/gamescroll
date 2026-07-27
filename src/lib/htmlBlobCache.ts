@@ -15,21 +15,25 @@ export function touchHtmlBlob(src: string): string | undefined {
 /**
  * Store a blob URL for `src`. Evicts least-recently-used entries (and revokes
  * their object URLs) when over {@link HTML_BLOB_CACHE_MAX}.
+ * @returns number of entries evicted
  */
-export function setHtmlBlob(src: string, url: string): void {
+export function setHtmlBlob(src: string, url: string): number {
   const prev = cache.get(src)
   if (prev !== undefined) {
     cache.delete(src)
     if (prev !== url) URL.revokeObjectURL(prev)
   }
   cache.set(src, url)
+  let evicted = 0
   while (cache.size > HTML_BLOB_CACHE_MAX) {
     const oldestKey = cache.keys().next().value
     if (oldestKey === undefined) break
     const oldestUrl = cache.get(oldestKey)
     cache.delete(oldestKey)
     if (oldestUrl) URL.revokeObjectURL(oldestUrl)
+    evicted += 1
   }
+  return evicted
 }
 
 /** Test helper. */

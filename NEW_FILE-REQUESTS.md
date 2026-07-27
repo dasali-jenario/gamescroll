@@ -1,5 +1,20 @@
 # New file requests
 
+## 2026-07-27 — Phase 1 feed telemetry batcher
+
+### Requested files
+- `supabase/migrations/20260727210000_feed_telemetry_events.sql` — anon-insert / moderator-select event table
+- `src/metrics.test.ts` — batch flush, swipe heartbeat, prune gauges
+- Updates: `src/metrics.ts` (`track` + batcher), `src/App.tsx`, `src/lib/usePlayableFrameSrc.ts`, `src/lib/htmlBlobCache.ts`, `.env.example`, `src/vite-env.d.ts`
+
+### Duplicate search
+- Grep `track\(|flushTelemetry|TELEMETRY|feed_telemetry|VITE_TELEMETRY` under repo → only local `trackVisit` in `src/metrics.ts`; no remote event pipeline
+- Glob `supabase/migrations/*telemetry*` / `src/**/*metric*` → only `metrics.ts` (visits)
+- Plan P0.5: sparse dashboard signals, not per-scroll logs
+
+### Rationale
+Phase 1 exit criteria need remote visibility; localStorage visits cannot power a dashboard.
+
 ## 2026-07-27 — Phase 1 remaining P0 helpers
 
 ### Requested files

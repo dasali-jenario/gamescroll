@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { setHtmlBlob, touchHtmlBlob } from './htmlBlobCache'
+import { trackBlobEvicted } from '../metrics'
+import { htmlBlobCacheSize, setHtmlBlob, touchHtmlBlob } from './htmlBlobCache'
 
 export function needsHtmlBlob(src: string): boolean {
   try {
@@ -49,7 +50,13 @@ export function usePlayableFrameSrc(src: string, enabled: boolean): string {
         const url = URL.createObjectURL(
           new Blob([text], { type: 'text/html;charset=utf-8' }),
         )
-        setHtmlBlob(src, url)
+        const evicted = setHtmlBlob(src, url)
+        if (evicted > 0) {
+          trackBlobEvicted({
+            blobCacheSize: htmlBlobCacheSize(),
+            evicted,
+          })
+        }
         setFrameSrc(url)
       } catch {
         if (!cancelled) setFrameSrc(src)
