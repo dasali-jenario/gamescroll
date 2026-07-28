@@ -17,8 +17,9 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  min-height: var(--chrome-top);
-  padding: calc(0.55rem + env(safe-area-inset-top)) 1rem 0.55rem;
+  /* Size to content + safe-area; useChromeInsets copies height into --chrome-top
+     for the playfield (avoid circular min-height on this bar). */
+  padding: calc(0.55rem + var(--safe-top)) 1rem 0.55rem;
   pointer-events: none;
   background: linear-gradient(to bottom, rgba(15, 20, 25, 0.55), transparent);
   box-sizing: border-box;
@@ -179,25 +180,26 @@
 }
 
 .stage {
+  /* Always letterbox — same playfield size before and after play starts, so
+     games never lay out under the top bar / bottom nav or resize on start. */
   position: absolute;
-  inset: 0;
-  bottom: var(--bottom-nav);
-  transition:
-    top 0.2s var(--ease),
-    right 0.2s var(--ease),
-    bottom 0.2s var(--ease),
-    left 0.2s var(--ease);
-}
-
-/* Play mode: letterbox the iframe so game hit-targets can't sit under app chrome.
-   Aspect: top bar + bottom nav + slim equal side gutters → taller portrait playfield. */
-.card.is-playing .stage {
   top: var(--chrome-top);
   right: var(--play-inset-right);
   bottom: var(--play-inset-bottom);
   left: var(--play-inset-left);
-  border-radius: 0.55rem;
   overflow: hidden;
+  transition:
+    top 0.2s var(--ease),
+    right 0.2s var(--ease),
+    bottom 0.2s var(--ease),
+    left 0.2s var(--ease),
+    border-radius 0.2s var(--ease),
+    box-shadow 0.2s var(--ease);
+}
+
+/* Play mode: keep the same insets; only add frame polish. */
+.card.is-playing .stage {
+  border-radius: 0.55rem;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
@@ -234,7 +236,7 @@
   align-items: center;
   flex-shrink: 0;
   overflow: hidden;
-  padding: 0.35rem 1.25rem env(safe-area-inset-bottom);
+  padding: 0.35rem 1.25rem var(--safe-bottom);
   pointer-events: none;
   touch-action: manipulation;
   background: linear-gradient(

@@ -502,12 +502,15 @@ const games = {
     bg: '#7b2d26',
     body: `
     let pieces = [], cur, dir = 1, speed = 180, baseW
-    let wobble = 0
+    let wobble = 0, pieceH = 28, gap = 34
+    function floorY() { return H - Math.max(36, H * 0.06) }
     function diePos() { return cur ? [cur.x, cur.y] : [W * 0.5, H * 0.5] }
     function scorePos() { return cur ? [cur.x, cur.y] : [W * 0.5, H * 0.5] }
     function reset() {
       baseW = Math.min(200, W * 0.55)
-      pieces = [{ x: W * 0.5, w: baseW, y: H - 40 }]
+      pieceH = Math.max(22, Math.min(28, H * 0.035))
+      gap = pieceH + 6
+      pieces = [{ x: W * 0.5, w: baseW, y: floorY() - pieceH }]
       spawn(); setScore(0); speed = 180; wobble = 0
     }
     function spawn() {
@@ -517,11 +520,24 @@ const games = {
       cur = {
         x: dir > 0 ? w * 0.5 : W - w * 0.5,
         w,
-        y: Math.max(80, prev.y - 34),
+        y: prev.y - gap,
         moving: true,
       }
+      // Keep the moving piece on-screen: scroll the tower down if needed.
+      keepInView()
+    }
+    function keepInView() {
+      const topPad = Math.max(56, H * 0.1)
+      let topMost = pieces[0].y
+      for (const p of pieces) if (p.y < topMost) topMost = p.y
+      if (cur) topMost = Math.min(topMost, cur.y)
+      if (topMost >= topPad) return
+      const dy = topPad - topMost
+      for (const p of pieces) p.y += dy
+      if (cur) cur.y += dy
     }
     function onHostStart() { reset() }
+    function onResize() { /* keep relative tower; reset if empty */ }
     function die() { reset() }
     function place() {
       if (!cur || !cur.moving) return
@@ -534,10 +550,13 @@ const games = {
       pieces.push(cur)
       bump()
       wobble = 1
+      // Camera: drop the oldest block and shift the tower DOWN (canvas +y).
       if (pieces.length > 12) {
-        const shift = pieces[1].y - pieces[0].y
+        const bottom = pieces[0]
+        const next = pieces[1]
+        const dy = bottom.y - next.y
         pieces.shift()
-        for (const p of pieces) p.y += shift
+        for (const p of pieces) p.y += dy
       }
       speed = Math.min(320, speed + 6)
       spawn()
@@ -557,14 +576,14 @@ const games = {
       for (let i = 0; i < pieces.length; i++) {
         const p = pieces[i]
         const wob = i === pieces.length - 1 ? wobble : 0
-        PF.block(ctx, p.x - p.w * 0.5, p.y - wob * 4, p.w, 28 + wob * 4, '#ffe066', '#f4d35e', 8)
+        PF.block(ctx, p.x - p.w * 0.5, p.y - wob * 4, p.w, pieceH + wob * 4, '#ffe066', '#f4d35e', 8)
       }
       if (cur) {
-        PF.block(ctx, cur.x - cur.w * 0.5, cur.y, cur.w, 28, '#ffffff', '#e9ecef', 8)
+        PF.block(ctx, cur.x - cur.w * 0.5, cur.y, cur.w, pieceH, '#ffffff', '#e9ecef', 8)
         const er = Math.min(5, cur.w * 0.12)
         ctx.fillStyle = '#1b1b1b'
-        ctx.beginPath(); ctx.arc(cur.x - cur.w * 0.18, cur.y + 14, er, 0, Math.PI * 2); ctx.fill()
-        ctx.beginPath(); ctx.arc(cur.x + cur.w * 0.18, cur.y + 14, er, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(cur.x - cur.w * 0.18, cur.y + pieceH * 0.5, er, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(cur.x + cur.w * 0.18, cur.y + pieceH * 0.5, er, 0, Math.PI * 2); ctx.fill()
       }
     }
     addEventListener('pointerdown', () => { if (!GS.paused) place() })
@@ -920,7 +939,7 @@ Object.assign(games, {
 
   doodle: {
     title: 'Endless Doodle Jump',
-    tip: 'Tilt sideways between platforms',
+    tip: 'Steer between platforms. Avoid spikes.',
     bg: '#2a9d8f',
     body: `
     let x, y, v, plats = [], cam = 0
@@ -929,12 +948,17 @@ Object.assign(games, {
     const GAP_MAX = 95
     function spawnPlat(py) {
       const maxX = Math.max(40, W - 110)
-      return { x: 30 + Math.random() * maxX, y: py, w: 55 + Math.random() * 35 }
+      const hazard = Math.random() < 0.22
+      return {
+        x: 30 + Math.random() * maxX,
+        y: py,
+        w: 55 + Math.random() * 35,
+        hazard,
+        scored: false,
+      }
     }
     function ensurePlats() {
-      // Drop platforms that fell below the viewport (behind the player).
       plats = plats.filter(p => p.y < cam + H + 60)
-      // Keep a full screen of platforms ready above the camera.
       let top = plats.length ? Math.min(...plats.map(p => p.y)) : y
       while (top > cam - H) {
         top -= GAP_MIN + Math.random() * (GAP_MAX - GAP_MIN)
@@ -943,7 +967,14 @@ Object.assign(games, {
     }
     function reset() {
       x = W * 0.5; y = H * 0.7; v = JUMP; cam = 0; plats = []
-      for (let i = 0; i < 12; i++) plats.push(spawnPlat(H - i * 70))
+      for (let i = 0; i < 12; i++) {
+        const p = spawnPlat(H - i * 70)
+        if (i < 3) {
+          p.hazard = false
+          p.scored = true // starter pads — score only newly unlocked platforms
+        }
+        plats.push(p)
+      }
       setScore(0)
     }
     function onHostStart() { reset() }
@@ -956,9 +987,13 @@ Object.assign(games, {
       if (y < cam + H * 0.35) cam = y - H * 0.35
       for (const p of plats) {
         if (v > 0 && prevY < p.y && y >= p.y && x > p.x && x < p.x + p.w) {
+          if (p.hazard) { die(); return }
           y = p.y
           v = JUMP
-          bump()
+          if (!p.scored) {
+            p.scored = true
+            bump()
+          }
         }
       }
       ensurePlats()
@@ -969,7 +1004,22 @@ Object.assign(games, {
       PF.sky(ctx, W, H, '#0b4a43', '#2a9d8f', '#7ae0b0')
       PF.dots(ctx, W, H, '#ffffff', 20, 1)
       for (const p of plats) {
-        PF.block(ctx, p.x, p.y - cam, p.w, 12, '#f4d35e', '#e9c46a', 6)
+        const sy = p.y - cam
+        if (p.hazard) {
+          PF.block(ctx, p.x, sy, p.w, 12, '#ff6b6b', '#c1121f', 6)
+          ctx.fillStyle = '#ffba08'
+          const spikes = Math.max(3, Math.floor(p.w / 14))
+          for (let i = 0; i < spikes; i++) {
+            const sx = p.x + (i + 0.5) * (p.w / spikes)
+            ctx.beginPath()
+            ctx.moveTo(sx - 5, sy)
+            ctx.lineTo(sx, sy - 10)
+            ctx.lineTo(sx + 5, sy)
+            ctx.fill()
+          }
+        } else {
+          PF.block(ctx, p.x, sy, p.w, 12, '#f4d35e', '#e9c46a', 6)
+        }
       }
       const sq = 1 + Math.max(-0.2, Math.min(0.2, -v * 0.00045))
       PF.buddy(ctx, x, y - cam, 16, '#f4a261', '#e76f51', {

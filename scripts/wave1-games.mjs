@@ -857,18 +857,21 @@ export const wave1Games = {
           })
         }
       }
+      const counts = slots.map(s => s.count || 0)
       slots = []
       const mults = [0.5, 1, 2, 5, 2, 1, 0.5]
       const sw = W / mults.length
       for (let i = 0; i < mults.length; i++) {
-        slots.push({ x: i * sw, w: sw, mult: mults[i] })
+        slots.push({ x: i * sw, w: sw, mult: mults[i], count: counts[i] || 0 })
       }
     }
     function onResize() { layout() }
     function diePos() { return ball ? [ball.x, ball.y] : [aimX, dropY] }
     function scorePos() { return diePos() }
     function reset() {
+      slots = []
       layout()
+      for (const sl of slots) sl.count = 0
       ball = null
       dropping = false
       ballsLeft = 10
@@ -921,6 +924,7 @@ export const wave1Games = {
         for (const sl of slots) {
           if (ball.x >= sl.x && ball.x < sl.x + sl.w) hit = sl
         }
+        hit.count = (hit.count || 0) + 1
         const pts = Math.floor(10 * hit.mult)
         if (pts > 0) bump(pts)
         if (window.Juice) Juice.burst(ball.x, ball.y)
@@ -944,7 +948,12 @@ export const wave1Games = {
         ctx.fillStyle = '#fff'
         ctx.font = '700 11px "Segoe UI", sans-serif'
         ctx.textAlign = 'center'
-        ctx.fillText('x' + sl.mult, sl.x + sl.w * 0.5, slotY + 18)
+        ctx.fillText('x' + sl.mult, sl.x + sl.w * 0.5, slotY + 16)
+        if (sl.count > 0) {
+          ctx.fillStyle = '#ffe066'
+          ctx.font = '800 14px "Segoe UI", sans-serif'
+          ctx.fillText(String(sl.count), sl.x + sl.w * 0.5, slotY + 34)
+        }
       }
       ctx.textAlign = 'left'
       if (!dropping) {

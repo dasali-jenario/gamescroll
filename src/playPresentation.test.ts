@@ -113,12 +113,21 @@ describe('host CSS / App presentation contract', () => {
     expect(playInsetsAreSymmetric({ left: left!, right: right! })).toBe(true)
   })
 
-  it('letterboxes the playing stage with those inset vars', () => {
+  it('letterboxes the stage with chrome insets at all times (stable playfield)', () => {
+    // Base .stage — not only .card.is-playing — so start does not resize the iframe.
+    const stageBlock = feedCss.match(/\.stage \{([\s\S]*?)\n\}/)
+    expect(stageBlock?.[1]).toMatch(/top:\s*var\(--chrome-top\)/)
+    expect(stageBlock?.[1]).toMatch(/right:\s*var\(--play-inset-right\)/)
+    expect(stageBlock?.[1]).toMatch(/left:\s*var\(--play-inset-left\)/)
+    expect(stageBlock?.[1]).toMatch(/bottom:\s*var\(--play-inset-bottom\)/)
     expect(feedCss).toContain('.card.is-playing .stage')
-    expect(feedCss).toMatch(/right:\s*var\(--play-inset-right\)/)
-    expect(feedCss).toMatch(/left:\s*var\(--play-inset-left\)/)
-    expect(feedCss).toMatch(/top:\s*var\(--chrome-top\)/)
-    expect(feedCss).toMatch(/bottom:\s*var\(--play-inset-bottom\)/)
+  })
+
+  it('sizes the top bar from content + safe-area (no circular min-height)', () => {
+    const block = feedCss.match(/\.top-bar \{([\s\S]*?)\n\}/)
+    expect(block?.[1]).toMatch(/padding:\s*calc\(0\.55rem \+ var\(--safe-top\)\)/)
+    expect(block?.[1]).not.toMatch(/min-height:\s*var\(--chrome-top\)/)
+    expect(baseCss).toMatch(/--safe-top:\s*env\(safe-area-inset-top/)
   })
 
   it('locks the bottom nav to a fixed height so it cannot expand', () => {

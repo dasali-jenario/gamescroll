@@ -83,7 +83,8 @@ export function wrapGameHtml(opts: WrapOptions): string {
     #stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
     #fx { pointer-events: none; z-index: 2; }
     .hud {
-      position: fixed; top: max(1rem, env(safe-area-inset-top)); left: 0; right: 0; text-align: center; z-index: 3;
+      /* Parent letterboxes the iframe below host chrome; keep score inside the playfield. */
+      position: fixed; top: 0.75rem; left: 0; right: 0; text-align: center; z-index: 3;
       font: 800 clamp(1.4rem, 7vw, 2rem) "Segoe UI", sans-serif; color: #fff;
       text-shadow: 0 2px 10px rgba(0,0,0,.45); pointer-events: none;
       transform-origin: 50% 50%;

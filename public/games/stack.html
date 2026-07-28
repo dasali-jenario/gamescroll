@@ -113,12 +113,15 @@
     if (window.Juice) Juice.init({ accent: "#7b2d26" })
 
     let pieces = [], cur, dir = 1, speed = 180, baseW
-    let wobble = 0
+    let wobble = 0, pieceH = 28, gap = 34
+    function floorY() { return H - Math.max(36, H * 0.06) }
     function diePos() { return cur ? [cur.x, cur.y] : [W * 0.5, H * 0.5] }
     function scorePos() { return cur ? [cur.x, cur.y] : [W * 0.5, H * 0.5] }
     function reset() {
       baseW = Math.min(200, W * 0.55)
-      pieces = [{ x: W * 0.5, w: baseW, y: H - 40 }]
+      pieceH = Math.max(22, Math.min(28, H * 0.035))
+      gap = pieceH + 6
+      pieces = [{ x: W * 0.5, w: baseW, y: floorY() - pieceH }]
       spawn(); setScore(0); speed = 180; wobble = 0
     }
     function spawn() {
@@ -128,11 +131,24 @@
       cur = {
         x: dir > 0 ? w * 0.5 : W - w * 0.5,
         w,
-        y: Math.max(80, prev.y - 34),
+        y: prev.y - gap,
         moving: true,
       }
+      // Keep the moving piece on-screen: scroll the tower down if needed.
+      keepInView()
+    }
+    function keepInView() {
+      const topPad = Math.max(56, H * 0.1)
+      let topMost = pieces[0].y
+      for (const p of pieces) if (p.y < topMost) topMost = p.y
+      if (cur) topMost = Math.min(topMost, cur.y)
+      if (topMost >= topPad) return
+      const dy = topPad - topMost
+      for (const p of pieces) p.y += dy
+      if (cur) cur.y += dy
     }
     function onHostStart() { reset() }
+    function onResize() { /* keep relative tower; reset if empty */ }
     function die() { reset() }
     function place() {
       if (!cur || !cur.moving) return
@@ -145,10 +161,13 @@
       pieces.push(cur)
       bump()
       wobble = 1
+      // Camera: drop the oldest block and shift the tower DOWN (canvas +y).
       if (pieces.length > 12) {
-        const shift = pieces[1].y - pieces[0].y
+        const bottom = pieces[0]
+        const next = pieces[1]
+        const dy = bottom.y - next.y
         pieces.shift()
-        for (const p of pieces) p.y += shift
+        for (const p of pieces) p.y += dy
       }
       speed = Math.min(320, speed + 6)
       spawn()
@@ -168,14 +187,14 @@
       for (let i = 0; i < pieces.length; i++) {
         const p = pieces[i]
         const wob = i === pieces.length - 1 ? wobble : 0
-        PF.block(ctx, p.x - p.w * 0.5, p.y - wob * 4, p.w, 28 + wob * 4, '#ffe066', '#f4d35e', 8)
+        PF.block(ctx, p.x - p.w * 0.5, p.y - wob * 4, p.w, pieceH + wob * 4, '#ffe066', '#f4d35e', 8)
       }
       if (cur) {
-        PF.block(ctx, cur.x - cur.w * 0.5, cur.y, cur.w, 28, '#ffffff', '#e9ecef', 8)
+        PF.block(ctx, cur.x - cur.w * 0.5, cur.y, cur.w, pieceH, '#ffffff', '#e9ecef', 8)
         const er = Math.min(5, cur.w * 0.12)
         ctx.fillStyle = '#1b1b1b'
-        ctx.beginPath(); ctx.arc(cur.x - cur.w * 0.18, cur.y + 14, er, 0, Math.PI * 2); ctx.fill()
-        ctx.beginPath(); ctx.arc(cur.x + cur.w * 0.18, cur.y + 14, er, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(cur.x - cur.w * 0.18, cur.y + pieceH * 0.5, er, 0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(cur.x + cur.w * 0.18, cur.y + pieceH * 0.5, er, 0, Math.PI * 2); ctx.fill()
       }
     }
     addEventListener('pointerdown', () => { if (!GS.paused) place() })

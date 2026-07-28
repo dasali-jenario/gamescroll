@@ -71,7 +71,7 @@ export const officialCatalog: OfficialCatalogEntry[] = [
   {
     id: "doodle",
     title: "Endless Doodle Jump",
-    tip: "Tilt sideways between platforms",
+    tip: "Steer between platforms. Avoid spikes.",
     accent: "#2a9d8f",
   },
   {

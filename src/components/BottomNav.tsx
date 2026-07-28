@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type Ref } from 'react'
 import type { Game } from '../games'
 import { shareGame } from '../share'
 
@@ -7,10 +7,11 @@ type Props = {
   liked: boolean
   isPlaying: boolean
   onLike: () => void
+  navRef?: Ref<HTMLElement | null>
 }
 
 /** Viewport-fixed Like / Share bar for the active feed game. */
-export function BottomNav({ game, liked, isPlaying, onLike }: Props) {
+export function BottomNav({ game, liked, isPlaying, onLike, navRef }: Props) {
   const [shareNote, setShareNote] = useState<string | null>(null)
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export function BottomNav({ game, liked, isPlaying, onLike }: Props) {
 
   return (
     <nav
+      ref={navRef as never}
       className={`bottom-nav${isPlaying ? ' is-playing' : ''}`}
       aria-label="Game actions"
     >

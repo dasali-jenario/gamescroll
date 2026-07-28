@@ -3,6 +3,7 @@ import { BottomNav } from './components/BottomNav'
 import { GameCard } from './components/GameCard'
 import { GameOverOverlay } from './components/GameOverOverlay'
 import { SwipeCue } from './components/SwipeCue'
+import { useChromeInsets } from './hooks/useChromeInsets'
 import { useFeedGestures } from './hooks/useFeedGestures'
 import { useFeedSession } from './hooks/useFeedSession'
 import { usePlaySession } from './hooks/usePlaySession'
@@ -16,6 +17,8 @@ import { noteFeedSwipe } from './metrics'
 export default function App() {
   const enterPlayRef = useRef<(key: string) => void>(() => {})
   const dismissNudgeRef = useRef<() => void>(() => {})
+  const topBarRef = useRef<HTMLElement | null>(null)
+  const bottomNavRef = useRef<HTMLElement | null>(null)
 
   const feed = useFeedSession({
     enterPlayRef,
@@ -101,6 +104,18 @@ export default function App() {
   const activeGame = feed.feed[feed.activeIndex]?.game
   const activeHighscore = activeGame ? play.highscores[activeGame.id] ?? 0 : 0
 
+  useChromeInsets({
+    topBarRef,
+    bottomNavRef,
+    deps: [
+      activeGame?.id,
+      activeGame?.tip,
+      play.playingKey,
+      activeHighscore,
+      feed.introRunning,
+    ],
+  })
+
   const showRailHint = shouldShowRailHint({
     railHintVisible: play.railHintVisible,
     playingKey: play.playingKey,
@@ -121,7 +136,7 @@ export default function App() {
           Loading shared game…
         </div>
       )}
-      <header className="top-bar">
+      <header className="top-bar" ref={topBarRef}>
         <div className="brand-block">
           <div className="brand">Gamescroll</div>
           <div className="game-title">{activeGame?.title ?? ''}</div>
@@ -185,6 +200,7 @@ export default function App() {
       </div>
 
       <BottomNav
+        navRef={bottomNavRef}
         game={activeGame}
         liked={!!(activeGame && liked[activeGame.id])}
         isPlaying={!!play.playingKey}

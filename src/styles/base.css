@@ -5,9 +5,13 @@
   --accent: #e85d04;
   --stage: #0f1419;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --chrome-top: calc(5.35rem + env(safe-area-inset-top));
+  /* Fallbacks until useChromeInsets measures real chrome boxes. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --chrome-top-content: 5.5rem;
+  --chrome-top: calc(var(--safe-top) + var(--chrome-top-content));
   /* Bottom like/share nav — playfield never overlaps this. */
-  --bottom-nav: calc(3.85rem + env(safe-area-inset-bottom));
+  --bottom-nav: calc(3.85rem + var(--safe-bottom));
   /* Host chrome gutters around the playable iframe (keep game UI out of app chrome). */
   --play-inset-left: 0.5rem;
   --play-inset-right: 0.5rem;
@@ -24,10 +28,13 @@ html,
 body,
 #root {
   height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 html {
-  /* Kill double-tap zoom on the host shell (games iframes already opt out). */
+  /* Kill double-tap zoom on the host shell (game iframes already opt out). */
   touch-action: manipulation;
 }
 

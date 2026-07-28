@@ -47,7 +47,7 @@ export type PlayfieldChrome = {
   sidePx: number
 }
 
-/** Letterboxed playfield size after host chrome insets. */
+/** Letterboxed playfield size after host chrome insets (always applied to `.stage`). */
 export function playfieldSize(chrome: PlayfieldChrome): {
   width: number
   height: number

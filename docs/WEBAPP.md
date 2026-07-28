@@ -173,7 +173,8 @@ In-iframe swipe thresholds: distance ≥ `max(140, 0.22 × height)`, duration �
 
 - CSS snap feed (`.feed`); while playing, scroll is locked.
 - Switch games: iframe fling, thin invisible right-edge swipe capture, keys `↓`/`j` and `↑`/`k`.
-- While playing, the iframe is letterboxed away from host chrome (top bar, bottom like/share nav, equal side gutters) so game hit-targets cannot sit under app UI.
+- The playfield iframe is always letterboxed away from host chrome (top bar, bottom like/share nav, equal side gutters) so game hit-targets cannot sit under app UI and starting a game does not resize the canvas.
+- `--chrome-top` / `--bottom-nav` are measured from the real chrome boxes (`useChromeInsets`) plus `env(safe-area-inset-*)`, so title/tip and the score HUD stay clear of the status bar and home indicator on notched phones.
 - A dark scroll-rail hint may show before the first game starts; after `enterPlay` it stays gone (only the invisible edge capture remains).
 - Like and Share sit in a viewport-fixed bottom navigation bar under the playfield (never overlaid on the game, never scrolls with the feed).
 - **Pause** / Esc freezes the current game; after pause, a nudge encourages swiping to the next card.

@@ -1,5 +1,19 @@
 # New file requests
 
+## 2026-07-28 — Measured chrome insets for playfield
+
+### Requested files
+- `src/hooks/useChromeInsets.ts` — ResizeObserver sets `--chrome-top` / `--bottom-nav` from real top-bar + bottom-nav boxes
+- Updates: `src/App.tsx`, `src/components/BottomNav.tsx` (navRef), `src/styles/base.css` / `feed.css`, playPresentation test, pegdrop + doodle game bodies
+
+### Duplicate search
+- Grep `useChromeInsets|ResizeObserver|--chrome-top` under `src/hooks` → none measuring chrome; CSS only uses static `calc(5.35rem + env(safe-area-inset-top))`
+- Glob `src/hooks/*Chrome*` / `*Inset*` → none
+- Closest: `playPresentation.ts` documents inset contract; letterbox CSS on `.stage`
+
+### Rationale
+Screenshot showed host title/score clipped under the status bar; fixed rem chrome underestimates tip wrap + device safe-area. Measuring real chrome keeps the playfield robust.
+
 ## 2026-07-28 — Official Wave 1 / Orb Merge DB seed
 
 ### Requested files
