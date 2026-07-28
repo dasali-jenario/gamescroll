@@ -11,6 +11,10 @@ import {
 } from '../experiments'
 import { loadHighscores, recordHighscore } from '../highscores'
 import {
+  QUALIFIED_PLAY_MS,
+  recordQualifiedPlay,
+} from '../lib/playCounts'
+import {
   reloadApp,
   stripReloadParamFromLocation,
   watchForDeployUpdate,
@@ -47,7 +51,15 @@ export function usePlaySession({
   const playingRef = useRef(playingKey)
   const reloadWhenIdleRef = useRef(false)
   const pendingReloadIdRef = useRef<string | null>(null)
+  const qualifyTimerRef = useRef<number | null>(null)
   playingRef.current = playingKey
+
+  const clearQualifyTimer = useCallback(() => {
+    if (qualifyTimerRef.current != null) {
+      window.clearTimeout(qualifyTimerRef.current)
+      qualifyTimerRef.current = null
+    }
+  }, [])
 
   useEffect(() => {
     stripReloadParamFromLocation()
@@ -102,24 +114,38 @@ export function usePlaySession({
     }
   }, [bootReady, resolvingShare, introRunning])
 
-  const enterPlay = useCallback((key: string) => {
-    setGameOver(null)
-    setPlayingKey(key)
-    setNudgeVisible(false)
-    setRailHintVisible(false)
-  }, [])
+  const enterPlay = useCallback(
+    (key: string, gameId: string) => {
+      setGameOver(null)
+      setPlayingKey(key)
+      setNudgeVisible(false)
+      setRailHintVisible(false)
+      clearQualifyTimer()
+      const engagementKey = key
+      const slug = gameId
+      qualifyTimerRef.current = window.setTimeout(() => {
+        qualifyTimerRef.current = null
+        if (playingRef.current === engagementKey) {
+          recordQualifiedPlay(slug)
+        }
+      }, QUALIFIED_PLAY_MS)
+    },
+    [clearQualifyTimer],
+  )
 
   const pausePlay = useCallback(() => {
+    clearQualifyTimer()
     setGameOver(null)
     setPlayingKey(null)
     setNudgeVisible(true)
-  }, [])
+  }, [clearQualifyTimer])
 
   const clearForNavigate = useCallback(() => {
+    clearQualifyTimer()
     setGameOver(null)
     setPlayingKey(null)
     setNudgeVisible(false)
-  }, [])
+  }, [clearQualifyTimer])
 
   const onScore = useCallback((gameId: string, score: number) => {
     const best = recordHighscore(gameId, score)
@@ -157,15 +183,17 @@ export function usePlaySession({
   }, [])
 
   const handlePlay = useCallback(
-    (cardKey: string) => {
+    (cardKey: string, gameId: string) => {
       if (introRunningRef.current) {
         cancelIntro()
         return
       }
-      enterPlay(cardKey)
+      enterPlay(cardKey, gameId)
     },
     [cancelIntro, enterPlay, introRunningRef],
   )
+
+  useEffect(() => () => clearQualifyTimer(), [clearQualifyTimer])
 
   const showCue =
     cueVisible &&

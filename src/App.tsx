@@ -19,7 +19,7 @@ import {
 import { noteFeedSwipe } from './metrics'
 
 export default function App() {
-  const enterPlayRef = useRef<(key: string) => void>(() => {})
+  const enterPlayRef = useRef<(key: string, gameId: string) => void>(() => {})
   const dismissNudgeRef = useRef<() => void>(() => {})
   const topBarRef = useRef<HTMLElement | null>(null)
   const bottomNavRef = useRef<HTMLElement | null>(null)

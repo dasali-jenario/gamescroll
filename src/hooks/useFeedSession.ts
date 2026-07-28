@@ -37,8 +37,8 @@ function createInitialSession() {
 }
 
 type Options = {
-  /** Called when the jackpot reel finishes (or is cancelled) with the landing card key. */
-  enterPlayRef: MutableRefObject<(key: string) => void>
+  /** Called when the jackpot reel finishes (or is cancelled) with the landing card. */
+  enterPlayRef: MutableRefObject<(key: string, gameId: string) => void>
   dismissNudgeRef: MutableRefObject<() => void>
 }
 
@@ -172,8 +172,8 @@ export function useFeedSession({
     setIntroRunning(false)
     introAbortRef.current = null
     scrollInstantRef.current(0)
-    const key = feedRefState.current[0]?.key
-    if (key) enterPlayRef.current(key)
+    const first = feedRefState.current[0]
+    if (first) enterPlayRef.current(first.key, first.game.id)
   }, [enterPlayRef])
 
   const cancelIntro = useCallback(() => {

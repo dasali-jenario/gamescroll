@@ -14,7 +14,7 @@ type Props = {
   autoRestart: boolean
   /** Bumps to re-send start while still playing (play-again after game over). */
   restartKey: number
-  onPlay: (cardKey: string) => void
+  onPlay: (cardKey: string, gameId: string) => void
   onScore: (gameId: string, score: number) => void
   onDied: (gameId: string, score: number) => void
   onSwipe: (direction: 'next' | 'prev') => void
@@ -142,7 +142,7 @@ export const GameCard = memo(function GameCard({
         <button
           type="button"
           className="play-layer"
-          onClick={() => onPlay(cardKey)}
+          onClick={() => onPlay(cardKey, game.id)}
           aria-label={`Play ${game.title}`}
         >
           <span className="play-btn">

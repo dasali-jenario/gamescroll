@@ -1,5 +1,21 @@
 # New file requests
 
+## 2026-07-28 — ugc_games plays / players counters
+
+### Requested files
+- `supabase/migrations/20260728213000_ugc_games_play_counts.sql` — `plays` + `players` columns, `ugc_game_players` uniqueness table, `record_ugc_play` RPC
+- `src/lib/playCounts.ts` — client fire-and-forget after ≥10s play
+- `src/playCounts.test.ts` — unit coverage for RPC wiring
+- Updates: `usePlaySession` (10s timer), `GameCard` / `useFeedSession` / `App` (pass game id), `UgcGameRow`, `setup-supabase.mjs`
+
+### Duplicate search
+- Grep `plays|players|play_count|record_ugc_play|ugc_game_players|QUALIFIED_PLAY` under `supabase/` / `src/` → none (telemetry is `feed_telemetry_events` only; highscores are local)
+- Glob `**/playCounts*` → none
+- Closest: `src/metrics.ts` (`gs_uid` + anon inserts); RLS blocks client UPDATE on `ugc_games`
+
+### Rationale
+Denormalized play/unique-player counters on the game registry; anon clients need a SECURITY DEFINER RPC after 10s continuous engagement.
+
 ## 2026-07-28 — Wave 3 GameBox + jam micro-games
 
 ### Requested files

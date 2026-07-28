@@ -46,4 +46,8 @@ export type UgcGameRow = {
   published_at: string | null
   approved_at: string | null
   rejection_note: string | null
+  /** Qualified play engagements (≥10s). */
+  plays?: number
+  /** Unique devices/players with ≥1 qualified play. */
+  players?: number
 }
