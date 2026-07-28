@@ -1,5 +1,19 @@
 # New file requests
 
+## 2026-07-28 — Official Wave 1 / Orb Merge DB seed
+
+### Requested files
+- `supabase/migrations/20260728160000_official_wave1_seed.sql` — upsert orbmerge + 10 Wave 1 official `ugc_games` rows
+- Updates: `scripts/seed-official-games.mjs` (apply both official seed migrations)
+
+### Duplicate search
+- Grep `orbmerge|taprotate|wave1` under `supabase/migrations` → none (only base 26 in `20260727130000_ugc_games_source.sql`)
+- Glob `supabase/migrations/*wave*` / `*official*` → only the 20260727 source seed
+- Seed script previously applied only that one migration, so Storage had 37 HTML files but DB stayed at 26 official rows
+
+### Rationale
+Keep Supabase official rows aligned with the static catalog after Orb Merge + Wave 1.
+
 ## 2026-07-28 — Wave 1 insertcoin ports module
 
 ### Requested files

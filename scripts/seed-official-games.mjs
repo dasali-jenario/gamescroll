@@ -102,12 +102,12 @@ if (!accessToken) {
   process.exit(1)
 }
 
-const migrationPath = join(
-  root,
-  'supabase/migrations/20260727130000_ugc_games_source.sql',
-)
-log('Applying source + official seed migration…')
-{
+const migrationPaths = [
+  join(root, 'supabase/migrations/20260727130000_ugc_games_source.sql'),
+  join(root, 'supabase/migrations/20260728160000_official_wave1_seed.sql'),
+]
+log('Applying official seed migrations…')
+for (const migrationPath of migrationPaths) {
   const sql = readFileSync(migrationPath, 'utf8')
   const { res, text } = await managementFetch(
     `/projects/${projectRef}/database/query`,
@@ -116,10 +116,10 @@ log('Applying source + official seed migration…')
   )
   if (!res.ok) {
     throw new Error(
-      `Migration failed (${res.status}): ${redact(text, secrets).slice(0, 1200)}`,
+      `Migration failed (${res.status}) ${migrationPath}: ${redact(text, secrets).slice(0, 1200)}`,
     )
   }
-  log('Migration + row seed OK')
+  log(`Migration OK: ${migrationPath.split('/').pop()}`)
 }
 
 log('Fetching service role key…')
