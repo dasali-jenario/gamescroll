@@ -1,6 +1,7 @@
 /**
  * Gamescroll juice — GSAP tweens + Proton particles for iframe minigames.
  * Expects globals: gsap, Proton. Call Juice.init() after canvas/HUD exist.
+ * Hostinger: FTP cannot mutate /lib — helpers ship under /gslib with an Apache rewrite.
  */
 ;(function (global) {
   const offset = { x: 0, y: 0 }

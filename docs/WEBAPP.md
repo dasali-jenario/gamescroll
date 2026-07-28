@@ -251,8 +251,8 @@ Produces a debug APK under `dist-apk/`. The native shell embeds the built static
 
 There is no in-repo CI. Typical web deploy:
 
-1. `npm run build`
-2. Upload `dist/` to Hostinger FTP (`gamescroll.dasali.me`)
+1. `npm run build` (also copies `dist/lib` → `dist/gslib` for Hostinger)
+2. Upload `dist/` to Hostinger FTP (`gamescroll.dasali.me`), excluding the locked remote `lib/` tree (`mirror --exclude-glob lib --exclude-glob 'lib/**'`). Game iframes still request `/lib/*`; Apache rewrites those to writable `/gslib/*`.
 
 Credentials live in gitignored `.env.local` (`HOSTINGER_FTP_*`, Supabase admin tokens).
 

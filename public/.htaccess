@@ -1,7 +1,10 @@
-# Apache SPA fallback for Hostinger (play.thehappylab.com /create)
+# Apache SPA fallback for Hostinger (gamescroll.dasali.me /create)
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  # Hostinger FTP cannot mutate /lib (550 on put/rm/chmod). Ship copies under
+  # /gslib and rewrite so existing /lib/* game script URLs keep working.
+  RewriteRule ^lib/(.*)$ /gslib/$1 [L]
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
@@ -16,5 +19,9 @@
   </FilesMatch>
   <FilesMatch "\.(?:js|css|woff2?|png|jpe?g|gif|svg|ico|webp)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # Stable game helper URLs must stay refreshable (overrides the rule above).
+  <FilesMatch "^(juice|playful)\.js$">
+    Header set Cache-Control "public, max-age=300"
   </FilesMatch>
 </IfModule>
