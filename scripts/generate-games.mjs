@@ -2375,17 +2375,25 @@ Object.assign(games, {
             if (Math.abs(o.vy) < 40 * S) o.vy = 0
           }
         }
+        // Same-tier orbs merge on any contact (pushed together / drop onto match).
+        // Different tiers resolve with soft circle separation + bounce.
         for (let i = 0; i < orbs.length; i++) {
+          const a = orbs[i]
+          if (!a || a.merging) continue
           for (let j = i + 1; j < orbs.length; j++) {
-            const a = orbs[i], b = orbs[j]
-            if (a.merging || b.merging) continue
+            const b = orbs[j]
+            if (!b || b.merging) continue
             const ra = tierR(a.tier), rb = tierR(b.tier)
             let dx = b.x - a.x, dy = b.y - a.y
             let dist = Math.hypot(dx, dy) || 0.0001
             const min = ra + rb
             if (dist >= min) continue
-            if (a.tier === b.tier && dist < min * 0.98 && performance.now() - a.born > 120 && performance.now() - b.born > 120) {
-              mergePair(a, b)
+            if (a.tier === b.tier) {
+              // Brief spawn grace so a brand-new merge result can settle
+              // without immediately eating another match in the same frame.
+              if (performance.now() - a.born > 60 && performance.now() - b.born > 60) {
+                mergePair(a, b)
+              }
               continue
             }
             const overlap = min - dist
