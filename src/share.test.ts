@@ -59,6 +59,16 @@ describe('share deep links', () => {
     )
   })
 
+  it('gameShareText formats reactflash best as milliseconds', () => {
+    const game = games.find((g) => g.id === 'reactflash')
+    expect(game).toBeTruthy()
+    if (!game) return
+    recordHighscore(game.id, 187)
+    expect(gameShareText(game)).toBe(
+      `Play ${game.title} — ${game.tip}\nMy best: 187 ms`,
+    )
+  })
+
   it('gameShareText accepts an explicit best override', () => {
     const game = games[0]
     expect(gameShareText(game, 7)).toContain('My high score: 7')

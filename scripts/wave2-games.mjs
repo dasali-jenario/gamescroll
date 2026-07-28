@@ -59,9 +59,10 @@ export const wave2Games = {
       return n
     }
     function move(dir) {
-      // 0 L, 1 U, 2 R, 3 D — rotate so we always slide left
+      // 0 L, 1 U, 2 R, 3 D — clockwise turns so the target edge becomes left
+      const turns = [0, 3, 2, 1][dir]
       let g = grid.map(r => r.slice())
-      for (let i = 0; i < dir; i++) g = rotate(g)
+      for (let i = 0; i < turns; i++) g = rotate(g)
       let gained = 0, changed = false
       for (let r = 0; r < N; r++) {
         const before = g[r].join(',')
@@ -70,7 +71,7 @@ export const wave2Games = {
         gained += res.gained
         if (g[r].join(',') !== before) changed = true
       }
-      for (let i = 0; i < (4 - dir) % 4; i++) g = rotate(g)
+      for (let i = 0; i < (4 - turns) % 4; i++) g = rotate(g)
       if (!changed) return false
       grid = g
       if (gained) bump(gained)
@@ -108,7 +109,8 @@ export const wave2Games = {
         const y = oy + gap + r * (cell + gap)
         PF.block(ctx, x, y, cell, cell, COLORS[v] || '#3c3a32', '#222', 8)
         if (v) {
-          ctx.fillStyle = v <= 4 ? '#776e65' : '#f9f6f2'
+          // Dark on cream/gold tiles; white on orange — classic 2048 contrast.
+          ctx.fillStyle = (v <= 4 || v >= 128) ? '#1a1a2e' : '#ffffff'
           ctx.font = '800 ' + Math.floor(cell * (v >= 1000 ? 0.32 : 0.4)) + 'px "Segoe UI", sans-serif'
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'
@@ -693,11 +695,15 @@ export const wave2Games = {
         const x = ox + gap + c * (cell + gap)
         const y = oy + gap + r * (cell + gap)
         const selected = sel && sel[0] === r && sel[1] === c
-        PF.block(ctx, x, y, cell, cell, COLORS[g], '#111', selected ? 14 : 8)
+        const rad = selected ? 14 : 8
+        ctx.fillStyle = COLORS[g]
+        PF.rr(ctx, x, y, cell, cell, rad)
+        ctx.fill()
         if (selected) {
           ctx.strokeStyle = '#fff'
           ctx.lineWidth = 2
-          ctx.strokeRect(x + 2, y + 2, cell - 4, cell - 4)
+          PF.rr(ctx, x + 2, y + 2, cell - 4, cell - 4, Math.max(4, rad - 2))
+          ctx.stroke()
         }
       }
       ctx.fillStyle = timeLeft < 10 ? '#ff6688' : 'rgba(255,255,255,0.75)'
@@ -734,19 +740,25 @@ export const wave2Games = {
     bg: '#102a43',
     accent: '#f0b429',
     body: `
-    let tubes = [], ox = 0, oy = 0, tw = 0, th = 0, gap = 12, cap = 4
+    let tubes = [], ox = 0, oy = 0, tw = 0, th = 0, gap = 12, rowGap = 24, cap = 4
     let sel = -1, level = 1, moves = 0
     const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22']
     function layout() {
       const n = tubes.length || 6
       const cols = Math.min(5, n)
       const rows = Math.ceil(n / cols)
-      gap = 12
-      tw = Math.min(52, (W - 40 - gap * (cols - 1)) / cols)
-      th = Math.min(H * 0.55 / rows - 16, tw * 3.2)
+      const topSafe = Math.max(64, H * 0.12)
+      const bottomSafe = Math.max(28, H * 0.06)
+      const availH = Math.max(120, H - topSafe - bottomSafe)
+      gap = Math.max(10, Math.min(18, W * 0.035))
+      rowGap = Math.max(18, Math.min(28, availH * 0.04))
+      const rowBudget = (availH - (rows - 1) * rowGap) / rows
+      tw = Math.min(78, (W - 36 - gap * (cols - 1)) / cols)
+      th = Math.min(rowBudget, tw * 4.6)
       const totalW = cols * tw + (cols - 1) * gap
+      const totalH = rows * th + (rows - 1) * rowGap
       ox = (W - totalW) * 0.5
-      oy = H * 0.18
+      oy = topSafe + Math.max(0, (availH - totalH) * 0.5)
     }
     function onResize() { layout() }
     function diePos() { return [W * 0.5, oy + th * 0.5] }
@@ -820,7 +832,7 @@ export const wave2Games = {
       for (let i = 0; i < tubes.length; i++) {
         const r = (i / cols) | 0, c = i % cols
         const tx = ox + c * (tw + gap)
-        const ty = oy + r * (th + 20)
+        const ty = oy + r * (th + rowGap)
         if (x >= tx && x <= tx + tw && y >= ty && y <= ty + th) return i
       }
       return -1
@@ -832,7 +844,7 @@ export const wave2Games = {
       for (let i = 0; i < tubes.length; i++) {
         const r = (i / cols) | 0, c = i % cols
         const x = ox + c * (tw + gap)
-        const y = oy + r * (th + 20)
+        const y = oy + r * (th + rowGap)
         ctx.strokeStyle = sel === i ? '#f0b429' : 'rgba(255,255,255,0.55)'
         ctx.lineWidth = sel === i ? 3 : 2
         ctx.beginPath()
@@ -882,6 +894,24 @@ export const wave2Games = {
     body: `
     let N = 8, grid = [], ox = 0, oy = 0, cell = 0, gap = 2
     let tray = [], drag = null, ghost = null
+    // Bright fills on dark board — each shape family gets its own hue.
+    const PALETTE = [
+      ['#38bdf8', '#0284c7'],
+      ['#f472b6', '#db2777'],
+      ['#a3e635', '#4d7c0f'],
+      ['#fbbf24', '#b45309'],
+      ['#c084fc', '#7e22ce'],
+      ['#2dd4bf', '#0f766e'],
+      ['#fb7185', '#be123c'],
+      ['#818cf8', '#4338ca'],
+      ['#fdba74', '#c2410c'],
+      ['#4ade80', '#15803d'],
+      ['#f9a8d4', '#be185d'],
+      ['#67e8f9', '#0e7490'],
+      ['#fde047', '#a16207'],
+      ['#e879f9', '#a21caf'],
+      ['#86efac', '#166534'],
+    ]
     const SHAPES = [
       [[1]],
       [[1,1]],
@@ -910,11 +940,11 @@ export const wave2Games = {
     function diePos() { return [W * 0.5, oy + cell * 4] }
     function scorePos() { return diePos() }
     function shapeSize(s) {
-      return { h: s.length, w: Math.max(...s.map(r => r.length)) }
+      return { h: s.cells.length, w: Math.max(...s.cells.map(r => r.length)) }
     }
     function randShape() {
-      const s = SHAPES[(Math.random() * SHAPES.length) | 0]
-      return s.map(r => r.slice())
+      const color = (Math.random() * SHAPES.length) | 0
+      return { cells: SHAPES[color].map(r => r.slice()), color }
     }
     function refillTray() {
       if (tray.every(t => !t)) tray = [randShape(), randShape(), randShape()]
@@ -922,8 +952,8 @@ export const wave2Games = {
     function canPlace(shape, gr, gc) {
       const { h, w } = shapeSize(shape)
       if (gr < 0 || gc < 0 || gr + h > N || gc + w > N) return false
-      for (let r = 0; r < h; r++) for (let c = 0; c < (shape[r].length); c++) {
-        if (shape[r][c] && grid[gr + r][gc + c]) return false
+      for (let r = 0; r < h; r++) for (let c = 0; c < (shape.cells[r].length); c++) {
+        if (shape.cells[r][c] && grid[gr + r][gc + c]) return false
       }
       return true
     }
@@ -953,10 +983,11 @@ export const wave2Games = {
     }
     function place(shape, gr, gc) {
       const { h } = shapeSize(shape)
+      const tone = (shape.color % PALETTE.length) + 1
       let cells = 0
-      for (let r = 0; r < h; r++) for (let c = 0; c < shape[r].length; c++) {
-        if (!shape[r][c]) continue
-        grid[gr + r][gc + c] = 1
+      for (let r = 0; r < h; r++) for (let c = 0; c < shape.cells[r].length; c++) {
+        if (!shape.cells[r][c]) continue
+        grid[gr + r][gc + c] = tone
         cells++
       }
       bump(cells * 5)
@@ -989,23 +1020,33 @@ export const wave2Games = {
       const r = Math.floor((y - oy - gap) / (cell + gap))
       return { r, c, x, y }
     }
+    function colorsFor(shape) {
+      return PALETTE[shape.color % PALETTE.length]
+    }
     function drawShape(shape, x, y, s, alpha) {
+      const [fill, stroke] = colorsFor(shape)
       ctx.globalAlpha = alpha == null ? 1 : alpha
-      for (let r = 0; r < shape.length; r++) for (let c = 0; c < shape[r].length; c++) {
-        if (!shape[r][c]) continue
-        PF.block(ctx, x + c * s, y + r * s, s - 2, s - 2, '#60a5fa', '#1e3a8a', 6)
+      for (let r = 0; r < shape.cells.length; r++) for (let c = 0; c < shape.cells[r].length; c++) {
+        if (!shape.cells[r][c]) continue
+        PF.block(ctx, x + c * s, y + r * s, s - 2, s - 2, fill, stroke, 6)
       }
       ctx.globalAlpha = 1
     }
     function draw() {
       PF.sky(ctx, W, H, '#030712', '#111827', '#1f2937')
-      PF.dots(ctx, W, H, '#60a5fa', 12, 0.3)
+      PF.dots(ctx, W, H, '#94a3b8', 12, 0.25)
       const side = cell * N + gap * (N + 1)
       PF.block(ctx, ox, oy, side, side, '#0b1220', '#05080f', 10)
       for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
         const x = ox + gap + c * (cell + gap)
         const y = oy + gap + r * (cell + gap)
-        PF.block(ctx, x, y, cell, cell, grid[r][c] ? '#3b82f6' : '#1f2937', '#0f172a', 5)
+        const v = grid[r][c]
+        if (v) {
+          const [fill, stroke] = PALETTE[(v - 1) % PALETTE.length]
+          PF.block(ctx, x, y, cell, cell, fill, stroke, 5)
+        } else {
+          PF.block(ctx, x, y, cell, cell, '#1f2937', '#0f172a', 5)
+        }
       }
       if (ghost && ghost.ok) {
         drawShape(ghost.shape, ox + gap + ghost.c * (cell + gap), oy + gap + ghost.r * (cell + gap), cell + gap, 0.45)
@@ -1020,8 +1061,6 @@ export const wave2Games = {
         }
       }
       if (drag) {
-        const rect = canvas.getBoundingClientRect()
-        // last pointer stored on drag
         const s = cell * 0.9
         const { h, w } = shapeSize(drag.shape)
         drawShape(drag.shape, drag.x - w * s * 0.5, drag.y - h * s * 0.5, s, 0.9)

@@ -118,7 +118,7 @@ export const wave3Games = {
 
   molewhack: {
     title: 'Mole Whack',
-    tip: 'Tap moles before they duck.',
+    tip: 'Tap moles before they duck. Miss −3.',
     bg: '#1b4332',
     accent: '#f4a261',
     body: `
@@ -153,11 +153,21 @@ export const wave3Games = {
       hideT = 0
       timeLeft = 30
       running = true
-      setScore(0)
+      setScore(9)
       spawn()
     }
     function onHostStart() { reset() }
     function die() { reset() }
+    function missMole() {
+      setScore(score - 3)
+      if (score <= 0) {
+        setScore(0)
+        running = false
+        die()
+        return true
+      }
+      return false
+    }
     function tick(dt) {
       if (!running || GS.paused) return
       timeLeft -= dt
@@ -168,7 +178,12 @@ export const wave3Games = {
         return
       }
       hideT -= dt
-      if (hideT <= 0) spawn()
+      if (hideT <= 0) {
+        if (active >= 0) {
+          if (missMole()) return
+        }
+        spawn()
+      }
     }
     function draw() {
       PF.sky(ctx, W, H, '#081c15', '#1b4332', '#2d6a4f')
@@ -213,7 +228,21 @@ export const wave3Games = {
     bg: '#111827',
     accent: '#34d399',
     body: `
-    let phase = 'wait', waitT = 0, goAt = 0, resultT = 0, lastMs = 0
+    const BEST_KEY = 'gs_reactflash_best_ms'
+    let phase = 'wait', waitT = 0, goAt = 0, resultT = 0, lastMs = 0, bestMs = 0
+    function loadBest() {
+      try {
+        const n = parseInt(localStorage.getItem(BEST_KEY) || '0', 10)
+        return Number.isFinite(n) && n > 0 ? n : 0
+      } catch (e) { return 0 }
+    }
+    function saveBest(ms) {
+      try { localStorage.setItem(BEST_KEY, String(ms)) } catch (e) {}
+    }
+    function reportBest(ms) {
+      setScore(ms)
+      try { parent.postMessage({ type: 'gamescroll:score', score: ms }, '*') } catch (e) {}
+    }
     function layout() {}
     function onResize() { layout() }
     function diePos() { return [W * 0.5, H * 0.5] }
@@ -226,7 +255,8 @@ export const wave3Games = {
     }
     function reset() {
       layout()
-      setScore(0)
+      bestMs = loadBest() || bestMs
+      setScore(bestMs)
       arm()
     }
     function onHostStart() { reset() }
@@ -259,7 +289,7 @@ export const wave3Games = {
       ctx.fillText(msg, W * 0.5, H * 0.48)
       ctx.font = '700 14px "Segoe UI", sans-serif'
       ctx.fillStyle = 'rgba(255,255,255,0.7)'
-      ctx.fillText('Best streak via score', W * 0.5, H * 0.62)
+      ctx.fillText(bestMs > 0 ? ('Best ' + bestMs + ' ms') : 'Lower time is better', W * 0.5, H * 0.62)
       ctx.textAlign = 'left'
       ctx.textBaseline = 'alphabetic'
     }
@@ -272,8 +302,11 @@ export const wave3Games = {
       }
       if (phase !== 'go') return
       lastMs = Math.max(1, Math.round(performance.now() - goAt))
-      const pts = Math.max(1, Math.floor((450 - lastMs) / 8))
-      bump(pts)
+      if (!bestMs || lastMs < bestMs) {
+        bestMs = lastMs
+        saveBest(bestMs)
+      }
+      reportBest(lastMs)
       if (window.Juice) Juice.burst(W * 0.5, H * 0.5)
       phase = 'result'
       resultT = 0.85

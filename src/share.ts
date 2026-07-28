@@ -1,6 +1,6 @@
 import type { Game } from './games'
 import { getGameById } from './games'
-import { getHighscore } from './highscores'
+import { getHighscore, isLowerBetterScore } from './highscores'
 
 const PARAM = 'g'
 
@@ -32,7 +32,9 @@ export function gameShareUrl(gameId: string): string {
 /** Share body text; includes personal high score from localStorage when present. */
 export function gameShareText(game: Game, best = getHighscore(game.id)): string {
   const base = `Play ${game.title} — ${game.tip}`
-  return best > 0 ? `${base}\nMy high score: ${best}` : base
+  if (best <= 0) return base
+  if (isLowerBetterScore(game.id)) return `${base}\nMy best: ${best} ms`
+  return `${base}\nMy high score: ${best}`
 }
 
 export type ShareResult = 'shared' | 'copied' | 'cancelled' | 'failed'

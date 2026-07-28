@@ -112,14 +112,14 @@
     resize()
     if (window.Juice) Juice.init({ accent: "#b08968" })
 
-    let tilt = 0, ball = 0, noise = 0
+    let tilt = 0, ball = 0, noise = 0, scoreAcc = 0
     function ballWorldPos() {
       const cx = W * 0.5, cy = H * 0.55, lx = ball, ly = -20
       return [cx + lx * Math.cos(tilt) - ly * Math.sin(tilt), cy + lx * Math.sin(tilt) + ly * Math.cos(tilt)]
     }
     function diePos() { return ballWorldPos() }
     function scorePos() { return ballWorldPos() }
-    function reset() { tilt = 0; ball = 0; noise = 0; setScore(0) }
+    function reset() { tilt = 0; ball = 0; noise = 0; scoreAcc = 0; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
@@ -127,9 +127,14 @@
       noise *= 0.98
       ball += (tilt * 2.2 + noise) * 60 * dt
       if (Math.abs(ball) > 110) die()
-      bump(0); // no auto bump
-      scoreAcc = (scoreAcc || 0) + dt
-      if (scoreAcc > 0.5) { scoreAcc = 0; bump() }
+      // Points only while the beam is off-level; ~1 pt / 1.25s
+      if (Math.abs(tilt) > 0.045) {
+        scoreAcc += dt
+        if (scoreAcc >= 1.25) {
+          scoreAcc -= 1.25
+          bump()
+        }
+      }
     }
     function draw() {
       PF.sky(ctx, W, H, '#7f5539', '#b08968', '#ddb892')
@@ -143,7 +148,6 @@
     }
     addEventListener('pointermove', e => { if (!GS.paused) tilt = (e.clientX / W - 0.5) * 0.9 })
     addEventListener('pointerdown', e => { if (!GS.paused) tilt = (e.clientX / W - 0.5) * 0.9 })
-    let scoreAcc = 0
     reset()
 
     if (typeof layout === 'function') {

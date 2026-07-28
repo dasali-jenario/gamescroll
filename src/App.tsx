@@ -8,6 +8,10 @@ import { useFeedGestures } from './hooks/useFeedGestures'
 import { useFeedSession } from './hooks/useFeedSession'
 import { usePlaySession } from './hooks/usePlaySession'
 import {
+  betterScore,
+  isLowerBetterScore,
+} from './highscores'
+import {
   RAIL_HINT_CLASS,
   shouldShowRailHint,
   shouldShowSilentSwipeRail,
@@ -144,9 +148,16 @@ export default function App() {
           {play.playingKey && activeHighscore > 0 && (
             <div
               className="highscore"
-              aria-label={`High score ${activeHighscore}`}
+              aria-label={
+                activeGame && isLowerBetterScore(activeGame.id)
+                  ? `Best time ${activeHighscore} milliseconds`
+                  : `High score ${activeHighscore}`
+              }
             >
-              Best {activeHighscore}
+              Best{' '}
+              {activeGame && isLowerBetterScore(activeGame.id)
+                ? `${activeHighscore} ms`
+                : activeHighscore}
             </div>
           )}
         </div>
@@ -252,7 +263,12 @@ export default function App() {
       {play.gameOver && play.playingKey && (
         <GameOverOverlay
           score={play.gameOver.score}
-          best={Math.max(activeHighscore, play.gameOver.score)}
+          best={betterScore(
+            play.gameOver.gameId,
+            activeHighscore,
+            play.gameOver.score,
+          )}
+          lowerIsBetter={isLowerBetterScore(play.gameOver.gameId)}
           onPlayAgain={play.playAgain}
           onPlayAnother={goToNextGame}
         />

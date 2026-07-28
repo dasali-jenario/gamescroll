@@ -155,14 +155,22 @@
       const speed = 180 + score * 3
       spawn -= dt
       if (spawn <= 0) {
-        const h = 28 + Math.random() * 36
-        obstacles.push({
-          x: W + 30,
-          y: groundY - h,
-          w: 22 + Math.random() * 18,
-          h: h,
-        })
-        spawn = 0.75 + Math.random() * 0.55
+        // Keep a jumpable gap that scales with scroll speed (single + double jump).
+        const minDist = Math.max(W * 0.55, 200)
+        const last = obstacles.length ? obstacles[obstacles.length - 1] : null
+        if (last && last.x > W + 30 - minDist) {
+          spawn = 0.08
+        } else {
+          const maxH = Math.min(W, H) * 0.14
+          const h = 22 + Math.random() * maxH
+          obstacles.push({
+            x: W + 30,
+            y: groundY - h,
+            w: 20 + Math.random() * 14,
+            h: h,
+          })
+          spawn = minDist / speed + 0.25 + Math.random() * 0.45
+        }
       }
       for (const o of obstacles) o.x -= speed * dt
       obstacles = obstacles.filter(o => {

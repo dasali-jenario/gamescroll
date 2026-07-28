@@ -1,6 +1,8 @@
 type Props = {
   score: number
   best: number
+  /** When true, lower scores are better (reaction time). */
+  lowerIsBetter?: boolean
   onPlayAgain: () => void
   onPlayAnother: () => void
 }
@@ -8,10 +10,12 @@ type Props = {
 export function GameOverOverlay({
   score,
   best,
+  lowerIsBetter = false,
   onPlayAgain,
   onPlayAnother,
 }: Props) {
-  const isNewBest = score > 0 && score >= best
+  const isNewBest =
+    score > 0 && (lowerIsBetter ? score <= best : score >= best)
 
   return (
     <div
@@ -23,10 +27,14 @@ export function GameOverOverlay({
       <div className="game-over-panel">
         <p className="game-over-kicker">Game over</p>
         <h2 id="game-over-title" className="game-over-score">
-          {score}
+          {lowerIsBetter ? `${score} ms` : score}
         </h2>
         <p className="game-over-best">
-          {isNewBest ? 'New best' : `Best ${best}`}
+          {isNewBest
+            ? 'New best'
+            : lowerIsBetter
+              ? `Best ${best} ms`
+              : `Best ${best}`}
         </p>
         <div className="game-over-actions">
           <button type="button" className="game-over-again" onClick={onPlayAgain}>

@@ -162,9 +162,10 @@
       return n
     }
     function move(dir) {
-      // 0 L, 1 U, 2 R, 3 D — rotate so we always slide left
+      // 0 L, 1 U, 2 R, 3 D — clockwise turns so the target edge becomes left
+      const turns = [0, 3, 2, 1][dir]
       let g = grid.map(r => r.slice())
-      for (let i = 0; i < dir; i++) g = rotate(g)
+      for (let i = 0; i < turns; i++) g = rotate(g)
       let gained = 0, changed = false
       for (let r = 0; r < N; r++) {
         const before = g[r].join(',')
@@ -173,7 +174,7 @@
         gained += res.gained
         if (g[r].join(',') !== before) changed = true
       }
-      for (let i = 0; i < (4 - dir) % 4; i++) g = rotate(g)
+      for (let i = 0; i < (4 - turns) % 4; i++) g = rotate(g)
       if (!changed) return false
       grid = g
       if (gained) bump(gained)
@@ -211,7 +212,8 @@
         const y = oy + gap + r * (cell + gap)
         PF.block(ctx, x, y, cell, cell, COLORS[v] || '#3c3a32', '#222', 8)
         if (v) {
-          ctx.fillStyle = v <= 4 ? '#776e65' : '#f9f6f2'
+          // Dark on cream/gold tiles; white on orange — classic 2048 contrast.
+          ctx.fillStyle = (v <= 4 || v >= 128) ? '#1a1a2e' : '#ffffff'
           ctx.font = '800 ' + Math.floor(cell * (v >= 1000 ? 0.32 : 0.4)) + 'px "Segoe UI", sans-serif'
           ctx.textAlign = 'center'
           ctx.textBaseline = 'middle'

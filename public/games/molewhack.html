@@ -143,11 +143,21 @@
       hideT = 0
       timeLeft = 30
       running = true
-      setScore(0)
+      setScore(9)
       spawn()
     }
     function onHostStart() { reset() }
     function die() { reset() }
+    function missMole() {
+      setScore(score - 3)
+      if (score <= 0) {
+        setScore(0)
+        running = false
+        die()
+        return true
+      }
+      return false
+    }
     function tick(dt) {
       if (!running || GS.paused) return
       timeLeft -= dt
@@ -158,7 +168,12 @@
         return
       }
       hideT -= dt
-      if (hideT <= 0) spawn()
+      if (hideT <= 0) {
+        if (active >= 0) {
+          if (missMole()) return
+        }
+        spawn()
+      }
     }
     function draw() {
       PF.sky(ctx, W, H, '#081c15', '#1b4332', '#2d6a4f')

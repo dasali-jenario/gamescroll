@@ -281,7 +281,7 @@ export const officialCatalog: OfficialCatalogEntry[] = [
   {
     id: "molewhack",
     title: "Mole Whack",
-    tip: "Tap moles before they duck.",
+    tip: "Tap moles before they duck. Miss −3.",
     accent: "#f4a261",
   },
   {

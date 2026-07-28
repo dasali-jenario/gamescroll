@@ -67,14 +67,13 @@ function pickWord() {
   return answer;
 }
 function layout() {
-  const padX = W * 0.06;
-  const top = H * 0.1;
-  const bottom = H * 0.96;
-  layoutRects.title = { x: padX, y: top, w: W - padX * 2, h: H * 0.055 };
-  layoutRects.hint = { x: padX, y: H * 0.58, w: W - padX * 2, h: H * 0.045 };
-  layoutRects.kb = { x: padX * 0.7, y: H * 0.64, w: W - padX * 1.4, h: H * 0.3 };
-  const gridTop = layoutRects.title.y + layoutRects.title.h + H * 0.02;
-  const gridBot = layoutRects.hint.y - H * 0.02;
+  const padX = W * 0.05;
+  const top = H * 0.08;
+  layoutRects.title = { x: padX, y: top, w: W - padX * 2, h: H * 0.05 };
+  layoutRects.hint = { x: padX, y: H * 0.56, w: W - padX * 2, h: H * 0.04 };
+  layoutRects.kb = { x: padX, y: H * 0.62, w: W - padX * 2, h: H * 0.32 };
+  const gridTop = layoutRects.title.y + layoutRects.title.h + H * 0.015;
+  const gridBot = layoutRects.hint.y - H * 0.015;
   const gridH = Math.max(80, gridBot - gridTop);
   const gridW = W - padX * 2;
   const gap = Math.max(5, Math.min(W, H) * 0.012);
@@ -97,25 +96,29 @@ function layout() {
       });
     }
   }
+  // Shared letter width from the 10-key top row; ENTER/DEL are 1.5× so the
+  // bottom row still totals 10 units and stays inside the playfield.
   layoutRects.kbKeys = [];
-  let kbY = layoutRects.kb.y;
+  const kb = layoutRects.kb;
   const rowGap = Math.max(6, H * 0.008);
-  const keyH = (layoutRects.kb.h - 2 * rowGap) / 3;
+  const keyGap = Math.max(3, Math.min(6, W * 0.01));
+  const letterW = (kb.w - keyGap * 9) / 10;
+  const keyH = (kb.h - 2 * rowGap) / 3;
+  let kbY = kb.y;
   for (let i = 0; i < 3; ++i) {
     const keys = kbRows[i];
-    const n = keys.length;
-    const keyGap = Math.max(4, W * 0.01);
-    const keyW = (layoutRects.kb.w - keyGap * (n - 1)) / n;
-    let rowX = layoutRects.kb.x;
-    if (i === 1) rowX += (keyW + keyGap) * 0.5;
-    for (let j = 0; j < n; ++j) {
+    const widths = keys.map((label) => (label === 'ENTER' || label === 'DEL' ? letterW * 1.5 : letterW));
+    const totalW = widths.reduce((a, b) => a + b, 0) + keyGap * (keys.length - 1);
+    let rowX = kb.x + Math.max(0, (kb.w - totalW) / 2);
+    for (let j = 0; j < keys.length; ++j) {
       layoutRects.kbKeys.push({
-        x: rowX + j * (keyW + keyGap),
+        x: rowX,
         y: kbY,
-        w: keyW,
+        w: widths[j],
         h: keyH,
         label: keys[j],
       });
+      rowX += widths[j] + keyGap;
     }
     kbY += keyH + rowGap;
   }
@@ -261,7 +264,8 @@ function draw(){
     }
     ctx.fillStyle = bg;
     ctx.fill();
-    ctx.font = '700 ' + Math.floor(key.h * 0.42) + 'px sans-serif';
+    const long = key.label.length > 1;
+    ctx.font = '700 ' + Math.floor(key.h * (long ? 0.32 : 0.42)) + 'px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = fg;
     ctx.fillText(key.label, key.x + key.w / 2, key.y + key.h * 0.66);

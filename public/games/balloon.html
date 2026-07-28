@@ -134,20 +134,21 @@
     function diePos() { return [bx, by] }
     function scorePos() { return [bx, by] }
     function draw() {
-      PF.sky(ctx, W, H, '#7a2e1d', '#e76f51', '#f4a261')
-      PF.dots(ctx, W, H, '#ffe8d6', 18, 0.8)
-      PF.blobs(ctx, W, H, '#ffffff', 4)
+      PF.sky(ctx, W, H, '#5c1a12', '#c45c3a', '#e09f7d')
+      PF.dots(ctx, W, H, '#ffe8d6', 14, 0.45)
+      PF.blobs(ctx, W, H, 'rgba(255,255,255,0.18)', 3)
       for (const s of spikes) {
         PF.spike(ctx, s.x, s.y, s.up ? 'down' : 'up', '#e9c46a')
       }
       const sq = 1 + Math.max(-0.16, Math.min(0.16, -bv * 0.0011))
-      PF.buddy(ctx, bx, by, 20, '#f8a7a0', '#e76f51', {
+      // Cool cyan balloon vs warm terracotta sky for clear contrast.
+      PF.buddy(ctx, bx, by, 22, '#b8f2ff', '#1d9bf0', {
         stretch: sq, squash: 1 / Math.max(0.75, sq),
         lookY: bv > 0 ? 0.4 : -0.4, blush: true,
       })
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'
       ctx.lineWidth = 2
-      ctx.beginPath(); ctx.moveTo(bx, by + 22); ctx.lineTo(bx, by + 34); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(bx, by + 24); ctx.lineTo(bx, by + 38); ctx.stroke()
     }
     addEventListener('pointerdown', () => { if (!GS.paused) bv = -220 })
     reset()

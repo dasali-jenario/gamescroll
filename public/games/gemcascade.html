@@ -242,11 +242,15 @@
         const x = ox + gap + c * (cell + gap)
         const y = oy + gap + r * (cell + gap)
         const selected = sel && sel[0] === r && sel[1] === c
-        PF.block(ctx, x, y, cell, cell, COLORS[g], '#111', selected ? 14 : 8)
+        const rad = selected ? 14 : 8
+        ctx.fillStyle = COLORS[g]
+        PF.rr(ctx, x, y, cell, cell, rad)
+        ctx.fill()
         if (selected) {
           ctx.strokeStyle = '#fff'
           ctx.lineWidth = 2
-          ctx.strokeRect(x + 2, y + 2, cell - 4, cell - 4)
+          PF.rr(ctx, x + 2, y + 2, cell - 4, cell - 4, Math.max(4, rad - 2))
+          ctx.stroke()
         }
       }
       ctx.fillStyle = timeLeft < 10 ? '#ff6688' : 'rgba(255,255,255,0.75)'

@@ -112,7 +112,21 @@
     resize()
     if (window.Juice) Juice.init({ accent: "#34d399" })
 
-    let phase = 'wait', waitT = 0, goAt = 0, resultT = 0, lastMs = 0
+    const BEST_KEY = 'gs_reactflash_best_ms'
+    let phase = 'wait', waitT = 0, goAt = 0, resultT = 0, lastMs = 0, bestMs = 0
+    function loadBest() {
+      try {
+        const n = parseInt(localStorage.getItem(BEST_KEY) || '0', 10)
+        return Number.isFinite(n) && n > 0 ? n : 0
+      } catch (e) { return 0 }
+    }
+    function saveBest(ms) {
+      try { localStorage.setItem(BEST_KEY, String(ms)) } catch (e) {}
+    }
+    function reportBest(ms) {
+      setScore(ms)
+      try { parent.postMessage({ type: 'gamescroll:score', score: ms }, '*') } catch (e) {}
+    }
     function layout() {}
     function onResize() { layout() }
     function diePos() { return [W * 0.5, H * 0.5] }
@@ -125,7 +139,8 @@
     }
     function reset() {
       layout()
-      setScore(0)
+      bestMs = loadBest() || bestMs
+      setScore(bestMs)
       arm()
     }
     function onHostStart() { reset() }
@@ -158,7 +173,7 @@
       ctx.fillText(msg, W * 0.5, H * 0.48)
       ctx.font = '700 14px "Segoe UI", sans-serif'
       ctx.fillStyle = 'rgba(255,255,255,0.7)'
-      ctx.fillText('Best streak via score', W * 0.5, H * 0.62)
+      ctx.fillText(bestMs > 0 ? ('Best ' + bestMs + ' ms') : 'Lower time is better', W * 0.5, H * 0.62)
       ctx.textAlign = 'left'
       ctx.textBaseline = 'alphabetic'
     }
@@ -171,8 +186,11 @@
       }
       if (phase !== 'go') return
       lastMs = Math.max(1, Math.round(performance.now() - goAt))
-      const pts = Math.max(1, Math.floor((450 - lastMs) / 8))
-      bump(pts)
+      if (!bestMs || lastMs < bestMs) {
+        bestMs = lastMs
+        saveBest(bestMs)
+      }
+      reportBest(lastMs)
       if (window.Juice) Juice.burst(W * 0.5, H * 0.5)
       phase = 'result'
       resultT = 0.85

@@ -563,18 +563,30 @@ export const wave1Games = {
       }
       return false
     }
-    function snapShot() {
+    function snapShot(hitC, hitR) {
       let best = null, bestD = 1e9
-      for (let r = 0; r < grid.length; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (grid[r][c] >= 0) continue
-          if (!placeable(c, r)) continue
-          const p = cellAt(c, r)
-          const d = Math.hypot(p.x - shot.x, p.y - shot.y)
-          if (d < cell * 0.95 && d < bestD) { best = [c, r]; bestD = d }
+      const consider = (c, r) => {
+        if (r < 0 || r >= grid.length || c < 0 || c >= cols) return
+        if (grid[r][c] >= 0 || !placeable(c, r)) return
+        const p = cellAt(c, r)
+        const d = Math.hypot(p.x - shot.x, p.y - shot.y)
+        if (d < bestD) { best = [c, r]; bestD = d }
+      }
+      // Prefer empty neighbors of the bubble we hit (stable after wall banks).
+      if (hitC != null && hitR != null) {
+        for (const n of nbr(hitC, hitR)) consider(n[0], n[1])
+      }
+      if (!best) {
+        for (let r = 0; r < grid.length; r++) {
+          for (let c = 0; c < cols; c++) consider(c, r)
         }
       }
-      if (!best) { shot = null; return }
+      if (!best) {
+        // Nowhere to stick — keep the shot in play instead of vanishing.
+        if (shot.vy < 0) shot.vy = Math.abs(shot.vy)
+        shot.y = Math.max(shot.y, oy)
+        return
+      }
       grid[best[1]][best[0]] = shot.c
       if (popMatches(best[0], best[1]) && window.Juice) Juice.burst(shot.x, shot.y)
       shot = null
@@ -598,17 +610,22 @@ export const wave1Games = {
       if (!shot) return
       shot.x += shot.vx * dt
       shot.y += shot.vy * dt
-      if (shot.x < cell * 0.4) { shot.x = cell * 0.4; shot.vx = Math.abs(shot.vx) }
-      if (shot.x > W - cell * 0.4) { shot.x = W - cell * 0.4; shot.vx = -Math.abs(shot.vx) }
-      if (shot.y < oy - cell) { snapShot(); return }
+      const margin = cell * 0.45
+      if (shot.x < margin) { shot.x = margin; shot.vx = Math.abs(shot.vx) }
+      if (shot.x > W - margin) { shot.x = W - margin; shot.vx = -Math.abs(shot.vx) }
+      // Ceiling: stick to nearest open slot (no distance cutoff — fixes wall-bank misses).
+      if (shot.y < oy - cell * 0.2) { snapShot(); return }
       for (let r = 0; r < grid.length; r++) {
         for (let c = 0; c < cols; c++) {
           if (grid[r][c] < 0) continue
           const p = cellAt(c, r)
-          if (Math.hypot(p.x - shot.x, p.y - shot.y) < cell * 0.78) { snapShot(); return }
+          if (Math.hypot(p.x - shot.x, p.y - shot.y) < cell * 0.78) {
+            snapShot(c, r)
+            return
+          }
         }
       }
-      if (shot.y > H) shot = null
+      if (shot.y > H + cell) shot = null
     }
     function draw() {
       PF.sky(ctx, W, H, '#000820', '#001133', '#003366')
@@ -701,14 +718,22 @@ export const wave1Games = {
       const speed = 180 + score * 3
       spawn -= dt
       if (spawn <= 0) {
-        const h = 28 + Math.random() * 36
-        obstacles.push({
-          x: W + 30,
-          y: groundY - h,
-          w: 22 + Math.random() * 18,
-          h: h,
-        })
-        spawn = 0.75 + Math.random() * 0.55
+        // Keep a jumpable gap that scales with scroll speed (single + double jump).
+        const minDist = Math.max(W * 0.55, 200)
+        const last = obstacles.length ? obstacles[obstacles.length - 1] : null
+        if (last && last.x > W + 30 - minDist) {
+          spawn = 0.08
+        } else {
+          const maxH = Math.min(W, H) * 0.14
+          const h = 22 + Math.random() * maxH
+          obstacles.push({
+            x: W + 30,
+            y: groundY - h,
+            w: 20 + Math.random() * 14,
+            h: h,
+          })
+          spawn = minDist / speed + 0.25 + Math.random() * 0.45
+        }
       }
       for (const o of obstacles) o.x -= speed * dt
       obstacles = obstacles.filter(o => {

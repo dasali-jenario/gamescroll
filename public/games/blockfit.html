@@ -114,6 +114,24 @@
 
     let N = 8, grid = [], ox = 0, oy = 0, cell = 0, gap = 2
     let tray = [], drag = null, ghost = null
+    // Bright fills on dark board — each shape family gets its own hue.
+    const PALETTE = [
+      ['#38bdf8', '#0284c7'],
+      ['#f472b6', '#db2777'],
+      ['#a3e635', '#4d7c0f'],
+      ['#fbbf24', '#b45309'],
+      ['#c084fc', '#7e22ce'],
+      ['#2dd4bf', '#0f766e'],
+      ['#fb7185', '#be123c'],
+      ['#818cf8', '#4338ca'],
+      ['#fdba74', '#c2410c'],
+      ['#4ade80', '#15803d'],
+      ['#f9a8d4', '#be185d'],
+      ['#67e8f9', '#0e7490'],
+      ['#fde047', '#a16207'],
+      ['#e879f9', '#a21caf'],
+      ['#86efac', '#166534'],
+    ]
     const SHAPES = [
       [[1]],
       [[1,1]],
@@ -142,11 +160,11 @@
     function diePos() { return [W * 0.5, oy + cell * 4] }
     function scorePos() { return diePos() }
     function shapeSize(s) {
-      return { h: s.length, w: Math.max(...s.map(r => r.length)) }
+      return { h: s.cells.length, w: Math.max(...s.cells.map(r => r.length)) }
     }
     function randShape() {
-      const s = SHAPES[(Math.random() * SHAPES.length) | 0]
-      return s.map(r => r.slice())
+      const color = (Math.random() * SHAPES.length) | 0
+      return { cells: SHAPES[color].map(r => r.slice()), color }
     }
     function refillTray() {
       if (tray.every(t => !t)) tray = [randShape(), randShape(), randShape()]
@@ -154,8 +172,8 @@
     function canPlace(shape, gr, gc) {
       const { h, w } = shapeSize(shape)
       if (gr < 0 || gc < 0 || gr + h > N || gc + w > N) return false
-      for (let r = 0; r < h; r++) for (let c = 0; c < (shape[r].length); c++) {
-        if (shape[r][c] && grid[gr + r][gc + c]) return false
+      for (let r = 0; r < h; r++) for (let c = 0; c < (shape.cells[r].length); c++) {
+        if (shape.cells[r][c] && grid[gr + r][gc + c]) return false
       }
       return true
     }
@@ -185,10 +203,11 @@
     }
     function place(shape, gr, gc) {
       const { h } = shapeSize(shape)
+      const tone = (shape.color % PALETTE.length) + 1
       let cells = 0
-      for (let r = 0; r < h; r++) for (let c = 0; c < shape[r].length; c++) {
-        if (!shape[r][c]) continue
-        grid[gr + r][gc + c] = 1
+      for (let r = 0; r < h; r++) for (let c = 0; c < shape.cells[r].length; c++) {
+        if (!shape.cells[r][c]) continue
+        grid[gr + r][gc + c] = tone
         cells++
       }
       bump(cells * 5)
@@ -221,23 +240,33 @@
       const r = Math.floor((y - oy - gap) / (cell + gap))
       return { r, c, x, y }
     }
+    function colorsFor(shape) {
+      return PALETTE[shape.color % PALETTE.length]
+    }
     function drawShape(shape, x, y, s, alpha) {
+      const [fill, stroke] = colorsFor(shape)
       ctx.globalAlpha = alpha == null ? 1 : alpha
-      for (let r = 0; r < shape.length; r++) for (let c = 0; c < shape[r].length; c++) {
-        if (!shape[r][c]) continue
-        PF.block(ctx, x + c * s, y + r * s, s - 2, s - 2, '#60a5fa', '#1e3a8a', 6)
+      for (let r = 0; r < shape.cells.length; r++) for (let c = 0; c < shape.cells[r].length; c++) {
+        if (!shape.cells[r][c]) continue
+        PF.block(ctx, x + c * s, y + r * s, s - 2, s - 2, fill, stroke, 6)
       }
       ctx.globalAlpha = 1
     }
     function draw() {
       PF.sky(ctx, W, H, '#030712', '#111827', '#1f2937')
-      PF.dots(ctx, W, H, '#60a5fa', 12, 0.3)
+      PF.dots(ctx, W, H, '#94a3b8', 12, 0.25)
       const side = cell * N + gap * (N + 1)
       PF.block(ctx, ox, oy, side, side, '#0b1220', '#05080f', 10)
       for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
         const x = ox + gap + c * (cell + gap)
         const y = oy + gap + r * (cell + gap)
-        PF.block(ctx, x, y, cell, cell, grid[r][c] ? '#3b82f6' : '#1f2937', '#0f172a', 5)
+        const v = grid[r][c]
+        if (v) {
+          const [fill, stroke] = PALETTE[(v - 1) % PALETTE.length]
+          PF.block(ctx, x, y, cell, cell, fill, stroke, 5)
+        } else {
+          PF.block(ctx, x, y, cell, cell, '#1f2937', '#0f172a', 5)
+        }
       }
       if (ghost && ghost.ok) {
         drawShape(ghost.shape, ox + gap + ghost.c * (cell + gap), oy + gap + ghost.r * (cell + gap), cell + gap, 0.45)
@@ -252,8 +281,6 @@
         }
       }
       if (drag) {
-        const rect = canvas.getBoundingClientRect()
-        // last pointer stored on drag
         const s = cell * 0.9
         const { h, w } = shapeSize(drag.shape)
         drawShape(drag.shape, drag.x - w * s * 0.5, drag.y - h * s * 0.5, s, 0.9)

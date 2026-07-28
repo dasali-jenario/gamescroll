@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  betterScore,
   getHighscore,
   loadHighscores,
   recordHighscore,
@@ -21,6 +22,19 @@ describe('highscores', () => {
     expect(recordHighscore('pong', 20)).toBe(20)
     expect(getHighscore('pong')).toBe(20)
     expect(loadHighscores()).toEqual({ pong: 20 })
+  })
+
+  it('keeps the lowest score for lower-is-better games', () => {
+    expect(recordHighscore('reactflash', 280)).toBe(280)
+    expect(recordHighscore('reactflash', 310)).toBe(280)
+    expect(recordHighscore('reactflash', 190)).toBe(190)
+    expect(getHighscore('reactflash')).toBe(190)
+  })
+
+  it('betterScore respects lower-is-better games', () => {
+    expect(betterScore('pong', 10, 20)).toBe(20)
+    expect(betterScore('reactflash', 10, 20)).toBe(10)
+    expect(betterScore('reactflash', 0, 20)).toBe(20)
   })
 
   it('rejects non-positive and non-finite scores', () => {

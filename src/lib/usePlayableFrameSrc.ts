@@ -47,6 +47,11 @@ export function usePlayableFrameSrc(src: string, enabled: boolean): string {
         const res = await fetch(src)
         const text = await res.text()
         if (cancelled) return
+        if (!res.ok) {
+          // Don't blob-wrap error bodies like ugc-play's plain "Not found".
+          setFrameSrc(src)
+          return
+        }
         const url = URL.createObjectURL(
           new Blob([text], { type: 'text/html;charset=utf-8' }),
         )

@@ -116,9 +116,9 @@
     const JUMP = -540
     const GAP_MIN = 55
     const GAP_MAX = 95
-    function spawnPlat(py) {
+    function spawnPlat(py, avoidHazard) {
       const maxX = Math.max(40, W - 110)
-      const hazard = Math.random() < 0.22
+      const hazard = !avoidHazard && Math.random() < 0.22
       return {
         x: 30 + Math.random() * maxX,
         y: py,
@@ -132,13 +132,20 @@
       let top = plats.length ? Math.min(...plats.map(p => p.y)) : y
       while (top > cam - H) {
         top -= GAP_MIN + Math.random() * (GAP_MAX - GAP_MIN)
-        plats.push(spawnPlat(top))
+        // Platform just below this new one (next larger y).
+        let below = null
+        for (const p of plats) {
+          if (p.y <= top) continue
+          if (!below || p.y < below.y) below = p
+        }
+        plats.push(spawnPlat(top, !!(below && below.hazard)))
       }
     }
     function reset() {
       x = W * 0.5; y = H * 0.7; v = JUMP; cam = 0; plats = []
       for (let i = 0; i < 12; i++) {
-        const p = spawnPlat(H - i * 70)
+        const prevHazard = i > 0 && plats[i - 1].hazard
+        const p = spawnPlat(H - i * 70, i < 3 || prevHazard)
         if (i < 3) {
           p.hazard = false
           p.scored = true // starter pads — score only newly unlocked platforms

@@ -113,10 +113,11 @@
     if (window.Juice) Juice.init({ accent: "#6c584c" })
 
     let row = 0, lanes = [], player = { c: 2, r: 0 }, cols = 5
+    // Slightly easier than the original 1.6–3.2s gaps; still active from the first second.
     function spawnDelay() {
       const t = Math.min(1, score / 40)
-      const lo = 16 - t * 14.4
-      const hi = 32 - t * 28.8
+      const lo = 2.0 - t * 0.8
+      const hi = 3.8 - t * 1.6
       return lo + Math.random() * (hi - lo)
     }
     function reset() {
@@ -124,7 +125,7 @@
       lanes = []; player = { c: 2, r: 0 }
       for (let i = 0; i < 12; i++) {
         const kind = i === 0 ? 'safe' : (['road', 'river', 'rail'][i % 3])
-        lanes.push({ kind, cars: [], t: spawnDelay() })
+        lanes.push({ kind, cars: [], t: Math.random() * 1.2 })
       }
     }
     function onHostStart() { reset() }
@@ -171,7 +172,7 @@
       player.r++
       bump()
       if (player.r >= lanes.length - 2) {
-        lanes.push({ kind: ['road', 'river', 'rail'][Math.floor(Math.random() * 3)], cars: [], t: spawnDelay() })
+        lanes.push({ kind: ['road', 'river', 'rail'][Math.floor(Math.random() * 3)], cars: [], t: 0.4 + Math.random() * 0.6 })
         lanes.shift(); player.r--
       }
     })

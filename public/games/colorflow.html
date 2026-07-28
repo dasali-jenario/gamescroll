@@ -112,19 +112,25 @@
     resize()
     if (window.Juice) Juice.init({ accent: "#f0b429" })
 
-    let tubes = [], ox = 0, oy = 0, tw = 0, th = 0, gap = 12, cap = 4
+    let tubes = [], ox = 0, oy = 0, tw = 0, th = 0, gap = 12, rowGap = 24, cap = 4
     let sel = -1, level = 1, moves = 0
     const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22']
     function layout() {
       const n = tubes.length || 6
       const cols = Math.min(5, n)
       const rows = Math.ceil(n / cols)
-      gap = 12
-      tw = Math.min(52, (W - 40 - gap * (cols - 1)) / cols)
-      th = Math.min(H * 0.55 / rows - 16, tw * 3.2)
+      const topSafe = Math.max(64, H * 0.12)
+      const bottomSafe = Math.max(28, H * 0.06)
+      const availH = Math.max(120, H - topSafe - bottomSafe)
+      gap = Math.max(10, Math.min(18, W * 0.035))
+      rowGap = Math.max(18, Math.min(28, availH * 0.04))
+      const rowBudget = (availH - (rows - 1) * rowGap) / rows
+      tw = Math.min(78, (W - 36 - gap * (cols - 1)) / cols)
+      th = Math.min(rowBudget, tw * 4.6)
       const totalW = cols * tw + (cols - 1) * gap
+      const totalH = rows * th + (rows - 1) * rowGap
       ox = (W - totalW) * 0.5
-      oy = H * 0.18
+      oy = topSafe + Math.max(0, (availH - totalH) * 0.5)
     }
     function onResize() { layout() }
     function diePos() { return [W * 0.5, oy + th * 0.5] }
@@ -198,7 +204,7 @@
       for (let i = 0; i < tubes.length; i++) {
         const r = (i / cols) | 0, c = i % cols
         const tx = ox + c * (tw + gap)
-        const ty = oy + r * (th + 20)
+        const ty = oy + r * (th + rowGap)
         if (x >= tx && x <= tx + tw && y >= ty && y <= ty + th) return i
       }
       return -1
@@ -210,7 +216,7 @@
       for (let i = 0; i < tubes.length; i++) {
         const r = (i / cols) | 0, c = i % cols
         const x = ox + c * (tw + gap)
-        const y = oy + r * (th + 20)
+        const y = oy + r * (th + rowGap)
         ctx.strokeStyle = sel === i ? '#f0b429' : 'rgba(255,255,255,0.55)'
         ctx.lineWidth = sel === i ? 3 : 2
         ctx.beginPath()

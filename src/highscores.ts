@@ -1,6 +1,22 @@
 const STORAGE_KEY = 'gs_highscores'
 
+/** Games where a lower score is better (e.g. reaction time in ms). */
+const LOWER_IS_BETTER = new Set(['reactflash'])
+
 export type Highscores = Record<string, number>
+
+export function isLowerBetterScore(gameId: string): boolean {
+  return LOWER_IS_BETTER.has(gameId)
+}
+
+/** Pick the better of two positive scores for this game (0 = missing). */
+export function betterScore(gameId: string, a: number, b: number): number {
+  const x = Number.isFinite(a) && a > 0 ? Math.floor(a) : 0
+  const y = Number.isFinite(b) && b > 0 ? Math.floor(b) : 0
+  if (!x) return y
+  if (!y) return x
+  return isLowerBetterScore(gameId) ? Math.min(x, y) : Math.max(x, y)
+}
 
 function readAll(): Highscores {
   try {
@@ -42,7 +58,10 @@ export function recordHighscore(gameId: string, score: number): number {
   if (!Number.isFinite(n) || n <= 0) return getHighscore(gameId)
   const all = readAll()
   const prev = all[gameId] ?? 0
-  if (n > prev) {
+  const improves = isLowerBetterScore(gameId)
+    ? prev === 0 || n < prev
+    : n > prev
+  if (improves) {
     all[gameId] = n
     writeAll(all)
     return n

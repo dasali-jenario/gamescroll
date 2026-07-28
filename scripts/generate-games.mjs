@@ -878,20 +878,21 @@ Object.assign(games, {
     function diePos() { return [bx, by] }
     function scorePos() { return [bx, by] }
     function draw() {
-      PF.sky(ctx, W, H, '#7a2e1d', '#e76f51', '#f4a261')
-      PF.dots(ctx, W, H, '#ffe8d6', 18, 0.8)
-      PF.blobs(ctx, W, H, '#ffffff', 4)
+      PF.sky(ctx, W, H, '#5c1a12', '#c45c3a', '#e09f7d')
+      PF.dots(ctx, W, H, '#ffe8d6', 14, 0.45)
+      PF.blobs(ctx, W, H, 'rgba(255,255,255,0.18)', 3)
       for (const s of spikes) {
         PF.spike(ctx, s.x, s.y, s.up ? 'down' : 'up', '#e9c46a')
       }
       const sq = 1 + Math.max(-0.16, Math.min(0.16, -bv * 0.0011))
-      PF.buddy(ctx, bx, by, 20, '#f8a7a0', '#e76f51', {
+      // Cool cyan balloon vs warm terracotta sky for clear contrast.
+      PF.buddy(ctx, bx, by, 22, '#b8f2ff', '#1d9bf0', {
         stretch: sq, squash: 1 / Math.max(0.75, sq),
         lookY: bv > 0 ? 0.4 : -0.4, blush: true,
       })
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'
       ctx.lineWidth = 2
-      ctx.beginPath(); ctx.moveTo(bx, by + 22); ctx.lineTo(bx, by + 34); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(bx, by + 24); ctx.lineTo(bx, by + 38); ctx.stroke()
     }
     addEventListener('pointerdown', () => { if (!GS.paused) bv = -220 })
     reset()
@@ -948,9 +949,9 @@ Object.assign(games, {
     const JUMP = -540
     const GAP_MIN = 55
     const GAP_MAX = 95
-    function spawnPlat(py) {
+    function spawnPlat(py, avoidHazard) {
       const maxX = Math.max(40, W - 110)
-      const hazard = Math.random() < 0.22
+      const hazard = !avoidHazard && Math.random() < 0.22
       return {
         x: 30 + Math.random() * maxX,
         y: py,
@@ -964,13 +965,20 @@ Object.assign(games, {
       let top = plats.length ? Math.min(...plats.map(p => p.y)) : y
       while (top > cam - H) {
         top -= GAP_MIN + Math.random() * (GAP_MAX - GAP_MIN)
-        plats.push(spawnPlat(top))
+        // Platform just below this new one (next larger y).
+        let below = null
+        for (const p of plats) {
+          if (p.y <= top) continue
+          if (!below || p.y < below.y) below = p
+        }
+        plats.push(spawnPlat(top, !!(below && below.hazard)))
       }
     }
     function reset() {
       x = W * 0.5; y = H * 0.7; v = JUMP; cam = 0; plats = []
       for (let i = 0; i < 12; i++) {
-        const p = spawnPlat(H - i * 70)
+        const prevHazard = i > 0 && plats[i - 1].hazard
+        const p = spawnPlat(H - i * 70, i < 3 || prevHazard)
         if (i < 3) {
           p.hazard = false
           p.scored = true // starter pads — score only newly unlocked platforms
@@ -1198,10 +1206,11 @@ Object.assign(games, {
     bg: '#6c584c',
     body: `
     let row = 0, lanes = [], player = { c: 2, r: 0 }, cols = 5
+    // Slightly easier than the original 1.6–3.2s gaps; still active from the first second.
     function spawnDelay() {
       const t = Math.min(1, score / 40)
-      const lo = 16 - t * 14.4
-      const hi = 32 - t * 28.8
+      const lo = 2.0 - t * 0.8
+      const hi = 3.8 - t * 1.6
       return lo + Math.random() * (hi - lo)
     }
     function reset() {
@@ -1209,7 +1218,7 @@ Object.assign(games, {
       lanes = []; player = { c: 2, r: 0 }
       for (let i = 0; i < 12; i++) {
         const kind = i === 0 ? 'safe' : (['road', 'river', 'rail'][i % 3])
-        lanes.push({ kind, cars: [], t: spawnDelay() })
+        lanes.push({ kind, cars: [], t: Math.random() * 1.2 })
       }
     }
     function onHostStart() { reset() }
@@ -1256,7 +1265,7 @@ Object.assign(games, {
       player.r++
       bump()
       if (player.r >= lanes.length - 2) {
-        lanes.push({ kind: ['road', 'river', 'rail'][Math.floor(Math.random() * 3)], cars: [], t: spawnDelay() })
+        lanes.push({ kind: ['road', 'river', 'rail'][Math.floor(Math.random() * 3)], cars: [], t: 0.4 + Math.random() * 0.6 })
         lanes.shift(); player.r--
       }
     })
@@ -1769,14 +1778,14 @@ Object.assign(games, {
     tip: 'Tilt to keep the ball on',
     bg: '#b08968',
     body: `
-    let tilt = 0, ball = 0, noise = 0
+    let tilt = 0, ball = 0, noise = 0, scoreAcc = 0
     function ballWorldPos() {
       const cx = W * 0.5, cy = H * 0.55, lx = ball, ly = -20
       return [cx + lx * Math.cos(tilt) - ly * Math.sin(tilt), cy + lx * Math.sin(tilt) + ly * Math.cos(tilt)]
     }
     function diePos() { return ballWorldPos() }
     function scorePos() { return ballWorldPos() }
-    function reset() { tilt = 0; ball = 0; noise = 0; setScore(0) }
+    function reset() { tilt = 0; ball = 0; noise = 0; scoreAcc = 0; setScore(0) }
     function onHostStart() { reset() }
     function die() { reset() }
     function tick(dt) {
@@ -1784,9 +1793,14 @@ Object.assign(games, {
       noise *= 0.98
       ball += (tilt * 2.2 + noise) * 60 * dt
       if (Math.abs(ball) > 110) die()
-      bump(0); // no auto bump
-      scoreAcc = (scoreAcc || 0) + dt
-      if (scoreAcc > 0.5) { scoreAcc = 0; bump() }
+      // Points only while the beam is off-level; ~1 pt / 1.25s
+      if (Math.abs(tilt) > 0.045) {
+        scoreAcc += dt
+        if (scoreAcc >= 1.25) {
+          scoreAcc -= 1.25
+          bump()
+        }
+      }
     }
     function draw() {
       PF.sky(ctx, W, H, '#7f5539', '#b08968', '#ddb892')
@@ -1800,7 +1814,6 @@ Object.assign(games, {
     }
     addEventListener('pointermove', e => { if (!GS.paused) tilt = (e.clientX / W - 0.5) * 0.9 })
     addEventListener('pointerdown', e => { if (!GS.paused) tilt = (e.clientX / W - 0.5) * 0.9 })
-    let scoreAcc = 0
     reset()
 `,
   },
@@ -2077,10 +2090,63 @@ Object.assign(games, {
       ctx.closePath()
     }
     function makeShape() {
-      const n = 3 + Math.floor(Math.random() * 5)
       const cx = W * 0.5, cy = H * 0.42
-      const base = Math.min(W, H) * (0.2 + Math.random() * 0.07)
+      const base = Math.min(W, H) * (0.22 + Math.random() * 0.06)
       const rot = Math.random() * Math.PI * 2
+      const kind = Math.random()
+      // ~55% symmetrical shapes so clean 50/50 cuts feel fair.
+      if (kind < 0.12) {
+        // Circle (regular 20-gon)
+        const pts = []
+        for (let i = 0; i < 20; i++) {
+          const a = rot + (i / 20) * Math.PI * 2
+          pts.push({ x: cx + Math.cos(a) * base, y: cy + Math.sin(a) * base })
+        }
+        return pts
+      }
+      if (kind < 0.24) {
+        // Square / diamond
+        const pts = []
+        for (let i = 0; i < 4; i++) {
+          const a = rot + (i / 4) * Math.PI * 2 + Math.PI * 0.25
+          pts.push({ x: cx + Math.cos(a) * base, y: cy + Math.sin(a) * base })
+        }
+        return pts
+      }
+      if (kind < 0.36) {
+        // Equilateral triangle
+        const pts = []
+        for (let i = 0; i < 3; i++) {
+          const a = rot + (i / 3) * Math.PI * 2 - Math.PI * 0.5
+          pts.push({ x: cx + Math.cos(a) * base, y: cy + Math.sin(a) * base })
+        }
+        return pts
+      }
+      if (kind < 0.46) {
+        // Regular hexagon
+        const pts = []
+        for (let i = 0; i < 6; i++) {
+          const a = rot + (i / 6) * Math.PI * 2
+          pts.push({ x: cx + Math.cos(a) * base, y: cy + Math.sin(a) * base })
+        }
+        return pts
+      }
+      if (kind < 0.55) {
+        // Symmetrical ellipse
+        const rx = base, ry = base * (0.55 + Math.random() * 0.2)
+        const pts = []
+        for (let i = 0; i < 18; i++) {
+          const a = (i / 18) * Math.PI * 2
+          const x = Math.cos(a) * rx, y = Math.sin(a) * ry
+          pts.push({
+            x: cx + x * Math.cos(rot) - y * Math.sin(rot),
+            y: cy + x * Math.sin(rot) + y * Math.cos(rot),
+          })
+        }
+        return pts
+      }
+      // Irregular blob (existing feel)
+      const n = 3 + Math.floor(Math.random() * 5)
       const pts = []
       for (let i = 0; i < n; i++) {
         const a = rot + (i / n) * Math.PI * 2
