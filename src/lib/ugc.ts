@@ -1,6 +1,18 @@
 import type { Game } from '../games'
 import { getSupabase, type UgcGameRow, type UgcStatus } from './supabase'
 
+/** Columns needed to build a playable feed `Game` from a UGC row. */
+export const UGC_FEED_COLUMNS =
+  'id,slug,title,tip,accent,status,source,html_path,html_url,updated_at,approved_at'
+
+/** Moderation queue — no conversation/brief payload. */
+export const UGC_MOD_COLUMNS =
+  'id,slug,title,tip,accent,status,source,html_path,html_url,updated_at,published_at'
+
+/** Creator “my games” list — includes chat/brief for resume. */
+export const UGC_MY_COLUMNS =
+  'id,creator_id,slug,title,tip,accent,status,source,html_path,html_url,brief,conversation,created_at,updated_at,published_at,approved_at,rejection_note'
+
 export function ugcPlayUrl(slug: string, cacheKey?: string | null): string {
   const base = import.meta.env.VITE_SUPABASE_URL
   if (!base) return ''
@@ -32,7 +44,7 @@ export async function fetchApprovedUgcGames(limit = 40): Promise<Game[]> {
   if (!sb) return []
   const { data, error } = await sb
     .from('ugc_games')
-    .select('*')
+    .select(UGC_FEED_COLUMNS)
     .eq('status', 'approved')
     .eq('source', 'user')
     .order('approved_at', { ascending: false })
@@ -49,7 +61,7 @@ export async function fetchUgcBySlug(
   if (!sb) return null
   const { data, error } = await sb
     .from('ugc_games')
-    .select('*')
+    .select(UGC_FEED_COLUMNS)
     .eq('slug', slug)
     .in('status', statuses)
     .maybeSingle()
@@ -66,7 +78,7 @@ export async function fetchMyUgcGames(): Promise<UgcGameRow[]> {
   if (!user) return []
   const { data, error } = await sb
     .from('ugc_games')
-    .select('*')
+    .select(UGC_MY_COLUMNS)
     .eq('creator_id', user.id)
     .order('updated_at', { ascending: false })
   if (error || !data) return []
@@ -78,7 +90,7 @@ export async function fetchPublishedForModeration(): Promise<UgcGameRow[]> {
   if (!sb) return []
   const { data, error } = await sb
     .from('ugc_games')
-    .select('*')
+    .select(UGC_MOD_COLUMNS)
     .eq('status', 'published')
     .order('published_at', { ascending: true })
   if (error || !data) return []

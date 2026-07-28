@@ -1,5 +1,22 @@
 # New file requests
 
+## 2026-07-28 — P2 cold path: lazy routes, slim UGC selects, parallel boot
+
+### Requested files
+- `src/lib/feedBoot.ts` — parallel community + shared-slug resolution for feed boot
+- `src/feedBoot.test.ts` — parallel vs skip-share cases + UGC column contracts
+- `src/coldPath.test.ts` — AppRouter lazy + feedBoot wiring + no `select('*')`
+- Updates: `src/AppRouter.tsx` (`React.lazy` Create/Mod), `src/lib/ugc.ts` (column lists), `src/hooks/useFeedSession.ts`, `src/index.css` (`.route-loading`), docs/plan
+
+### Duplicate search
+- Grep `React.lazy|lazy\(|Suspense` under `src/` → none
+- Grep `resolveFeedBoot|UGC_FEED_COLUMNS|select\('\*'\)` under `src/lib` → only `select('*')` on ugc_games fetches; no boot helper
+- Glob `src/**/*Boot*` / `src/**/*cold*` → none
+- Existing: `useFeedSession` sequential community-then-slug; eager Create/Mod imports in `AppRouter.tsx`
+
+### Rationale
+P2 roadmap: smaller feed cold chunk, lighter UGC payloads, faster `?g=` deep-link boot.
+
 ## 2026-07-28 — Official catalog metadata from generator
 
 ### Requested files

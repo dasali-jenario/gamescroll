@@ -45,14 +45,20 @@ node scripts/generate-games.mjs
 ```mermaid
 flowchart TB
   subgraph host [React host]
-    App[App.tsx composition shell]
+    Router[AppRouter]
+    App[App.tsx feed shell]
     Feed[useFeedSession]
     Play[usePlaySession]
     Gestures[useFeedGestures]
     Card[GameCard.tsx]
     Catalog[generated officialCatalog]
     GamesMod[games.ts feed helpers]
+    Create["/create lazy"]
+    Mod["/mod lazy"]
     Store[localStorage highscores metrics prefs]
+    Router --> App
+    Router -.->|on demand| Create
+    Router -.->|on demand| Mod
     App --> Feed
     App --> Play
     App --> Gestures
@@ -76,6 +82,7 @@ flowchart TB
   Bridge -->|"ready playing score died swipe-*"| Card
 ```
 
+`/` ships the feed shell only. `/create` and `/mod` are code-split (`React.lazy` + `Suspense`) so the creator and moderation UIs are not in the initial feed JS chunk.
 ### Host (`src/`)
 
 | File | Role |
@@ -94,7 +101,9 @@ flowchart TB
 | `lib/feedWindow.ts` | Sliding-window append/prune + scroll-index remap |
 | `lib/feedMessageHub.ts` | Single `window` `message` dispatcher for loaded cards |
 | `lib/playPresentation.ts` | Symmetric play insets + rail-hint visibility helpers |
-| `lib/htmlBlobCache.ts` | LRU blob URLs for remote UGC HTML |
+| `AppRouter.tsx` | Routes; `/create` and `/mod` are `React.lazy` + `Suspense` |
+| `lib/ugc.ts` | UGC fetch helpers; slim column lists per call site (feed / mod / my games) |
+| `lib/feedBoot.ts` | Parallel community + `?g=` slug resolution for feed boot |
 | `share.ts` | `?g=` deep links + Web Share / clipboard |
 | `highscores.ts` | Per-game best scores |
 | `metrics.ts` | Visits + sparse feed telemetry batcher |
@@ -177,7 +186,7 @@ https://gamescroll.dasali.me/?g=flappy
 https://play.thehappylab.com/?g=pong
 ```
 
-`readSharedGameId()` pins that catalog id first in the feed. After boot (and the optional intro reel), the pinned game autoplays. Share uses `navigator.share` or clipboard copy of the absolute `?g=` URL.
+`readSharedGameParam()` / `getGameById` pin a catalog id when present. If the slug is UGC-only, feed boot fetches that row **in parallel** with the approved community list (`resolveFeedBoot`), then rebuilds the first batch and autoplays after the intro reel. Share uses `navigator.share` or clipboard copy of the absolute `?g=` URL.
 
 ### Query prefs
 
@@ -295,6 +304,7 @@ Coverage today:
 - Generated `officialCatalog.ts` stays in sync with `generate-games.mjs`
 - UGC wrap/validator (forbidden APIs + bridge snippets)
 - Feed window prune, message hub, blob LRU, play presentation, App hook-shell contract
+- Lazy `/create`+`/mod`, slim UGC selects, parallel share boot
 - Deno `_shared` parity with `src/lib` (via sync check)
 
 CI: [`.github/workflows/quality.yml`](../.github/workflows/quality.yml) runs `npm run quality` on push/PR to `main`.

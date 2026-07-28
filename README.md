@@ -13,7 +13,7 @@ Official games are authored in `scripts/generate-games.mjs` (`title`, `tip`, `bg
 
 For architecture, the host↔game bridge, Android, and deploy domains, see [docs/WEBAPP.md](docs/WEBAPP.md).
 
-Create your own games at **/create** (product URL: [play.thehappylab.com/create](https://play.thehappylab.com/create)) — see [docs/CREATOR.md](docs/CREATOR.md).
+Create your own games at **/create** (product URL: [play.thehappylab.com/create](https://play.thehappylab.com/create)) — see [docs/CREATOR.md](docs/CREATOR.md). That route (and `/mod`) loads on demand so the main feed stays a smaller first download.
 
 ```bash
 npm run quality   # typecheck + unit tests + Deno _shared sync check + catalog check

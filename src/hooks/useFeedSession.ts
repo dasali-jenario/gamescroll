@@ -15,6 +15,7 @@ import {
   type Game,
 } from '../games'
 import { runFeedIntroReel } from '../lib/feedIntro'
+import { resolveFeedBoot } from '../lib/feedBoot'
 import { appendFeedWindow } from '../lib/feedWindow'
 import { fetchApprovedUgcGames, fetchUgcBySlug } from '../lib/ugc'
 import { trackVisit, trackFeedPruned } from '../metrics'
@@ -73,15 +74,14 @@ export function useFeedSession({
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const community = await fetchApprovedUgcGames()
+      const { community, prefer } = await resolveFeedBoot({
+        preferGame: boot.preferGame,
+        sharedParam: boot.sharedParam,
+        fetchCommunity: fetchApprovedUgcGames,
+        fetchShared: fetchUgcBySlug,
+      })
       if (cancelled) return
       communityRef.current = community
-
-      let prefer = boot.preferGame
-      if (!prefer && boot.sharedParam) {
-        prefer = await fetchUgcBySlug(boot.sharedParam)
-      }
-      if (cancelled) return
 
       if (prefer || community.length) {
         pendingPruneRef.current = false

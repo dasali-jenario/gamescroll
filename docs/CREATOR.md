@@ -2,6 +2,8 @@
 
 Canonical creator URL: **https://play.thehappylab.com/create**
 
+The `/create` (and `/mod`) UI is code-split from the feed: opening those paths downloads their chunk on demand.
+
 ## Happylab auto-deploy
 
 Pushing to the `thehappylab` GitHub remote builds/deploys automatically. That build uses committed [`.env.production`](../.env.production) for `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (public anon key + RLS). Do **not** put service-role or OpenAI keys there.
