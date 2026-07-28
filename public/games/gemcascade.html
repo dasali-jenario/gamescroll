@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Gem Cascade</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #1a0a2e; touch-action: none; }
+    #stage { position: fixed; inset: 0; will-change: transform; }
+    #stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+    #fx { pointer-events: none; z-index: 2; }
+    .hud {
+      position: fixed; top: 1rem; left: 0; right: 0; text-align: center; z-index: 3;
+      font: 800 2rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 10px rgba(0,0,0,.45); pointer-events: none;
+      transform-origin: 50% 50%;
+    }
+    .float-score {
+      position: fixed; z-index: 4; pointer-events: none;
+      font: 800 1.15rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,.5);
+      transform: translate(-50%, 0);
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <canvas id="fx"></canvas>
+  </div>
+  <div class="hud" id="score">0</div>
+  <script src="/lib/gsap.min.js"></script>
+  <script src="/lib/proton.min.js"></script>
+  <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
+  <script>
+
+    const GS = {
+      paused: true,
+      reported: false,
+      onFail: 'replay',
+      post(type, extra) {
+        try { parent.postMessage(Object.assign({ type }, extra || {}), '*') } catch (e) {}
+      },
+      begin(msg) {
+        const fail = msg && msg.onFail
+        if (fail === 'gameover' || fail === 'replay') GS.onFail = fail
+        if (!GS.reported) { GS.reported = true; GS.post('gamescroll:playing') }
+        GS.paused = false
+        if (typeof onHostStart === 'function') onHostStart()
+      },
+      halt() {
+        GS.paused = true
+        if (typeof onHostPause === 'function') onHostPause()
+      }
+    }
+    addEventListener('message', (e) => {
+      const t = e.data && e.data.type
+      if (t === 'gamescroll:start') GS.begin(e.data)
+      if (t === 'gamescroll:pause') GS.halt()
+    })
+    // Forward committed vertical flings to the host so swiping between games
+    // works even though this iframe captures all pointer events. Thresholds are
+    // high (long + fast + steep) so in-game taps, drags and short swipes never
+    // trigger navigation.
+    ;(function () {
+      let sx = 0, sy = 0, st = 0, tracking = false
+      addEventListener('pointerdown', (e) => {
+        sx = e.clientX; sy = e.clientY; st = performance.now(); tracking = true
+      }, true)
+      addEventListener('pointerup', (e) => {
+        if (!tracking) return
+        tracking = false
+        const dx = Math.abs(e.clientX - sx)
+        const dy = e.clientY - sy
+        const dt = performance.now() - st
+        const minDist = Math.max(140, innerHeight * 0.22)
+        if (dt > 350 || Math.abs(dy) < minDist || Math.abs(dy) < dx * 2.2) return
+        GS.post(dy < 0 ? 'gamescroll:swipe-next' : 'gamescroll:swipe-prev')
+      }, true)
+      addEventListener('pointercancel', () => { tracking = false }, true)
+    })()
+    GS.post('gamescroll:ready')
+
+    const canvas = document.getElementById('c')
+    const ctx = canvas.getContext('2d')
+    const scoreEl = document.getElementById('score')
+    const dpr = Math.min(devicePixelRatio || 1, 2)
+    let W = 0, H = 0, score = 0, last = performance.now()
+    function setScore(n) { score = Math.max(0, n|0); scoreEl.textContent = String(score) }
+    function reportScore() {
+      if (score > 0) {
+        try { parent.postMessage({ type: 'gamescroll:score', score }, '*') } catch (e) {}
+      }
+    }
+    function bump(n) {
+      const amount = n || 1
+      setScore(score + amount)
+      if (window.Juice) {
+        const pos = typeof scorePos === 'function' ? scorePos() : null
+        if (pos) Juice.onScore(amount, pos[0], pos[1])
+        else Juice.onScore(amount)
+      }
+    }
+    function resize() {
+      W = innerWidth; H = innerHeight
+      canvas.width = W * dpr; canvas.height = H * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      if (window.Juice) Juice.resize()
+    }
+    addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
+    resize()
+    if (window.Juice) Juice.init({ accent: "#ff44aa" })
+
+    let N = 8, grid = [], ox = 0, oy = 0, cell = 0, gap = 3
+    let sel = null, busy = false, timeLeft = 60, cascade = 0
+    const COLORS = ['#ff4455', '#44aaff', '#ffcc33', '#44dd88', '#cc66ff', '#ff8844']
+    function layout() {
+      const pad = 14
+      const side = Math.min(W - pad * 2, H * 0.68)
+      cell = (side - gap * (N + 1)) / N
+      ox = (W - side) * 0.5
+      oy = H * 0.14
+    }
+    function onResize() { layout() }
+    function diePos() { return [W * 0.5, oy + cell * 4] }
+    function scorePos() { return diePos() }
+    function randGem() { return (Math.random() * COLORS.length) | 0 }
+    function fillNoMatches() {
+      grid = Array.from({ length: N }, () => Array(N).fill(0))
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+        let g, guard = 0
+        do {
+          g = randGem()
+          guard++
+        } while (guard < 20 && (
+          (c >= 2 && grid[r][c - 1] === g && grid[r][c - 2] === g) ||
+          (r >= 2 && grid[r - 1][c] === g && grid[r - 2][c] === g)
+        ))
+        grid[r][c] = g
+      }
+    }
+    function findMatches() {
+      const mark = Array.from({ length: N }, () => Array(N).fill(false))
+      let any = false
+      for (let r = 0; r < N; r++) {
+        let run = 1
+        for (let c = 1; c <= N; c++) {
+          if (c < N && grid[r][c] === grid[r][c - 1]) run++
+          else {
+            if (run >= 3) { any = true; for (let k = 0; k < run; k++) mark[r][c - 1 - k] = true }
+            run = 1
+          }
+        }
+      }
+      for (let c = 0; c < N; c++) {
+        let run = 1
+        for (let r = 1; r <= N; r++) {
+          if (r < N && grid[r][c] === grid[r - 1][c]) run++
+          else {
+            if (run >= 3) { any = true; for (let k = 0; k < run; k++) mark[r - 1 - k][c] = true }
+            run = 1
+          }
+        }
+      }
+      return { mark, any }
+    }
+    function gravity() {
+      for (let c = 0; c < N; c++) {
+        let write = N - 1
+        for (let r = N - 1; r >= 0; r--) {
+          if (grid[r][c] >= 0) {
+            grid[write][c] = grid[r][c]
+            if (write !== r) grid[r][c] = -1
+            write--
+          }
+        }
+        for (let r = write; r >= 0; r--) grid[r][c] = randGem()
+      }
+    }
+    function resolve() {
+      cascade = 0
+      for (;;) {
+        const { mark, any } = findMatches()
+        if (!any) break
+        cascade++
+        let n = 0
+        for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (mark[r][c]) {
+          grid[r][c] = -1
+          n++
+        }
+        const mult = cascade === 1 ? 1 : cascade === 2 ? 1.5 : cascade >= 3 ? 2 : 1
+        bump(Math.floor(n * 12 * mult))
+        if (window.Juice) Juice.burst(W * 0.5, oy + cell * 4)
+        gravity()
+      }
+    }
+    function swap(a, b) {
+      const t = grid[a[0]][a[1]]
+      grid[a[0]][a[1]] = grid[b[0]][b[1]]
+      grid[b[0]][b[1]] = t
+    }
+    function adjacent(a, b) {
+      return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) === 1
+    }
+    function reset() {
+      layout()
+      fillNoMatches()
+      sel = null
+      busy = false
+      timeLeft = 60
+      cascade = 0
+      setScore(0)
+    }
+    function onHostStart() { reset() }
+    function die() { reset() }
+    function tick(dt) {
+      if (GS.paused) return
+      timeLeft -= dt
+      if (timeLeft <= 0) {
+        timeLeft = 0
+        die()
+      }
+    }
+    function cellAt(e) {
+      const rect = canvas.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      const c = Math.floor((x - ox - gap) / (cell + gap))
+      const r = Math.floor((y - oy - gap) / (cell + gap))
+      if (r < 0 || c < 0 || r >= N || c >= N) return null
+      return [r, c]
+    }
+    function draw() {
+      PF.sky(ctx, W, H, '#0c0418', '#1a0a2e', '#3a1060')
+      PF.dots(ctx, W, H, '#ff44aa', 14, 0.4)
+      const side = cell * N + gap * (N + 1)
+      PF.block(ctx, ox, oy, side, side, '#12061f', '#080310', 10)
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+        const g = grid[r][c]
+        if (g < 0) continue
+        const x = ox + gap + c * (cell + gap)
+        const y = oy + gap + r * (cell + gap)
+        const selected = sel && sel[0] === r && sel[1] === c
+        PF.block(ctx, x, y, cell, cell, COLORS[g], '#111', selected ? 14 : 8)
+        if (selected) {
+          ctx.strokeStyle = '#fff'
+          ctx.lineWidth = 2
+          ctx.strokeRect(x + 2, y + 2, cell - 4, cell - 4)
+        }
+      }
+      ctx.fillStyle = timeLeft < 10 ? '#ff6688' : 'rgba(255,255,255,0.75)'
+      ctx.font = '700 14px "Segoe UI", sans-serif'
+      ctx.fillText('Time ' + Math.ceil(timeLeft), 14, 28)
+    }
+    addEventListener('pointerdown', e => {
+      if (GS.paused || busy || timeLeft <= 0) return
+      const hit = cellAt(e)
+      if (!hit) return
+      if (!sel) { sel = hit; return }
+      if (sel[0] === hit[0] && sel[1] === hit[1]) { sel = null; return }
+      if (!adjacent(sel, hit)) { sel = hit; return }
+      busy = true
+      swap(sel, hit)
+      const { any } = findMatches()
+      if (!any) {
+        swap(sel, hit)
+        sel = null
+        busy = false
+        return
+      }
+      sel = null
+      resolve()
+      busy = false
+    })
+    reset()
+
+    if (typeof layout === 'function') {
+      try { layout() } catch (e) { console.error('[gamescroll] layout()', e) }
+    }
+    ;(function () {
+      const __halt = GS.halt
+      GS.halt = function () {
+        reportScore()
+        __halt()
+      }
+    })()
+    if (typeof die === 'function') {
+      const __die = die
+      die = function () {
+        if (GS.paused) return
+        reportScore()
+        if (window.Juice) {
+          const pos = typeof diePos === 'function' ? diePos() : null
+          if (pos) Juice.onDie(pos[0], pos[1])
+          else Juice.onDie()
+        }
+        if (GS.onFail === 'gameover') {
+          GS.post('gamescroll:died', { score })
+          GS.halt()
+          return
+        }
+        __die()
+      }
+    }
+    function loop(now) {
+      const dt = Math.min(0.033, (now - last) / 1000)
+      last = now
+      try {
+        if (window.PF) PF.t += dt
+        if (!GS.paused && typeof tick === 'function') tick(dt)
+        if (typeof draw === 'function') draw(now)
+        if (window.Juice) Juice.update()
+      } catch (err) {
+        console.error('[gamescroll]', err)
+      }
+      requestAnimationFrame(loop)
+    }
+    requestAnimationFrame(loop)
+  </script>
+</body>
+</html>

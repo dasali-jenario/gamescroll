@@ -69,6 +69,7 @@ describe('catalog integrity', () => {
     const src = [
       readFileSync(generatorPath, 'utf8'),
       readFileSync(join(root, 'scripts', 'wave1-games.mjs'), 'utf8'),
+      readFileSync(join(root, 'scripts', 'wave2-games.mjs'), 'utf8'),
     ].join('\n')
     for (const entry of officialCatalog) {
       expect(src).toContain(`${entry.id}: {`)

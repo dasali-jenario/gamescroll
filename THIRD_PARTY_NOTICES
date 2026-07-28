@@ -50,3 +50,20 @@ Mechanics adapted from apratico/insertcoin for these GameScroll ids:
 
 Source: https://github.com/apratico/insertcoin (MIT, Copyright (c) 2026 Alessandro Praticò).
 The full MIT text appears in the Orb Merge section above and applies to these adaptations.
+
+-------------------------------------------------------------------------------
+Wave 2 official games (same upstream MIT license as above)
+-------------------------------------------------------------------------------
+
+Mechanics adapted from apratico/insertcoin for these GameScroll ids:
+
+  tilemerge     ← 2048
+  minesweep     ← minesweeper
+  memmatch      ← memory
+  slide15       ← 15puzzle
+  gemcascade    ← gem-cascade
+  colorflow     ← color-flow
+  blockfit      ← block-fit
+
+Source: https://github.com/apratico/insertcoin (MIT, Copyright (c) 2026 Alessandro Praticò).
+The full MIT text appears in the Orb Merge section above and applies to these adaptations.

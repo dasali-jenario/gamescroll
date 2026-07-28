@@ -1,5 +1,20 @@
 # New file requests
 
+## 2026-07-28 — Wave 2 insertcoin puzzle ports
+
+### Requested files
+- `scripts/wave2-games.mjs` — seven MIT insertcoin puzzle rewrites as GameScroll `body` entries
+- `supabase/migrations/20260728173000_official_wave2_seed.sql` — upsert Wave 2 official `ugc_games` rows
+- Updates: `scripts/generate-games.mjs` (import + Object.assign), `THIRD_PARTY_NOTICES`, `FEED_WINDOW_MAX` (44×3), `seed-official-games.mjs`, feedWindow test, generated `public/games/*.html` + catalog
+
+### Duplicate search
+- Grep `tilemerge|minesweep|memmatch|slide15|gemcascade|colorflow|blockfit|wave2` under `scripts/` / `public/games/` → none
+- Glob `scripts/wave*` → only `wave1-games.mjs`
+- Closest: Wave 1 module pattern; insertcoin sources under `src/games/{2048,minesweeper,memory,15puzzle,gem-cascade,color-flow,block-fit}/`
+
+### Rationale
+Plan Wave 2 puzzle expansion; same packaging as Wave 1 (compact canvas rewrites, not TypeScript ports).
+
 ## 2026-07-28 — Measured chrome insets for playfield
 
 ### Requested files

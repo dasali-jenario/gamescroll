@@ -230,4 +230,46 @@ export const officialCatalog: OfficialCatalogEntry[] = [
     tip: "Drag to aim. Hold the line.",
     accent: "#ffd166",
   },
+  {
+    id: "tilemerge",
+    title: "Tile Merge",
+    tip: "Swipe to slide. Merge equals.",
+    accent: "#e94560",
+  },
+  {
+    id: "minesweep",
+    title: "Mine Sweep",
+    tip: "Tap dig. Long-press to flag.",
+    accent: "#66c0f4",
+  },
+  {
+    id: "memmatch",
+    title: "Memory Match",
+    tip: "Tap two cards. Match the pairs.",
+    accent: "#ff6bcb",
+  },
+  {
+    id: "slide15",
+    title: "Slide Fifteen",
+    tip: "Tap a tile beside the gap.",
+    accent: "#e94560",
+  },
+  {
+    id: "gemcascade",
+    title: "Gem Cascade",
+    tip: "Swap neighbors. Match 3+. Beat the clock.",
+    accent: "#ff44aa",
+  },
+  {
+    id: "colorflow",
+    title: "Color Pour",
+    tip: "Tap a tube, then another to pour.",
+    accent: "#f0b429",
+  },
+  {
+    id: "blockfit",
+    title: "Block Fit",
+    tip: "Drag pieces onto the grid. Clear lines.",
+    accent: "#60a5fa",
+  },
 ]

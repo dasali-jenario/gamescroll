@@ -105,6 +105,7 @@ if (!accessToken) {
 const migrationPaths = [
   join(root, 'supabase/migrations/20260727130000_ugc_games_source.sql'),
   join(root, 'supabase/migrations/20260728160000_official_wave1_seed.sql'),
+  join(root, 'supabase/migrations/20260728173000_official_wave2_seed.sql'),
 ]
 log('Applying official seed migrations…')
 for (const migrationPath of migrationPaths) {
