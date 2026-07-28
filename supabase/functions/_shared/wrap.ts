@@ -1,4 +1,4 @@
-/** Deno copy of src/lib/gameWrap.ts — keep in sync. */
+/** Deno copy of src/lib/gameWrap.ts — keep in sync via `node scripts/sync-shared.mjs`. */
 
 export const BRIDGE = `
     const GS = {
@@ -45,6 +45,15 @@ export const BRIDGE = `
     GS.post('gamescroll:ready')
 `
 
+export type WrapOptions = {
+  title: string
+  bg: string
+  body: string
+  accent?: string
+  /** Absolute or root-relative base for /lib scripts (e.g. https://play.thehappylab.com). */
+  libBase?: string
+}
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -53,13 +62,7 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
-export function wrapGameHtml(opts: {
-  title: string
-  bg: string
-  body: string
-  accent?: string
-  libBase?: string
-}): string {
+export function wrapGameHtml(opts: WrapOptions): string {
   const juiceAccent = opts.accent || '#ffffff'
   const base = (opts.libBase || '').replace(/\/$/, '')
   const lib = (name: string) => `${base}/lib/${name}`
@@ -83,6 +86,13 @@ export function wrapGameHtml(opts: {
       position: fixed; top: max(1rem, env(safe-area-inset-top)); left: 0; right: 0; text-align: center; z-index: 3;
       font: 800 clamp(1.4rem, 7vw, 2rem) "Segoe UI", sans-serif; color: #fff;
       text-shadow: 0 2px 10px rgba(0,0,0,.45); pointer-events: none;
+      transform-origin: 50% 50%;
+    }
+    .float-score {
+      position: fixed; z-index: 4; pointer-events: none;
+      font: 800 1.15rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,.5);
+      transform: translate(-50%, 0);
     }
   </style>
 </head>

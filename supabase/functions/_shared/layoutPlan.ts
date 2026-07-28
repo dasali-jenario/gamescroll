@@ -1,4 +1,4 @@
-/** Deno copy of src/lib/layoutPlan.ts — keep in sync. */
+/** Deno copy of src/lib/layoutPlan.ts — keep in sync via `node scripts/sync-shared.mjs`. */
 
 export type LayoutBand = 'hud' | 'title' | 'focal' | 'hint' | 'cta' | 'other'
 

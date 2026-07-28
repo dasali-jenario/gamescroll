@@ -1,4 +1,4 @@
-/** Smoke-run a UGC game body against a fake host. Keep in sync with src/lib/gameSmoke.ts. */
+/** Deno copy of src/lib/gameSmoke.ts — keep in sync via `node scripts/sync-shared.mjs`. */
 
 export type SmokeResult = { ok: true } | { ok: false; errors: string[] }
 

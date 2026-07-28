@@ -1,4 +1,4 @@
-/** Deno copy of src/lib/patchBody.ts — keep in sync. */
+/** Deno copy of src/lib/patchBody.ts — keep in sync via `node scripts/sync-shared.mjs`. */
 
 export type BodyPatch = {
   find: string

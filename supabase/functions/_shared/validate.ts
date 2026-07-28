@@ -1,4 +1,4 @@
-/** Deno copy of src/lib/gameValidator.ts — keep in sync. */
+/** Deno copy of src/lib/gameValidator.ts — keep in sync via `node scripts/sync-shared.mjs`. */
 
 export const REQUIRED_BRIDGE_SNIPPETS = [
   'gamescroll:ready',

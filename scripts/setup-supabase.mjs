@@ -186,6 +186,7 @@ log('Applying migrations via Management SQL API…')
   const migrations = [
     'supabase/migrations/20260723120000_ugc_games.sql',
     'supabase/migrations/20260727130000_ugc_games_source.sql',
+    'supabase/migrations/20260727210000_feed_telemetry_events.sql',
   ]
   for (const rel of migrations) {
     const migrationPath = join(root, rel)

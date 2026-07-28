@@ -1,5 +1,19 @@
 # New file requests
 
+## 2026-07-28 — Sync Deno `_shared` from `src/lib`
+
+### Requested files
+- `scripts/sync-shared.mjs` — write/check Deno twins (`wrap`, `validate`, `smoke`, `layoutPlan`, `mechanics`, `patchBody`)
+- Updates: `package.json` (`sync:shared`, `quality` runs `--check`), `scripts/setup-supabase.mjs` (include telemetry migration), Deno `_shared/*` regenerated from client sources
+
+### Duplicate search
+- Grep `sync-shared|sync:shared|_shared.*keep in sync` under `/Users/dasali/gamescroll` → comments only; no sync script
+- Glob `scripts/*sync*` → only Capacitor `cap:sync` in package.json; no Deno twin sync
+- Existing twins: `gameWrap`↔`wrap`, `gameValidator`↔`validate`, `gameSmoke`↔`smoke`, plus identical-named layoutPlan/mechanics/patchBody — were drifting (wrap missing `.float-score`)
+
+### Rationale
+P1 roadmap: one source of truth for client ↔ Deno validation/wrap so UGC shell changes stay in parity.
+
 ## 2026-07-27 — Play presentation contract + tests
 
 ### Requested files
