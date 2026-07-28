@@ -13,12 +13,13 @@ import {
 } from './lib/playPresentation'
 
 const root = process.cwd()
-const css = readFileSync(join(root, 'src/index.css'), 'utf8')
+const baseCss = readFileSync(join(root, 'src/styles/base.css'), 'utf8')
+const feedCss = readFileSync(join(root, 'src/styles/feed.css'), 'utf8')
 const app = readFileSync(join(root, 'src/App.tsx'), 'utf8')
 
 function cssVar(name: string): string | null {
   const re = new RegExp(`--${name}:\\s*([^;]+);`)
-  const m = css.match(re)
+  const m = baseCss.match(re)
   return m ? m[1].trim() : null
 }
 
@@ -113,20 +114,20 @@ describe('host CSS / App presentation contract', () => {
   })
 
   it('letterboxes the playing stage with those inset vars', () => {
-    expect(css).toContain('.card.is-playing .stage')
-    expect(css).toMatch(/right:\s*var\(--play-inset-right\)/)
-    expect(css).toMatch(/left:\s*var\(--play-inset-left\)/)
-    expect(css).toMatch(/top:\s*var\(--chrome-top\)/)
-    expect(css).toMatch(/bottom:\s*var\(--play-inset-bottom\)/)
+    expect(feedCss).toContain('.card.is-playing .stage')
+    expect(feedCss).toMatch(/right:\s*var\(--play-inset-right\)/)
+    expect(feedCss).toMatch(/left:\s*var\(--play-inset-left\)/)
+    expect(feedCss).toMatch(/top:\s*var\(--chrome-top\)/)
+    expect(feedCss).toMatch(/bottom:\s*var\(--play-inset-bottom\)/)
   })
 
   it('keeps the dark rail as a hint class, not a play-mode letterbox reserve', () => {
-    expect(css).toContain(`.${RAIL_HINT_CLASS}`)
-    expect(css).toMatch(
+    expect(feedCss).toContain(`.${RAIL_HINT_CLASS}`)
+    expect(feedCss).toMatch(
       /\.swipe-rail--hint[\s\S]*?background:\s*linear-gradient/,
     )
     // Base capture rail must stay transparent (no dark bar while playing).
-    const baseBlock = css.match(
+    const baseBlock = feedCss.match(
       /\/\* Invisible right-edge[\s\S]*?\.swipe-rail \{([\s\S]*?)\}/,
     )
     expect(baseBlock?.[1]).toMatch(/background:\s*transparent/)

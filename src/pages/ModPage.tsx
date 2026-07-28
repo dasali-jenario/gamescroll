@@ -1,7 +1,58 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getSupabase, isSupabaseConfigured, type UgcGameRow } from '../lib/supabase'
+import { usePlayableFrameSrc } from '../lib/usePlayableFrameSrc'
 import { fetchPublishedForModeration, invokeCreator, ugcRowToGame } from '../lib/ugc'
+
+/** Load iframe only when the card is near the viewport or the mod expands it. */
+function ModPreview({ src, title }: { src: string; title: string }) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [nearViewport, setNearViewport] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const enabled = nearViewport || expanded
+  const frameSrc = usePlayableFrameSrc(src, enabled)
+
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        setNearViewport(Boolean(entry?.isIntersecting))
+      },
+      { rootMargin: '240px 0px', threshold: 0.01 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  return (
+    <div ref={rootRef} className="mod-preview">
+      {enabled && frameSrc ? (
+        <iframe
+          title={title}
+          src={frameSrc}
+          sandbox="allow-scripts"
+          className="mod-frame"
+        />
+      ) : (
+        <button
+          type="button"
+          className="mod-frame-placeholder"
+          onClick={() => setExpanded(true)}
+        >
+          Load preview
+        </button>
+      )}
+      <button
+        type="button"
+        className="create-ghost mod-preview-toggle"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? 'Release preview' : 'Pin preview'}
+      </button>
+    </div>
+  )
+}
 
 export function ModPage() {
   const [rows, setRows] = useState<UgcGameRow[]>([])
@@ -85,12 +136,7 @@ export function ModPage() {
                 <span>{row.tip}</span>
                 <span className="create-hint">slug: {row.slug}</span>
               </div>
-              <iframe
-                title={row.title}
-                src={game.src}
-                sandbox="allow-scripts"
-                className="mod-frame"
-              />
+              <ModPreview src={game.src} title={row.title} />
               <div className="create-action-row">
                 <button
                   type="button"

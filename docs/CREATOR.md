@@ -48,6 +48,23 @@ Or ask Cursor to run that SQL for you.
 
 `public/.htaccess` rewrites unknown paths to `index.html` so `/create` and `/mod` work on hard refresh. Redeploy `dist/` after build.
 
+## Edge Function layout
+
+`supabase/functions/creator/index.ts` is a thin HTTP entry (CORS, auth, action dispatch). Pipeline lives under `supabase/functions/_shared/`:
+
+| Module | Role |
+|--------|------|
+| `creatorLlm.ts` | System prompt, OpenAI call, repair/critique helpers |
+| `qualityGate.ts` | `checkGame` / `ensureGameQuality` |
+| `chatTurn.ts` | `chat` action (interview → generate/iterate → draft upload) |
+| `publishDraft.ts` | `publish` + `moderate` actions |
+
+After changing those files, redeploy: `supabase functions deploy creator --project-ref <ref>`.
+
+## Moderation previews
+
+`/mod` loads game iframes only when a card is near the viewport (or the moderator pins/loads a preview). Previews reuse `usePlayableFrameSrc` so Storage-served HTML gets the same blob wrapping as the feed.
+
 ## Flow
 
 1. User opens `/create`, magic-link signs in.

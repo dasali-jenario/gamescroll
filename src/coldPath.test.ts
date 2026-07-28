@@ -11,7 +11,7 @@ const feedSession = readFileSync(
 )
 const feedBoot = readFileSync(join(root, 'src/lib/feedBoot.ts'), 'utf8')
 const ugc = readFileSync(join(root, 'src/lib/ugc.ts'), 'utf8')
-const css = readFileSync(join(root, 'src/index.css'), 'utf8')
+const css = readFileSync(join(root, 'src/styles/base.css'), 'utf8')
 
 describe('P2 cold-path contracts', () => {
   it('lazy-loads Create and Mod routes behind Suspense', () => {

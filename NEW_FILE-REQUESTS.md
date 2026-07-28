@@ -1,5 +1,42 @@
 # New file requests
 
+## 2026-07-28 — CSS by surface
+
+### Requested files
+- `src/styles/base.css` — tokens, document shell, route/share loading, reduced-motion
+- `src/styles/feed.css` — feed chrome, cards, play overlays, swipe cues
+- `src/styles/create.css` — `/create` (shared chrome also used by `/mod`)
+- `src/styles/mod.css` — `/mod` list/preview
+- `src/stylesBySurface.test.ts` — barrel + surface file contracts
+- Updates: `src/index.css` (import barrel only), presentation/coldPath/creatorMod tests, plan
+
+### Duplicate search
+- Grep `styles/feed|styles/create|styles/mod|styles/base` under `src/` → none
+- Glob `src/**/*.css` → only `src/index.css` (~1024 lines, all surfaces)
+- Existing related: single host entry `import './index.css'` in `main.tsx`
+
+### Rationale
+Roadmap optional item: split host CSS by UI surface so editing cost stays low; not a runtime change (`index.css` still the Vite entry).
+
+## 2026-07-28 — P2 creator carve + lazy mod iframes
+
+### Requested files
+- `supabase/functions/_shared/creatorLlm.ts` — system prompt, OpenAI helpers, repair/critique
+- `supabase/functions/_shared/qualityGate.ts` — `checkGame` / `ensureGameQuality`
+- `supabase/functions/_shared/chatTurn.ts` — `handleChatTurn` (`chat` action)
+- `supabase/functions/_shared/publishDraft.ts` — `handlePublish` / `handleModerate`
+- `src/creatorMod.test.ts` — source contracts for thin creator entry + lazy ModPage iframes
+- Updates: `supabase/functions/creator/index.ts` (thin dispatch), `src/pages/ModPage.tsx` (IntersectionObserver + `usePlayableFrameSrc`), `src/index.css` (`.mod-frame-placeholder`), docs/plan
+
+### Duplicate search
+- Grep `handleChatTurn|ensureGameQuality|creatorLlm|qualityGate|publishDraft` under `supabase/functions` → lived only inside monolithic `creator/index.ts` (~900+ lines)
+- Glob `supabase/functions/_shared/creator*` / `*quality*` / `*chatTurn*` / `*publish*` → none matching this carve (existing `_shared`: wrap, validate, smoke, layoutPlan, mechanics, patchBody, canonExamples)
+- Grep `IntersectionObserver|usePlayableFrameSrc` under `src/pages/ModPage.tsx` → ModPage always mounted `<iframe src={game.src}>` per row; `usePlayableFrameSrc` already used by GameCard + CreatorPreview
+- Glob `src/**/*Mod*` → only `ModPage.tsx`
+
+### Rationale
+P2 roadmap: maintainable creator Edge modules; avoid mounting every pending mod preview iframe eagerly.
+
 ## 2026-07-28 — P2 cold path: lazy routes, slim UGC selects, parallel boot
 
 ### Requested files

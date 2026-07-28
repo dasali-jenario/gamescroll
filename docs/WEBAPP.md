@@ -102,13 +102,16 @@ flowchart TB
 | `lib/feedMessageHub.ts` | Single `window` `message` dispatcher for loaded cards |
 | `lib/playPresentation.ts` | Symmetric play insets + rail-hint visibility helpers |
 | `AppRouter.tsx` | Routes; `/create` and `/mod` are `React.lazy` + `Suspense` |
+| `pages/ModPage.tsx` | UGC moderation; iframes gated to near-viewport / pinned preview via `usePlayableFrameSrc` |
 | `lib/ugc.ts` | UGC fetch helpers; slim column lists per call site (feed / mod / my games) |
 | `lib/feedBoot.ts` | Parallel community + `?g=` slug resolution for feed boot |
+| `lib/usePlayableFrameSrc.ts` | Blob-wrap UGC HTML for iframes (feed + creator preview + mod) |
 | `share.ts` | `?g=` deep links + Web Share / clipboard |
 | `highscores.ts` | Per-game best scores |
 | `metrics.ts` | Visits + sparse feed telemetry batcher |
 | `experiments.ts` | Auto-restart preference ↔ iframe `onFail` |
 | `updateCheck.ts` | Poll `/version.json` every 12s; cache-bust reload when a new deploy is live |
+| `index.css` | Import barrel for `styles/{base,feed,create,mod}.css` |
 
 ### Games (`public/games/` + generator)
 

@@ -1,0 +1,51 @@
+/** Moderation (/mod) surface. */
+.mod-list {
+  list-style: none;
+  display: grid;
+  gap: 1.25rem;
+  max-width: 42rem;
+}
+
+.mod-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(243, 238, 228, 0.12);
+  border-radius: 1rem;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.mod-meta {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.mod-preview {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.mod-frame,
+.mod-frame-placeholder {
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  max-height: 420px;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #000;
+}
+
+.mod-frame-placeholder {
+  display: grid;
+  place-items: center;
+  color: rgba(243, 238, 228, 0.72);
+  font: inherit;
+  cursor: pointer;
+  border: 1px dashed rgba(243, 238, 228, 0.2);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.mod-preview-toggle {
+  justify-self: start;
+}
+
