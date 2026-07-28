@@ -21,6 +21,18 @@ describe('games catalog', () => {
     expect(getGameById(games[0].id)?.title).toBe(games[0].title)
     expect(getGameById('not-a-real-game')).toBeUndefined()
   })
+
+  it('is backed by the generator-emitted officialCatalog', async () => {
+    const { officialCatalog } = await import('./generated/officialCatalog')
+    expect(officialCatalog).toHaveLength(games.length)
+    expect(games.map((g) => g.id)).toEqual(officialCatalog.map((e) => e.id))
+    for (let i = 0; i < games.length; i++) {
+      expect(games[i].title).toBe(officialCatalog[i].title)
+      expect(games[i].tip).toBe(officialCatalog[i].tip)
+      expect(games[i].accent).toBe(officialCatalog[i].accent)
+      expect(games[i].src).toBe(`/games/${officialCatalog[i].id}.html`)
+    }
+  })
 })
 
 describe('buildFeedBatch', () => {

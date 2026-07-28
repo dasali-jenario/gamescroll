@@ -9,12 +9,15 @@ npm run dev
 
 Open the local URL. After the intro reel, the landing game autoplays. **Pause** (or Esc) freezes play. Switch games while playing with a big vertical fling anywhere, the right-edge swipe strip, or ↓ / J and ↑ / K. A brief **Swipe** cue appears after the intro so the feed stays discoverable.
 
+Official games are authored in `scripts/generate-games.mjs` (`title`, `tip`, `bg`, `body`). Run `npm run generate:games` to refresh HTML and `src/generated/officialCatalog.ts` — the host catalog imports that file (no hand-duplicated metadata).
+
 For architecture, the host↔game bridge, Android, and deploy domains, see [docs/WEBAPP.md](docs/WEBAPP.md).
 
 Create your own games at **/create** (product URL: [play.thehappylab.com/create](https://play.thehappylab.com/create)) — see [docs/CREATOR.md](docs/CREATOR.md).
 
 ```bash
-npm run quality   # typecheck + unit tests + Deno _shared sync check
+npm run quality   # typecheck + unit tests + Deno _shared sync check + catalog check
 npm test          # Vitest only
 npm run sync:shared  # regenerate supabase/functions/_shared from src/lib
+npm run generate:games  # write public/games HTML + src/generated/officialCatalog.ts
 ```

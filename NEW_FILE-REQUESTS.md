@@ -1,5 +1,19 @@
 # New file requests
 
+## 2026-07-28 — Official catalog metadata from generator
+
+### Requested files
+- `src/generated/officialCatalog.ts` — emitted `{ id, title, tip, accent }` list (do not edit by hand)
+- Updates: `scripts/generate-games.mjs` (per-game `tip`, write + `--check`), `src/games.ts` (imports generated catalog + adds `src`), `package.json` (`generate:games`, quality runs catalog `--check`), docs
+
+### Duplicate search
+- Grep `officialCatalog|generated/catalog|catalog\.generated` under `/Users/dasali/gamescroll` → none
+- Glob `src/generated/**` → none
+- Existing dual-touch: `src/games.ts` hand list + `scripts/generate-games.mjs` bodies/titles/bg — tips only lived in `games.ts`
+
+### Rationale
+P1 roadmap: one place to add title/tip/accent when authoring a game (the generator); host imports emitted metadata.
+
 ## 2026-07-28 — Split App.tsx into feed / play / gesture hooks
 
 ### Requested files

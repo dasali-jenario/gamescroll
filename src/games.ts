@@ -1,3 +1,5 @@
+import { officialCatalog } from './generated/officialCatalog'
+
 export type Game = {
   id: string
   title: string
@@ -6,34 +8,11 @@ export type Game = {
   accent: string
 }
 
-export const games: Game[] = [
-  { id: 'pong', title: 'Pocket Pong', tip: 'Drag to keep the ball bouncing', src: '/games/pong.html', accent: '#1b4332' },
-  { id: 'flappy', title: 'Flappy', tip: 'Tap to stay airborne', src: '/games/flappy.html', accent: '#2d6a4f' },
-  { id: 'fish', title: 'Tiny Fish', tip: 'Hold to swim up through coral, release to dive', src: '/games/fish.html', accent: '#0077b6' },
-  { id: 'lanes', title: 'Lane Switch', tip: 'Tap to switch lanes', src: '/games/lanes.html', accent: '#1d3557' },
-  { id: 'stack', title: 'Falling Stack', tip: 'Tap to drop the moving block', src: '/games/stack.html', accent: '#7b2d26' },
-  { id: 'ski', title: 'Endless Ski', tip: 'Slide to dodge trees', src: '/games/ski.html', accent: '#457b9d' },
-  { id: 'gravity', title: 'Gravity Flip', tip: 'Tap to flip floor and ceiling', src: '/games/gravity.html', accent: '#3d405b' },
-  { id: 'bubbles', title: 'Bubble Pressure', tip: 'Pop bubbles, avoid hearts', src: '/games/bubbles.html', accent: '#0077b6' },
-  { id: 'road', title: 'Stay on the Road', tip: 'Drag to stay on the winding road', src: '/games/road.html', accent: '#264653' },
-  { id: 'balloon', title: 'Balloon Tap', tip: 'Tap the balloon to keep it up', src: '/games/balloon.html', accent: '#e76f51' },
-  { id: 'colour', title: 'Colour Gate', tip: 'Tap to match the next gate', src: '/games/colour.html', accent: '#9b2226' },
-  { id: 'doodle', title: 'Endless Doodle Jump', tip: 'Tilt sideways between platforms', src: '/games/doodle.html', accent: '#2a9d8f' },
-  { id: 'tunnel', title: 'Tunnel Drift', tip: 'Drag through the moving tunnel', src: '/games/tunnel.html', accent: '#023e8a' },
-  { id: 'pulse', title: 'Perfect Pulse', tip: 'Tap when the rings overlap', src: '/games/pulse.html', accent: '#5e548e' },
-  { id: 'snake', title: 'Snake Lite', tip: 'Swipe to turn toward dots', src: '/games/snake.html', accent: '#386641' },
-  { id: 'cross', title: 'Cross Forever', tip: 'Tap to hop across lanes', src: '/games/cross.html', accent: '#6c584c' },
-  { id: 'catch', title: 'Catch or Dodge', tip: 'Catch friends, dodge threats', src: '/games/catch.html', accent: '#3c096c' },
-  { id: 'ridge', title: 'Rolling Ridge', tip: 'Steer along the narrow ridge', src: '/games/ridge.html', accent: '#582f0e' },
-  { id: 'wall', title: 'Wall Bounce', tip: 'Tap to bounce between walls', src: '/games/wall.html', accent: '#bc4749' },
-  { id: 'dance', title: 'Two-Dot Dance', tip: 'Tap to reverse the spin', src: '/games/dance.html', accent: '#7209b7' },
-  { id: 'balance', title: 'Keep It Balanced', tip: 'Tilt to keep the ball on', src: '/games/balance.html', accent: '#b08968' },
-  { id: 'shapes', title: 'Shape Squeeze', tip: 'Tap to match the next hole', src: '/games/shapes.html', accent: '#d62828' },
-  { id: 'rain', title: 'Rain Dodger', tip: 'Drag sideways under the rain', src: '/games/rain.html', accent: '#415a77' },
-  { id: 'magnet', title: 'Magnet Flip', tip: 'Tap to reverse polarity', src: '/games/magnet.html', accent: '#9d4edd' },
-  { id: 'breakout', title: 'Mini Breakout', tip: 'Bounce through endless bricks', src: '/games/breakout.html', accent: '#e9c46a' },
-  { id: 'slicer', title: 'Shape Slicer', tip: 'Draw a line to split the shape 50/50', src: '/games/slicer.html', accent: '#ff6d00' },
-]
+/** Official feed catalog — metadata emitted by `scripts/generate-games.mjs`. */
+export const games: Game[] = officialCatalog.map((entry) => ({
+  ...entry,
+  src: `/games/${entry.id}.html`,
+}))
 
 export type FeedItem = {
   key: string

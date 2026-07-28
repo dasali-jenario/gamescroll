@@ -50,14 +50,16 @@ flowchart TB
     Play[usePlaySession]
     Gestures[useFeedGestures]
     Card[GameCard.tsx]
-    Catalog[games.ts catalog]
+    Catalog[generated officialCatalog]
+    GamesMod[games.ts feed helpers]
     Store[localStorage highscores metrics prefs]
     App --> Feed
     App --> Play
     App --> Gestures
     App --> Card
-    App --> Catalog
-    Feed --> Catalog
+    App --> GamesMod
+    GamesMod --> Catalog
+    Feed --> GamesMod
     Play --> Store
     Card --> Store
   end
@@ -82,7 +84,8 @@ flowchart TB
 | `hooks/useFeedSession.ts` | Boot / UGC community, jackpot intro, append/prune window, activeIndex, scroll |
 | `hooks/usePlaySession.ts` | playingKey, scores, game-over, auto-restart, rail hint, cue/nudge, deploy reload |
 | `hooks/useFeedGestures.ts` | Keyboard, intro cancel, nudge swipe, silent-rail swipe, play-mode scroll lock |
-| `games.ts` | Catalog of games (`id`, `title`, `tip`, `src`, `accent`) |
+| `games.ts` | Feed helpers + `Game` type; official list from `generated/officialCatalog.ts` |
+| `generated/officialCatalog.ts` | Emitted `{ id, title, tip, accent }` (from `generate-games.mjs`) |
 | `components/GameCard.tsx` | iframe load + bridge |
 | `components/BottomNav.tsx` | fixed bottom like/share nav for the active game |
 | `components/GameOverOverlay.tsx` | Fail UI when auto-restart is off |
@@ -102,7 +105,7 @@ flowchart TB
 
 | Path | Role |
 |------|------|
-| `scripts/generate-games.mjs` | Source of truth for game logic + shared bridge |
+| `scripts/generate-games.mjs` | Source of truth for game bodies + shared bridge; emits HTML and `officialCatalog.ts` |
 | `public/games/<id>.html` | Generated pages loaded by iframes |
 | `public/lib/{gsap,proton,juice,playful}.js` | Shared FX / drawing helpers inside iframes |
 
@@ -110,9 +113,9 @@ flowchart TB
 
 ## Game catalog and authoring
 
-1. Implement a game body in the `games` object in `scripts/generate-games.mjs`.
-2. Register the same `id` in `src/games.ts` with `src: '/games/<id>.html'`.
-3. Run `node scripts/generate-games.mjs` to write/update HTML (and remove obsolete files listed in the generator).
+1. Implement a game body in the `games` object in `scripts/generate-games.mjs` with `title`, `tip`, `bg` (and optional `accent`).
+2. Run `node scripts/generate-games.mjs` (or `npm run generate:games`) to write `public/games/<id>.html` and regenerate `src/generated/officialCatalog.ts`.
+3. The host catalog in `src/games.ts` imports that generated list (no hand-maintained title/tip/accent duplicate).
 
 The host feed is a shuffled batch of the full catalog (`buildFeedBatch`). Near the end of the list, another batch is appended so the scroll feels endless.
 
@@ -251,13 +254,12 @@ Git remotes in use:
 
 ## Adding or changing a game
 
-1. Edit or add the game body in `scripts/generate-games.mjs`.
-2. Keep `src/games.ts` in sync (add/remove catalog entry, tip, accent).
-3. Run `node scripts/generate-games.mjs`.
-4. Smoke-test in the feed (`npm run dev`), including pause, score, fail, and swipe.
-5. Run `npm run quality` so catalog↔HTML integrity and host unit tests still pass.
+1. Edit or add the game body in `scripts/generate-games.mjs` (`title`, `tip`, `bg`, optional `accent`, `body`).
+2. Run `npm run generate:games` (writes HTML + `src/generated/officialCatalog.ts`).
+3. Smoke-test in the feed (`npm run dev`), including pause, score, fail, and swipe.
+4. Run `npm run quality` so catalog↔HTML integrity, catalog `--check`, and host unit tests still pass.
 
-To remove a game, delete the catalog entry, remove the generator block, and add the HTML filename to the generator’s `obsolete` list so regenerating cleans `public/games/`.
+To remove a game, delete the generator block and add the HTML filename to the generator’s `obsolete` list so regenerating cleans `public/games/` (and drops it from the emitted catalog).
 
 ---
 
@@ -282,13 +284,15 @@ UGC HTML must pass the same host bridge contract and forbid multiplayer / networ
 |---------|----------------|
 | `npm run typecheck` | `tsc -b` (app sources; `*.test.ts` excluded) |
 | `npm test` | Vitest unit tests under `src/**/*.test.ts` |
+| `npm run generate:games` | Write `public/games/*.html` + `src/generated/officialCatalog.ts` |
 | `npm run sync:shared` | Regenerate Deno `_shared` twins from `src/lib` |
-| `npm run quality` | typecheck + tests + `sync-shared --check` (also the CI job) |
+| `npm run quality` | typecheck + tests + `sync-shared --check` + `generate-games --check` |
 
 Coverage today:
 
 - Catalog shape, feed keys, share deep links, highscores, auto-restart prefs
 - Catalog ids ↔ `public/games/*.html`, bridge message contract, culled games stay gone
+- Generated `officialCatalog.ts` stays in sync with `generate-games.mjs`
 - UGC wrap/validator (forbidden APIs + bridge snippets)
 - Feed window prune, message hub, blob LRU, play presentation, App hook-shell contract
 - Deno `_shared` parity with `src/lib` (via sync check)

@@ -1,9 +1,11 @@
 /**
- * Generates all 30 Gamescroll HTML games with shared bridge.
+ * Generates all Gamescroll HTML games with shared bridge, and emits
+ * `src/generated/officialCatalog.ts` (id/title/tip/accent) for the host feed.
  * Fail mode is host-controlled via gamescroll:start { onFail: 'replay'|'gameover' }.
  * Run: node scripts/generate-games.mjs
+ * Check: node scripts/generate-games.mjs --check
  */
-import { writeFileSync, unlinkSync, existsSync } from 'node:fs'
+import { writeFileSync, unlinkSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -179,6 +181,7 @@ ${body}
 const games = {
   pong: {
     title: 'Pocket Pong',
+    tip: 'Drag to keep the ball bouncing',
     bg: '#1b4332',
     body: `
     let px, pw, ball, vx, vy
@@ -233,6 +236,7 @@ const games = {
 
   flappy: {
     title: 'Flappy',
+    tip: 'Tap to stay airborne',
     bg: '#2d6a4f',
     body: `
     let y, v, pipes, gap = 130
@@ -440,6 +444,7 @@ const games = {
 
   lanes: {
     title: 'Lane Switch',
+    tip: 'Tap to switch lanes',
     bg: '#1d3557',
     body: `
     const LANES = [0.28, 0.72]
@@ -492,6 +497,7 @@ const games = {
 
   stack: {
     title: 'Falling Stack',
+    tip: 'Tap to drop the moving block',
     bg: '#7b2d26',
     body: `
     let pieces = [], cur, dir = 1, speed = 180, baseW
@@ -567,6 +573,7 @@ const games = {
 
   ski: {
     title: 'Endless Ski',
+    tip: 'Slide to dodge trees',
     bg: '#457b9d',
     body: `
     let x, trees = [], spawn = 0
@@ -621,6 +628,7 @@ const games = {
 
   gravity: {
     title: 'Gravity Flip',
+    tip: 'Tap to flip floor and ceiling',
     bg: '#3d405b',
     body: `
     let onCeil = false, obstacles = [], spawn = 0, y
@@ -674,6 +682,7 @@ const games = {
 
   bubbles: {
     title: 'Bubble Pressure',
+    tip: 'Pop bubbles, avoid hearts',
     bg: '#0077b6',
     body: `
     let bubbles = [], spawn = 0
@@ -757,6 +766,7 @@ const games = {
 
   road: {
     title: 'Stay on the Road',
+    tip: 'Drag to stay on the winding road',
     bg: '#264653',
     body: `
     let carX = 0.5, road = [], t = 0
@@ -821,6 +831,7 @@ const games = {
 Object.assign(games, {
   balloon: {
     title: 'Balloon Tap',
+    tip: 'Tap the balloon to keep it up',
     bg: '#e76f51',
     body: `
     let bx, by, bv, spikes = [], spawn = 0
@@ -867,6 +878,7 @@ Object.assign(games, {
 
   colour: {
     title: 'Colour Gate',
+    tip: 'Tap to match the next gate',
     bg: '#9b2226',
     body: `
     const COLORS = ['#e9c46a', '#2a9d8f', '#e76f51']
@@ -907,6 +919,7 @@ Object.assign(games, {
 
   doodle: {
     title: 'Endless Doodle Jump',
+    tip: 'Tilt sideways between platforms',
     bg: '#2a9d8f',
     body: `
     let x, y, v, plats = [], cam = 0
@@ -971,6 +984,7 @@ Object.assign(games, {
 
   tunnel: {
     title: 'Tunnel Drift',
+    tip: 'Drag through the moving tunnel',
     bg: '#023e8a',
     body: `
     let x = 0.5, walls = [], t = 0
@@ -1025,6 +1039,7 @@ Object.assign(games, {
 
   pulse: {
     title: 'Perfect Pulse',
+    tip: 'Tap when the rings overlap',
     bg: '#5e548e',
     body: `
     let rings = [], spawn = 0, flash = 0
@@ -1070,6 +1085,7 @@ Object.assign(games, {
 
   snake: {
     title: 'Snake Lite',
+    tip: 'Swipe to turn toward dots',
     bg: '#386641',
     body: `
     let body, dir, next, food, acc = 0
@@ -1125,6 +1141,7 @@ Object.assign(games, {
 
   cross: {
     title: 'Cross Forever',
+    tip: 'Tap to hop across lanes',
     bg: '#6c584c',
     body: `
     let row = 0, lanes = [], player = { c: 2, r: 0 }, cols = 5
@@ -1196,6 +1213,7 @@ Object.assign(games, {
 
   catch: {
     title: 'Catch or Dodge',
+    tip: 'Catch friends, dodge threats',
     bg: '#3c096c',
     body: `
     let bx, items = [], spawn = 0
@@ -1237,6 +1255,7 @@ Object.assign(games, {
 
   ridge: {
     title: 'Rolling Ridge',
+    tip: 'Steer along the narrow ridge',
     bg: '#582f0e',
     body: `
     let x = 0.5, path = [], scroll = 0
@@ -1286,6 +1305,7 @@ Object.assign(games, {
 Object.assign(games, {
   wall: {
     title: 'Wall Bounce',
+    tip: 'Tap to bounce between walls',
     bg: '#bc4749',
     body: `
     let side = -1, y, v, spikes = [], spawn = 0, x
@@ -1332,6 +1352,7 @@ Object.assign(games, {
 
   fish: {
     title: 'Tiny Fish',
+    tip: 'Hold to swim up through coral, release to dive',
     bg: '#0077b6',
     body: `
     let y, v = 0, holding = false, rocks = [], spawn = 0
@@ -1643,6 +1664,7 @@ Object.assign(games, {
 
   dance: {
     title: 'Two-Dot Dance',
+    tip: 'Tap to reverse the spin',
     bg: '#7209b7',
     body: `
     let ang = 0, dir = 1, gaps = [], spawn = 0
@@ -1691,6 +1713,7 @@ Object.assign(games, {
 
   balance: {
     title: 'Keep It Balanced',
+    tip: 'Tilt to keep the ball on',
     bg: '#b08968',
     body: `
     let tilt = 0, ball = 0, noise = 0
@@ -1731,6 +1754,7 @@ Object.assign(games, {
 
   shapes: {
     title: 'Shape Squeeze',
+    tip: 'Tap to match the next hole',
     bg: '#d62828',
     body: `
     const SHAPES = ['circle', 'square', 'tri']
@@ -1781,6 +1805,7 @@ Object.assign(games, {
 
   rain: {
     title: 'Rain Dodger',
+    tip: 'Drag sideways under the rain',
     bg: '#415a77',
     body: `
     let x = 0.5, drops = [], spawn = 0
@@ -1819,6 +1844,7 @@ Object.assign(games, {
 
   magnet: {
     title: 'Magnet Flip',
+    tip: 'Tap to reverse polarity',
     bg: '#9d4edd',
     body: `
     let y, pol = 1, hazards = [], spawn = 0
@@ -1857,6 +1883,7 @@ Object.assign(games, {
 
   breakout: {
     title: 'Mini Breakout',
+    tip: 'Bounce through endless bricks',
     bg: '#e9c46a',
     body: `
     let px, pw, ball, bricks = []
@@ -1912,6 +1939,7 @@ Object.assign(games, {
 
   slicer: {
     title: 'Shape Slicer',
+    tip: 'Draw a line to split the shape 50/50',
     bg: '#7b2cbf',
     accent: '#ff6d00',
     body: `
@@ -2193,6 +2221,52 @@ Object.assign(games, {
 })
 
 const obsolete = ['aim.html', 'dodge.html', 'flap.html', 'react.html', 'orbit.html', 'light.html', 'helix.html', 'shield.html']
+
+const CATALOG_OUT = join(__dirname, '../src/generated/officialCatalog.ts')
+const checkOnly = process.argv.includes('--check')
+
+function buildOfficialCatalog() {
+  return Object.entries(games).map(([id, g]) => {
+    if (!g.title || !g.tip || !g.bg) {
+      throw new Error(`catalog entry "${id}" needs title, tip, and bg`)
+    }
+    return {
+      id,
+      title: g.title,
+      tip: g.tip,
+      accent: g.accent || g.bg,
+    }
+  })
+}
+
+function renderOfficialCatalogTs(entries) {
+  const body = entries
+    .map(
+      (e) =>
+        `  {\n    id: ${JSON.stringify(e.id)},\n    title: ${JSON.stringify(e.title)},\n    tip: ${JSON.stringify(e.tip)},\n    accent: ${JSON.stringify(e.accent)},\n  }`,
+    )
+    .join(',\n')
+  return `/** Generated by \`node scripts/generate-games.mjs\` — do not edit by hand. */\n\nexport type OfficialCatalogEntry = {\n  id: string\n  title: string\n  tip: string\n  accent: string\n}\n\nexport const officialCatalog: OfficialCatalogEntry[] = [\n${body},\n]\n`
+}
+
+const catalogTs = renderOfficialCatalogTs(buildOfficialCatalog())
+
+if (checkOnly) {
+  if (!existsSync(CATALOG_OUT)) {
+    console.error('[generate-games] missing', CATALOG_OUT)
+    process.exit(1)
+  }
+  const current = readFileSync(CATALOG_OUT, 'utf8')
+  if (current !== catalogTs) {
+    console.error(
+      '[generate-games] src/generated/officialCatalog.ts is out of date — run: node scripts/generate-games.mjs',
+    )
+    process.exit(1)
+  }
+  console.log('[generate-games] officialCatalog.ts ok')
+  process.exit(0)
+}
+
 for (const f of obsolete) {
   const p = join(OUT, f)
   if (existsSync(p)) unlinkSync(p)
@@ -2202,4 +2276,8 @@ for (const [id, g] of Object.entries(games)) {
   writeFileSync(join(OUT, `${id}.html`), wrap(g.title, g.bg, g.body, g.accent || g.bg))
   console.log('wrote', id)
 }
+
+mkdirSync(dirname(CATALOG_OUT), { recursive: true })
+writeFileSync(CATALOG_OUT, catalogTs)
+console.log('wrote', CATALOG_OUT)
 console.log('Done:', Object.keys(games).length, 'games')
