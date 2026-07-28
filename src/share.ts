@@ -1,5 +1,6 @@
 import type { Game } from './games'
 import { getGameById } from './games'
+import { getHighscore } from './highscores'
 
 const PARAM = 'g'
 
@@ -28,13 +29,21 @@ export function gameShareUrl(gameId: string): string {
   return url.toString()
 }
 
+/** Share body text; includes personal high score from localStorage when present. */
+export function gameShareText(game: Game, best = getHighscore(game.id)): string {
+  const base = `Play ${game.title} — ${game.tip}`
+  return best > 0 ? `${base}\nMy high score: ${best}` : base
+}
+
 export type ShareResult = 'shared' | 'copied' | 'cancelled' | 'failed'
 
 export async function shareGame(game: Game): Promise<ShareResult> {
   const url = gameShareUrl(game.id)
+  const best = getHighscore(game.id)
+  const text = gameShareText(game, best)
   const data = {
     title: `${game.title} on Gamescroll`,
-    text: `Play ${game.title} — ${game.tip}`,
+    text,
     url,
   }
 
@@ -52,9 +61,11 @@ export async function shareGame(game: Game): Promise<ShareResult> {
     }
   }
 
+  const clipboardPayload = best > 0 ? `${text}\n${url}` : url
+
   try {
     if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(clipboardPayload)
       return 'copied'
     }
   } catch {
@@ -63,7 +74,7 @@ export async function shareGame(game: Game): Promise<ShareResult> {
 
   try {
     const el = document.createElement('textarea')
-    el.value = url
+    el.value = clipboardPayload
     el.setAttribute('readonly', '')
     el.style.position = 'fixed'
     el.style.opacity = '0'

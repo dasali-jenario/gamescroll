@@ -106,8 +106,8 @@ flowchart TB
 | `lib/ugc.ts` | UGC fetch helpers; slim column lists per call site (feed / mod / my games) |
 | `lib/feedBoot.ts` | Parallel community + `?g=` slug resolution for feed boot |
 | `lib/usePlayableFrameSrc.ts` | Blob-wrap UGC HTML for iframes (feed + creator preview + mod) |
-| `share.ts` | `?g=` deep links + Web Share / clipboard |
-| `highscores.ts` | Per-game best scores |
+| `share.ts` | `?g=` deep links + Web Share / clipboard; share text includes personal high score when stored |
+| `highscores.ts` | Per-game best scores (`gs_highscores`); read by share + top-bar Best |
 | `metrics.ts` | Visits + sparse feed telemetry batcher |
 | `experiments.ts` | Auto-restart preference ↔ iframe `onFail` |
 | `updateCheck.ts` | Poll `/version.json` every 12s; cache-bust reload when a new deploy is live |
@@ -189,7 +189,9 @@ https://gamescroll.dasali.me/?g=flappy
 https://play.thehappylab.com/?g=pong
 ```
 
-`readSharedGameParam()` / `getGameById` pin a catalog id when present. If the slug is UGC-only, feed boot fetches that row **in parallel** with the approved community list (`resolveFeedBoot`), then rebuilds the first batch and autoplays after the intro reel. Share uses `navigator.share` or clipboard copy of the absolute `?g=` URL.
+`readSharedGameParam()` / `getGameById` pin a catalog id when present. If the slug is UGC-only, feed boot fetches that row **in parallel** with the approved community list (`resolveFeedBoot`), then rebuilds the first batch and autoplays after the intro reel.
+
+Share (`shareGame` / `gameShareText`) uses `navigator.share` when available, otherwise clipboard. The share body is `Play {title} — {tip}`; if `gs_highscores` has a best for that game id, it appends `My high score: {n}`. Clipboard fallback copies URL only when there is no score; with a score it copies the share text plus the absolute `?g=` URL.
 
 ### Query prefs
 
@@ -217,7 +219,7 @@ Owned by the host (sandboxed games cannot use storage).
 
 | Key | Purpose |
 |-----|---------|
-| `gs_highscores` | Best score per game id |
+| `gs_highscores` | Best score per game id (also included in Share text when present) |
 | `gs_uid` | Anonymous visitor id |
 | `gs_visits` / `gs_last_seen` | Daily visit counting |
 | `gs_auto_restart` | Auto-restart preference |
@@ -302,7 +304,7 @@ UGC HTML must pass the same host bridge contract and forbid multiplayer / networ
 
 Coverage today:
 
-- Catalog shape, feed keys, share deep links, highscores, auto-restart prefs
+- Catalog shape, feed keys, share deep links (including personal high score in share text), highscores, auto-restart prefs
 - Catalog ids ↔ `public/games/*.html`, bridge message contract, culled games stay gone
 - Generated `officialCatalog.ts` stays in sync with `generate-games.mjs`
 - UGC wrap/validator (forbidden APIs + bridge snippets)
