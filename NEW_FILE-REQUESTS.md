@@ -1,5 +1,22 @@
 # New file requests
 
+## 2026-07-28 — Split App.tsx into feed / play / gesture hooks
+
+### Requested files
+- `src/hooks/useFeedSession.ts` — boot, UGC community, intro reel, append/prune, activeIndex, scroll
+- `src/hooks/usePlaySession.ts` — playingKey, scores, game-over, auto-restart, rail hint, cue/nudge, deploy reload
+- `src/hooks/useFeedGestures.ts` — keyboard, intro cancel, nudge swipe, silent-rail swipe helpers
+- `src/appShell.test.ts` — source contract that App stays a thin shell wired to the three hooks
+- Updates: `src/App.tsx` thinned to composition shell; `docs/WEBAPP.md`, `README.md`, `playPresentation.test.ts`
+
+### Duplicate search
+- Grep `useFeedSession|usePlaySession|useFeedGestures` under `/Users/dasali/gamescroll` → none
+- Glob `src/hooks/**` → none
+- Existing related: `lib/feedWindow`, `lib/feedIntro`, `lib/playPresentation` (pure helpers); all session orchestration still lived in `App.tsx` (~704 lines)
+
+### Rationale
+P1 roadmap: split App concerns without a global store so later catalog/route work is safer.
+
 ## 2026-07-28 — Sync Deno `_shared` from `src/lib`
 
 ### Requested files

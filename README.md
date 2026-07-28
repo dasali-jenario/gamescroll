@@ -7,13 +7,14 @@ npm install
 npm run dev
 ```
 
-Open the local URL. After the intro reel, the landing game autoplays. **Pause** (or Esc) freezes play. Switch games while playing with a big vertical fling anywhere, the right-edge rail, or ↓ / J and ↑ / K. A persistent **Swipe** cue stays on screen so the feed stays discoverable.
+Open the local URL. After the intro reel, the landing game autoplays. **Pause** (or Esc) freezes play. Switch games while playing with a big vertical fling anywhere, the right-edge swipe strip, or ↓ / J and ↑ / K. A brief **Swipe** cue appears after the intro so the feed stays discoverable.
 
 For architecture, the host↔game bridge, Android, and deploy domains, see [docs/WEBAPP.md](docs/WEBAPP.md).
 
 Create your own games at **/create** (product URL: [play.thehappylab.com/create](https://play.thehappylab.com/create)) — see [docs/CREATOR.md](docs/CREATOR.md).
 
 ```bash
-npm run quality   # typecheck + unit tests
+npm run quality   # typecheck + unit tests + Deno _shared sync check
 npm test          # Vitest only
+npm run sync:shared  # regenerate supabase/functions/_shared from src/lib
 ```

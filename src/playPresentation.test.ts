@@ -134,7 +134,11 @@ describe('host CSS / App presentation contract', () => {
   })
 
   it('hides the dark rail hint once enterPlay starts the first game', () => {
-    expect(app).toContain('setRailHintVisible(false)')
+    const playSession = readFileSync(
+      join(root, 'src/hooks/usePlaySession.ts'),
+      'utf8',
+    )
+    expect(playSession).toContain('setRailHintVisible(false)')
     expect(app).toContain('shouldShowRailHint(')
     expect(app).toContain('shouldShowSilentSwipeRail(')
     expect(app).toContain('RAIL_HINT_CLASS')

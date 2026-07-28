@@ -45,12 +45,20 @@ node scripts/generate-games.mjs
 ```mermaid
 flowchart TB
   subgraph host [React host]
-    App[App.tsx feed and play state]
+    App[App.tsx composition shell]
+    Feed[useFeedSession]
+    Play[usePlaySession]
+    Gestures[useFeedGestures]
     Card[GameCard.tsx]
     Catalog[games.ts catalog]
     Store[localStorage highscores metrics prefs]
+    App --> Feed
+    App --> Play
+    App --> Gestures
     App --> Card
     App --> Catalog
+    Feed --> Catalog
+    Play --> Store
     Card --> Store
   end
 
@@ -70,16 +78,23 @@ flowchart TB
 
 | File | Role |
 |------|------|
-| `App.tsx` | Infinite feed, play/pause, swipe, game-over, jackpot intro, deploy reload |
+| `App.tsx` | Composition shell: wires hooks, nav glue (`goToNext` / `goToPrev`), chrome JSX |
+| `hooks/useFeedSession.ts` | Boot / UGC community, jackpot intro, append/prune window, activeIndex, scroll |
+| `hooks/usePlaySession.ts` | playingKey, scores, game-over, auto-restart, rail hint, cue/nudge, deploy reload |
+| `hooks/useFeedGestures.ts` | Keyboard, intro cancel, nudge swipe, silent-rail swipe, play-mode scroll lock |
 | `games.ts` | Catalog of games (`id`, `title`, `tip`, `src`, `accent`) |
 | `components/GameCard.tsx` | iframe load + bridge |
 | `components/BottomNav.tsx` | fixed bottom like/share nav for the active game |
 | `components/GameOverOverlay.tsx` | Fail UI when auto-restart is off |
 | `components/SwipeCue.tsx` | Brief “Swipe / Next game” chip (5s after intro) |
 | `lib/feedIntro.ts` | Jackpot reel sequence (every cold start) |
+| `lib/feedWindow.ts` | Sliding-window append/prune + scroll-index remap |
+| `lib/feedMessageHub.ts` | Single `window` `message` dispatcher for loaded cards |
+| `lib/playPresentation.ts` | Symmetric play insets + rail-hint visibility helpers |
+| `lib/htmlBlobCache.ts` | LRU blob URLs for remote UGC HTML |
 | `share.ts` | `?g=` deep links + Web Share / clipboard |
 | `highscores.ts` | Per-game best scores |
-| `metrics.ts` | Anonymous visit counters |
+| `metrics.ts` | Visits + sparse feed telemetry batcher |
 | `experiments.ts` | Auto-restart preference ↔ iframe `onFail` |
 | `updateCheck.ts` | Poll `/version.json` every 12s; cache-bust reload when a new deploy is live |
 
@@ -142,13 +157,15 @@ In-iframe swipe thresholds: distance ≥ `max(140, 0.22 × height)`, duration �
 ## Feed, controls, and share
 
 - CSS snap feed (`.feed`); while playing, scroll is locked.
-- Switch games: iframe fling, right-edge swipe rail, keys `↓`/`j` and `↑`/`k`.
-- While playing, the iframe is letterboxed away from host chrome (top bar, bottom like/share nav, swipe rail) so game hit-targets cannot sit under app UI. Removing the old top action band gives a taller portrait playfield.
+- Switch games: iframe fling, thin invisible right-edge swipe capture, keys `↓`/`j` and `↑`/`k`.
+- While playing, the iframe is letterboxed away from host chrome (top bar, bottom like/share nav, equal side gutters) so game hit-targets cannot sit under app UI.
+- A dark scroll-rail hint may show before the first game starts; after `enterPlay` it stays gone (only the invisible edge capture remains).
 - Like and Share sit in a viewport-fixed bottom navigation bar under the playfield (never overlaid on the game, never scrolls with the feed).
 - **Pause** / Esc freezes the current game; after pause, a nudge encourages swiping to the next card.
 - Every cold start (including shared `?g=` links): a jackpot-style feed reel scrolls through a few cards and lands on index `0`, then autoplay starts. Skipped only for `prefers-reduced-motion`.
 - `SwipeCue` cream chip (“Swipe for the next game”) shows for 5 seconds after the intro (or until the first swipe), then hides.
 - `prefers-reduced-motion`: skip the reel, jump to the landing card, show the cue, autoplay.
+- Feed length is capped with a sliding window (`feedWindow`); prune remaps `activeIndex` and compensates `scrollTop`.
 
 ### Deep links
 
@@ -265,12 +282,15 @@ UGC HTML must pass the same host bridge contract and forbid multiplayer / networ
 |---------|----------------|
 | `npm run typecheck` | `tsc -b` (app sources; `*.test.ts` excluded) |
 | `npm test` | Vitest unit tests under `src/**/*.test.ts` |
-| `npm run quality` | typecheck then tests (also the CI job) |
+| `npm run sync:shared` | Regenerate Deno `_shared` twins from `src/lib` |
+| `npm run quality` | typecheck + tests + `sync-shared --check` (also the CI job) |
 
 Coverage today:
 
 - Catalog shape, feed keys, share deep links, highscores, auto-restart prefs
 - Catalog ids ↔ `public/games/*.html`, bridge message contract, culled games stay gone
 - UGC wrap/validator (forbidden APIs + bridge snippets)
+- Feed window prune, message hub, blob LRU, play presentation, App hook-shell contract
+- Deno `_shared` parity with `src/lib` (via sync check)
 
 CI: [`.github/workflows/quality.yml`](../.github/workflows/quality.yml) runs `npm run quality` on push/PR to `main`.
