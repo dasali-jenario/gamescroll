@@ -1,5 +1,5 @@
-/** ~3 catalog batches (26 games × 3). Target window from simplification roadmap. */
-export const FEED_WINDOW_MAX = 78
+/** ~3 catalog batches (27 games × 3). Target window from simplification roadmap. */
+export const FEED_WINDOW_MAX = 81
 
 /** Cards kept above the active index so swipe-back still works after prune. */
 export const FEED_KEEP_BEHIND = 12

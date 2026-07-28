@@ -164,4 +164,10 @@ export const officialCatalog: OfficialCatalogEntry[] = [
     tip: "Draw a line to split the shape 50/50",
     accent: "#ff6d00",
   },
+  {
+    id: "orbmerge",
+    title: "Orb Merge",
+    tip: "Drag to aim, release to drop. Merge matches.",
+    accent: "#ffcc33",
+  },
 ]

@@ -1,5 +1,19 @@
 # New file requests
 
+## 2026-07-28 — Orb Merge (Drop Stack rewrite) notices
+
+### Requested files
+- `THIRD_PARTY_NOTICES` — MIT attribution for insertcoin Drop Stack (Orb Merge port)
+- Updates: `scripts/generate-games.mjs` (`orbmerge` body), generated `public/games/orbmerge.html` + `src/generated/officialCatalog.ts`
+
+### Duplicate search
+- Grep `THIRD_PARTY|third.party.notices|NOTICES` under repo → none
+- Glob `**/THIRD_PARTY*` / `**/LICENSE*` at root → no project-level third-party notices file (only dependency licenses elsewhere)
+- Grep `orbmerge|drop-stack|Drop Stack` under `scripts/` / `public/games/` → none; existing `stack` is “Falling Stack” (different mechanic)
+
+### Rationale
+MIT requires retaining copyright/permission notice with substantial reused software; Orb Merge rewrites insertcoin Drop Stack mechanics into a GameScroll official body.
+
 ## 2026-07-28 — CSS by surface
 
 ### Requested files
