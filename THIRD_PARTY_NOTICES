@@ -67,3 +67,21 @@ Mechanics adapted from apratico/insertcoin for these GameScroll ids:
 
 Source: https://github.com/apratico/insertcoin (MIT, Copyright (c) 2026 Alessandro Praticò).
 The full MIT text appears in the Orb Merge section above and applies to these adaptations.
+
+-------------------------------------------------------------------------------
+Wave 3 official games
+-------------------------------------------------------------------------------
+
+GameBox (MIT) — https://github.com/Sai-Uttej-R/GameBox
+Copyright (c) 2024 SAI-UTTEJ-R
+
+  simonseq     ← simon-game
+  molewhack    ← whack-a-mole
+
+Original GameScroll jam-style micro-games (no third-party code copied):
+
+  reactflash, mashmeter, targetdrop, orbchain, skewkeep
+
+Orb Chain’s critical-mass cascade idea is a common board mechanic (also seen in
+insertcoin chain-reaction); this body is an original solo-vs-CPU canvas rewrite.
+

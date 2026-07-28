@@ -272,4 +272,46 @@ export const officialCatalog: OfficialCatalogEntry[] = [
     tip: "Drag pieces onto the grid. Clear lines.",
     accent: "#60a5fa",
   },
+  {
+    id: "simonseq",
+    title: "Simon Sequence",
+    tip: "Watch the pattern. Repeat it.",
+    accent: "#ff2e63",
+  },
+  {
+    id: "molewhack",
+    title: "Mole Whack",
+    tip: "Tap moles before they duck.",
+    accent: "#f4a261",
+  },
+  {
+    id: "reactflash",
+    title: "React Flash",
+    tip: "Wait for green. Tap fast. No early taps.",
+    accent: "#34d399",
+  },
+  {
+    id: "mashmeter",
+    title: "Mash Meter",
+    tip: "Tap as fast as you can for 8 seconds.",
+    accent: "#a78bfa",
+  },
+  {
+    id: "targetdrop",
+    title: "Target Drop",
+    tip: "Tap falling targets. Miss three and you lose.",
+    accent: "#f72585",
+  },
+  {
+    id: "orbchain",
+    title: "Orb Chain",
+    tip: "Tap your cells. Fill to explode and take the board.",
+    accent: "#22ddff",
+  },
+  {
+    id: "skewkeep",
+    title: "Skew Keep",
+    tip: "Tap left/right to keep the bar level.",
+    accent: "#fb923c",
+  },
 ]

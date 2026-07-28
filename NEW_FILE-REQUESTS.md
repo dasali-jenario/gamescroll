@@ -1,5 +1,20 @@
 # New file requests
 
+## 2026-07-28 — Wave 3 GameBox + jam micro-games
+
+### Requested files
+- `scripts/wave3-games.mjs` — Simon + Whack-a-Mole (GameBox MIT) plus five jam-style micro-games
+- `supabase/migrations/20260728180000_official_wave3_seed.sql` — upsert Wave 3 official rows
+- Updates: `generate-games.mjs`, `THIRD_PARTY_NOTICES`, `FEED_WINDOW_MAX` (51×3), seed script, catalogIntegrity, feedWindow test
+
+### Duplicate search
+- Grep `simonseq|molewhack|reactflash|mashmeter|targetdrop|orbchain|skewkeep|wave3` under `scripts/` / `public/games/` → none
+- Glob `scripts/wave*` → wave1 + wave2 only
+- Closest: Wave 1/2 modules; GameBox `simon-game` / `whack-a-mole`; skipped GPL OS13k and 2P insertcoin tap-race
+
+### Rationale
+Plan Wave 3: GameBox classics + license-safe micro mechanics (original jam-style bodies; no unclear js13k archive grabs).
+
 ## 2026-07-28 — Wave 2 insertcoin puzzle ports
 
 ### Requested files
