@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Pop Shot</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #001133; touch-action: none; }
+    #stage { position: fixed; inset: 0; will-change: transform; }
+    #stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+    #fx { pointer-events: none; z-index: 2; }
+    .hud {
+      position: fixed; top: 1rem; left: 0; right: 0; text-align: center; z-index: 3;
+      font: 800 2rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 10px rgba(0,0,0,.45); pointer-events: none;
+      transform-origin: 50% 50%;
+    }
+    .float-score {
+      position: fixed; z-index: 4; pointer-events: none;
+      font: 800 1.15rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,.5);
+      transform: translate(-50%, 0);
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <canvas id="fx"></canvas>
+  </div>
+  <div class="hud" id="score">0</div>
+  <script src="/lib/gsap.min.js"></script>
+  <script src="/lib/proton.min.js"></script>
+  <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
+  <script>
+
+    const GS = {
+      paused: true,
+      reported: false,
+      onFail: 'replay',
+      post(type, extra) {
+        try { parent.postMessage(Object.assign({ type }, extra || {}), '*') } catch (e) {}
+      },
+      begin(msg) {
+        const fail = msg && msg.onFail
+        if (fail === 'gameover' || fail === 'replay') GS.onFail = fail
+        if (!GS.reported) { GS.reported = true; GS.post('gamescroll:playing') }
+        GS.paused = false
+        if (typeof onHostStart === 'function') onHostStart()
+      },
+      halt() {
+        GS.paused = true
+        if (typeof onHostPause === 'function') onHostPause()
+      }
+    }
+    addEventListener('message', (e) => {
+      const t = e.data && e.data.type
+      if (t === 'gamescroll:start') GS.begin(e.data)
+      if (t === 'gamescroll:pause') GS.halt()
+    })
+    // Forward committed vertical flings to the host so swiping between games
+    // works even though this iframe captures all pointer events. Thresholds are
+    // high (long + fast + steep) so in-game taps, drags and short swipes never
+    // trigger navigation.
+    ;(function () {
+      let sx = 0, sy = 0, st = 0, tracking = false
+      addEventListener('pointerdown', (e) => {
+        sx = e.clientX; sy = e.clientY; st = performance.now(); tracking = true
+      }, true)
+      addEventListener('pointerup', (e) => {
+        if (!tracking) return
+        tracking = false
+        const dx = Math.abs(e.clientX - sx)
+        const dy = e.clientY - sy
+        const dt = performance.now() - st
+        const minDist = Math.max(140, innerHeight * 0.22)
+        if (dt > 350 || Math.abs(dy) < minDist || Math.abs(dy) < dx * 2.2) return
+        GS.post(dy < 0 ? 'gamescroll:swipe-next' : 'gamescroll:swipe-prev')
+      }, true)
+      addEventListener('pointercancel', () => { tracking = false }, true)
+    })()
+    GS.post('gamescroll:ready')
+
+    const canvas = document.getElementById('c')
+    const ctx = canvas.getContext('2d')
+    const scoreEl = document.getElementById('score')
+    const dpr = Math.min(devicePixelRatio || 1, 2)
+    let W = 0, H = 0, score = 0, last = performance.now()
+    function setScore(n) { score = Math.max(0, n|0); scoreEl.textContent = String(score) }
+    function reportScore() {
+      if (score > 0) {
+        try { parent.postMessage({ type: 'gamescroll:score', score }, '*') } catch (e) {}
+      }
+    }
+    function bump(n) {
+      const amount = n || 1
+      setScore(score + amount)
+      if (window.Juice) {
+        const pos = typeof scorePos === 'function' ? scorePos() : null
+        if (pos) Juice.onScore(amount, pos[0], pos[1])
+        else Juice.onScore(amount)
+      }
+    }
+    function resize() {
+      W = innerWidth; H = innerHeight
+      canvas.width = W * dpr; canvas.height = H * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      if (window.Juice) Juice.resize()
+    }
+    addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
+    resize()
+    if (window.Juice) Juice.init({ accent: "#00ccff" })
+
+    const COLS = ['#00ccff', '#ff2d78', '#ffd166', '#7cff6b']
+    let grid = [], cols = 7, rows = 8, cell = 0, ox = 0, oy = 0
+    let aimX = 0, shot = null, nextC = 0, creep = 0, dangerY = 0
+    function layout() {
+      cell = Math.min(W / (cols + 0.5), H * 0.055)
+      ox = (W - cols * cell) * 0.5 + cell * 0.5
+      oy = H * 0.12
+      dangerY = H * 0.72
+      aimX = W * 0.5
+    }
+    function onResize() { layout() }
+    function diePos() { return [aimX, H * 0.9] }
+    function scorePos() { return shot ? [shot.x, shot.y] : diePos() }
+    function cellAt(c, r) { return { x: ox + c * cell, y: oy + r * cell * 0.92 } }
+    function nbr(c, r) {
+      const o = r % 2
+      return [[c - 1, r], [c + 1, r], [c - 1 + o, r - 1], [c + o, r - 1], [c - 1 + o, r + 1], [c + o, r + 1]]
+    }
+    function refill() {
+      grid = []
+      for (let r = 0; r < 5; r++) {
+        const row = []
+        for (let c = 0; c < cols; c++) row.push((Math.random() * COLS.length) | 0)
+        grid.push(row)
+      }
+      for (let r = 5; r < rows; r++) grid.push(Array(cols).fill(-1))
+      nextC = (Math.random() * COLS.length) | 0
+      creep = 0
+    }
+    function reset() { layout(); shot = null; refill(); setScore(0) }
+    function onHostStart() { reset() }
+    function die() { reset() }
+    function popMatches(sc, sr) {
+      const color = grid[sr][sc]
+      if (color < 0) return 0
+      const stack = [[sc, sr]], seen = {}, group = []
+      seen[sc + ',' + sr] = true
+      while (stack.length) {
+        const p = stack.pop()
+        group.push(p)
+        for (const n of nbr(p[0], p[1])) {
+          const nc = n[0], nr = n[1], key = nc + ',' + nr
+          if (nr < 0 || nr >= grid.length || nc < 0 || nc >= cols || seen[key]) continue
+          if (grid[nr][nc] !== color) continue
+          seen[key] = true
+          stack.push([nc, nr])
+        }
+      }
+      if (group.length < 3) return 0
+      for (const g of group) grid[g[1]][g[0]] = -1
+      bump(group.length)
+      return group.length
+    }
+    function placeable(c, r) {
+      if (r === 0) return true
+      for (const n of nbr(c, r)) {
+        const nc = n[0], nr = n[1]
+        if (nr >= 0 && nr < grid.length && nc >= 0 && nc < cols && grid[nr][nc] >= 0) return true
+      }
+      return false
+    }
+    function snapShot() {
+      let best = null, bestD = 1e9
+      for (let r = 0; r < grid.length; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (grid[r][c] >= 0) continue
+          if (!placeable(c, r)) continue
+          const p = cellAt(c, r)
+          const d = Math.hypot(p.x - shot.x, p.y - shot.y)
+          if (d < cell * 0.95 && d < bestD) { best = [c, r]; bestD = d }
+        }
+      }
+      if (!best) { shot = null; return }
+      grid[best[1]][best[0]] = shot.c
+      if (popMatches(best[0], best[1]) && window.Juice) Juice.burst(shot.x, shot.y)
+      shot = null
+      nextC = (Math.random() * COLS.length) | 0
+    }
+    function lowestY() {
+      let max = 0
+      for (let r = 0; r < grid.length; r++)
+        for (let c = 0; c < cols; c++)
+          if (grid[r][c] >= 0) max = Math.max(max, cellAt(c, r).y + cell * 0.45)
+      return max
+    }
+    function tick(dt) {
+      creep += dt
+      if (creep > 7.5) {
+        creep = 0
+        grid.unshift(Array.from({ length: cols }, () => (Math.random() * COLS.length) | 0))
+        if (grid.length > rows + 2) grid.pop()
+      }
+      if (lowestY() >= dangerY) die()
+      if (!shot) return
+      shot.x += shot.vx * dt
+      shot.y += shot.vy * dt
+      if (shot.x < cell * 0.4) { shot.x = cell * 0.4; shot.vx = Math.abs(shot.vx) }
+      if (shot.x > W - cell * 0.4) { shot.x = W - cell * 0.4; shot.vx = -Math.abs(shot.vx) }
+      if (shot.y < oy - cell) { snapShot(); return }
+      for (let r = 0; r < grid.length; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (grid[r][c] < 0) continue
+          const p = cellAt(c, r)
+          if (Math.hypot(p.x - shot.x, p.y - shot.y) < cell * 0.78) { snapShot(); return }
+        }
+      }
+      if (shot.y > H) shot = null
+    }
+    function draw() {
+      PF.sky(ctx, W, H, '#000820', '#001133', '#003366')
+      PF.dots(ctx, W, H, '#00ccff', 16, 0.55)
+      ctx.strokeStyle = 'rgba(255,80,80,0.55)'
+      ctx.setLineDash([6, 6])
+      ctx.beginPath(); ctx.moveTo(20, dangerY); ctx.lineTo(W - 20, dangerY); ctx.stroke()
+      ctx.setLineDash([])
+      for (let r = 0; r < grid.length; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (grid[r][c] < 0) continue
+          const p = cellAt(c, r)
+          ctx.fillStyle = COLS[grid[r][c]]
+          ctx.beginPath(); ctx.arc(p.x, p.y, cell * 0.42, 0, Math.PI * 2); ctx.fill()
+        }
+      }
+      const by = H * 0.9
+      if (!shot) {
+        ctx.strokeStyle = 'rgba(0,204,255,0.4)'
+        ctx.beginPath(); ctx.moveTo(W * 0.5, by); ctx.lineTo(aimX, by - 120); ctx.stroke()
+      } else {
+        ctx.fillStyle = COLS[shot.c]
+        ctx.beginPath(); ctx.arc(shot.x, shot.y, cell * 0.4, 0, Math.PI * 2); ctx.fill()
+      }
+      ctx.fillStyle = COLS[nextC]
+      ctx.beginPath(); ctx.arc(W * 0.5, by, cell * 0.4, 0, Math.PI * 2); ctx.fill()
+    }
+    function ptr(e) {
+      const r = canvas.getBoundingClientRect()
+      return { x: e.clientX - r.left, y: e.clientY - r.top }
+    }
+    addEventListener('pointermove', e => { if (!GS.paused && !shot) aimX = ptr(e).x })
+    addEventListener('pointerdown', e => {
+      if (GS.paused || shot) return
+      aimX = ptr(e).x
+      const dx = aimX - W * 0.5, dy = -120, len = Math.hypot(dx, dy) || 1
+      const sp = Math.min(W, H) * 1.1
+      shot = { x: W * 0.5, y: H * 0.9, vx: (dx / len) * sp, vy: (dy / len) * sp, c: nextC }
+    })
+    reset()
+
+    if (typeof layout === 'function') {
+      try { layout() } catch (e) { console.error('[gamescroll] layout()', e) }
+    }
+    ;(function () {
+      const __halt = GS.halt
+      GS.halt = function () {
+        reportScore()
+        __halt()
+      }
+    })()
+    if (typeof die === 'function') {
+      const __die = die
+      die = function () {
+        if (GS.paused) return
+        reportScore()
+        if (window.Juice) {
+          const pos = typeof diePos === 'function' ? diePos() : null
+          if (pos) Juice.onDie(pos[0], pos[1])
+          else Juice.onDie()
+        }
+        if (GS.onFail === 'gameover') {
+          GS.post('gamescroll:died', { score })
+          GS.halt()
+          return
+        }
+        __die()
+      }
+    }
+    function loop(now) {
+      const dt = Math.min(0.033, (now - last) / 1000)
+      last = now
+      try {
+        if (window.PF) PF.t += dt
+        if (!GS.paused && typeof tick === 'function') tick(dt)
+        if (typeof draw === 'function') draw(now)
+        if (window.Juice) Juice.update()
+      } catch (err) {
+        console.error('[gamescroll]', err)
+      }
+      requestAnimationFrame(loop)
+    }
+    requestAnimationFrame(loop)
+  </script>
+</body>
+</html>

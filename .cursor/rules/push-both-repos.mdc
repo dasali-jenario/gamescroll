@@ -1,0 +1,18 @@
+---
+description: Full production ship when user asks to push to both repos
+alwaysApply: true
+---
+
+# Push to both repos = full production ship
+
+When Dario asks to **push to both repos** (or equivalent: ship/push production both remotes), do **all** of the following—not git-only:
+
+1. **Commit** pending shippable changes if needed (follow git commit protocol; never force-push `main`).
+2. **Push** `main` to both remotes:
+   - `origin` → `dasali-jenario/gamescroll`
+   - `thehappylab` → `thehappylab/gamescroll` (auto-deploys play.thehappylab.com)
+3. **Build:** `npm run build` (uses `.env.production` for public Supabase keys).
+4. **Hostinger FTP** for gamescroll.dasali.me: mirror `dist/` with `lftp` using `HOSTINGER_FTP_ADDRESS` / `HOSTINGER_FTP_USERNAME` / `HOSTINGER_FTP_PASSWORD` from `.env.local` (never print secrets). Request approval if the environment blocks FTP.
+5. **Official seed** when the change touches official games/catalog (`scripts/generate-games.mjs`, `public/games/*`, `src/generated/officialCatalog.ts`, or feed-window defaults tied to catalog size): run `node scripts/seed-official-games.mjs` (needs `SUPABASE_PROJECT_REF` + `SUPABASE_ACCESS_TOKEN` in `.env.local`).
+
+Report URLs / commit SHAs when done. Skip seed only if the push has no official-game/catalog impact; say so explicitly.

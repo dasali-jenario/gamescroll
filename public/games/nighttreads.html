@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Night Treads</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #04050f; touch-action: none; }
+    #stage { position: fixed; inset: 0; will-change: transform; }
+    #stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+    #fx { pointer-events: none; z-index: 2; }
+    .hud {
+      position: fixed; top: 1rem; left: 0; right: 0; text-align: center; z-index: 3;
+      font: 800 2rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 10px rgba(0,0,0,.45); pointer-events: none;
+      transform-origin: 50% 50%;
+    }
+    .float-score {
+      position: fixed; z-index: 4; pointer-events: none;
+      font: 800 1.15rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,.5);
+      transform: translate(-50%, 0);
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <canvas id="fx"></canvas>
+  </div>
+  <div class="hud" id="score">0</div>
+  <script src="/lib/gsap.min.js"></script>
+  <script src="/lib/proton.min.js"></script>
+  <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
+  <script>
+
+    const GS = {
+      paused: true,
+      reported: false,
+      onFail: 'replay',
+      post(type, extra) {
+        try { parent.postMessage(Object.assign({ type }, extra || {}), '*') } catch (e) {}
+      },
+      begin(msg) {
+        const fail = msg && msg.onFail
+        if (fail === 'gameover' || fail === 'replay') GS.onFail = fail
+        if (!GS.reported) { GS.reported = true; GS.post('gamescroll:playing') }
+        GS.paused = false
+        if (typeof onHostStart === 'function') onHostStart()
+      },
+      halt() {
+        GS.paused = true
+        if (typeof onHostPause === 'function') onHostPause()
+      }
+    }
+    addEventListener('message', (e) => {
+      const t = e.data && e.data.type
+      if (t === 'gamescroll:start') GS.begin(e.data)
+      if (t === 'gamescroll:pause') GS.halt()
+    })
+    // Forward committed vertical flings to the host so swiping between games
+    // works even though this iframe captures all pointer events. Thresholds are
+    // high (long + fast + steep) so in-game taps, drags and short swipes never
+    // trigger navigation.
+    ;(function () {
+      let sx = 0, sy = 0, st = 0, tracking = false
+      addEventListener('pointerdown', (e) => {
+        sx = e.clientX; sy = e.clientY; st = performance.now(); tracking = true
+      }, true)
+      addEventListener('pointerup', (e) => {
+        if (!tracking) return
+        tracking = false
+        const dx = Math.abs(e.clientX - sx)
+        const dy = e.clientY - sy
+        const dt = performance.now() - st
+        const minDist = Math.max(140, innerHeight * 0.22)
+        if (dt > 350 || Math.abs(dy) < minDist || Math.abs(dy) < dx * 2.2) return
+        GS.post(dy < 0 ? 'gamescroll:swipe-next' : 'gamescroll:swipe-prev')
+      }, true)
+      addEventListener('pointercancel', () => { tracking = false }, true)
+    })()
+    GS.post('gamescroll:ready')
+
+    const canvas = document.getElementById('c')
+    const ctx = canvas.getContext('2d')
+    const scoreEl = document.getElementById('score')
+    const dpr = Math.min(devicePixelRatio || 1, 2)
+    let W = 0, H = 0, score = 0, last = performance.now()
+    function setScore(n) { score = Math.max(0, n|0); scoreEl.textContent = String(score) }
+    function reportScore() {
+      if (score > 0) {
+        try { parent.postMessage({ type: 'gamescroll:score', score }, '*') } catch (e) {}
+      }
+    }
+    function bump(n) {
+      const amount = n || 1
+      setScore(score + amount)
+      if (window.Juice) {
+        const pos = typeof scorePos === 'function' ? scorePos() : null
+        if (pos) Juice.onScore(amount, pos[0], pos[1])
+        else Juice.onScore(amount)
+      }
+    }
+    function resize() {
+      W = innerWidth; H = innerHeight
+      canvas.width = W * dpr; canvas.height = H * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      if (window.Juice) Juice.resize()
+    }
+    addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
+    resize()
+    if (window.Juice) Juice.init({ accent: "#ffd166" })
+
+    let tx = 0, ty = 0, aim = -Math.PI * 0.5, bullets = [], zombies = [], spawn = 0.7
+    let fireCd = 0, holding = false
+    function layout() {
+      tx = W * 0.5
+      ty = H * 0.88
+    }
+    function onResize() { layout() }
+    function diePos() { return [tx, ty] }
+    function scorePos() { return bullets[0] ? [bullets[0].x, bullets[0].y] : [tx, ty] }
+    function reset() {
+      layout()
+      aim = -Math.PI * 0.5
+      bullets = []
+      zombies = []
+      spawn = 0.55
+      fireCd = 0
+      holding = false
+      setScore(0)
+    }
+    function onHostStart() { reset() }
+    function die() { reset() }
+    function fire() {
+      if (fireCd > 0) return
+      fireCd = 0.22
+      const sp = Math.min(W, H) * 1.2
+      bullets.push({
+        x: tx, y: ty - 16,
+        vx: Math.cos(aim) * sp,
+        vy: Math.sin(aim) * sp,
+        r: 5,
+      })
+    }
+    function tick(dt) {
+      fireCd = Math.max(0, fireCd - dt)
+      if (holding) fire()
+      for (const b of bullets) {
+        b.x += b.vx * dt
+        b.y += b.vy * dt
+      }
+      bullets = bullets.filter(b => b.y > -30 && b.x > -30 && b.x < W + 30)
+      spawn -= dt
+      if (spawn <= 0) {
+        zombies.push({
+          x: 24 + Math.random() * (W - 48),
+          y: -24,
+          r: 15 + Math.random() * 6,
+          vy: 55 + Math.random() * 45 + score * 1.3,
+          hp: 1 + ((score / 12) | 0),
+        })
+        spawn = Math.max(0.28, 0.75 - score * 0.01)
+      }
+      for (const z of zombies) {
+        const dx = tx - z.x
+        z.x += dx * dt * 0.35
+        z.y += z.vy * dt
+      }
+      for (const z of zombies) {
+        for (const b of bullets) {
+          if (Math.hypot(z.x - b.x, z.y - b.y) < z.r + b.r) {
+            b.dead = true
+            z.hp--
+            if (z.hp <= 0) {
+              z.dead = true
+              bump()
+              if (window.Juice) Juice.burst(z.x, z.y)
+            }
+          }
+        }
+        if (Math.hypot(z.x - tx, z.y - ty) < z.r + 18) die()
+      }
+      bullets = bullets.filter(b => !b.dead)
+      zombies = zombies.filter(z => !z.dead && z.y < H + 40)
+    }
+    function draw() {
+      PF.sky(ctx, W, H, '#020208', '#04050f', '#12182a')
+      PF.dots(ctx, W, H, '#ffd166', 14, 0.45)
+      PF.blobs(ctx, W, H, '#1a2030', 3)
+      for (const z of zombies) {
+        PF.buddy(ctx, z.x, z.y, z.r, '#8fbc8f', '#3d5c3d', {
+          lookY: 0.6, blush: false,
+        })
+      }
+      for (const b of bullets) {
+        ctx.fillStyle = '#ffd166'
+        ctx.beginPath()
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      const len = 36
+      ctx.strokeStyle = '#ffd166'
+      ctx.lineWidth = 4
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(tx, ty)
+      ctx.lineTo(tx + Math.cos(aim) * len, ty + Math.sin(aim) * len)
+      ctx.stroke()
+      PF.block(ctx, tx - 28, ty - 14, 56, 28, '#c0c8d8', '#5a6578', 8)
+      PF.block(ctx, tx - 34, ty + 6, 68, 16, '#4a5568', '#2a3038', 6)
+    }
+    function aimAt(e) {
+      const r = canvas.getBoundingClientRect()
+      const x = e.clientX - r.left
+      const y = e.clientY - r.top
+      aim = Math.atan2(y - ty, x - tx)
+      if (aim > -0.15) aim = -0.15
+      if (aim < -Math.PI + 0.15) aim = -Math.PI + 0.15
+    }
+    addEventListener('pointerdown', e => {
+      if (GS.paused) return
+      holding = true
+      aimAt(e)
+      fire()
+    })
+    addEventListener('pointermove', e => {
+      if (GS.paused) return
+      aimAt(e)
+    })
+    addEventListener('pointerup', () => { holding = false })
+    addEventListener('pointercancel', () => { holding = false })
+    reset()
+
+    if (typeof layout === 'function') {
+      try { layout() } catch (e) { console.error('[gamescroll] layout()', e) }
+    }
+    ;(function () {
+      const __halt = GS.halt
+      GS.halt = function () {
+        reportScore()
+        __halt()
+      }
+    })()
+    if (typeof die === 'function') {
+      const __die = die
+      die = function () {
+        if (GS.paused) return
+        reportScore()
+        if (window.Juice) {
+          const pos = typeof diePos === 'function' ? diePos() : null
+          if (pos) Juice.onDie(pos[0], pos[1])
+          else Juice.onDie()
+        }
+        if (GS.onFail === 'gameover') {
+          GS.post('gamescroll:died', { score })
+          GS.halt()
+          return
+        }
+        __die()
+      }
+    }
+    function loop(now) {
+      const dt = Math.min(0.033, (now - last) / 1000)
+      last = now
+      try {
+        if (window.PF) PF.t += dt
+        if (!GS.paused && typeof tick === 'function') tick(dt)
+        if (typeof draw === 'function') draw(now)
+        if (window.Juice) Juice.update()
+      } catch (err) {
+        console.error('[gamescroll]', err)
+      }
+      requestAnimationFrame(loop)
+    }
+    requestAnimationFrame(loop)
+  </script>
+</body>
+</html>

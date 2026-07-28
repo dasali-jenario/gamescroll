@@ -8,6 +8,7 @@
 import { writeFileSync, unlinkSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { wave1Games } from './wave1-games.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const OUT = join(__dirname, '../public/games')
@@ -2552,6 +2553,8 @@ Object.assign(games, {
 `,
   },
 })
+
+Object.assign(games, wave1Games)
 
 const obsolete = ['aim.html', 'dodge.html', 'flap.html', 'react.html', 'orbit.html', 'light.html', 'helix.html', 'shield.html']
 

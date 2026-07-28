@@ -30,3 +30,23 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+-------------------------------------------------------------------------------
+Wave 1 official games (same upstream MIT license as above)
+-------------------------------------------------------------------------------
+
+Mechanics adapted from apratico/insertcoin for these GameScroll ids:
+
+  taprotate     ← tap-rotate
+  hueblaster    ← color-match-shooter
+  oneshot       ← one-bullet
+  chainblast    ← chain-blast
+  popshot       ← bubble-shooter
+  cryptrun      ← crypt-run
+  starvoid      ← star-void
+  pegdrop       ← peg-drop
+  neondash      ← neon-dash
+  nighttreads   ← night-treads
+
+Source: https://github.com/apratico/insertcoin (MIT, Copyright (c) 2026 Alessandro Praticò).
+The full MIT text appears in the Orb Merge section above and applies to these adaptations.

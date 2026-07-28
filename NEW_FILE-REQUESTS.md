@@ -1,5 +1,32 @@
 # New file requests
 
+## 2026-07-28 — Wave 1 insertcoin ports module
+
+### Requested files
+- `scripts/wave1-games.mjs` — ten MIT insertcoin portrait-arcade rewrites as GameScroll `body` entries (assigned into `generate-games.mjs`)
+- Updates: `scripts/generate-games.mjs` (import + Object.assign), `THIRD_PARTY_NOTICES`, feed window (37×3), generated `public/games/*.html` + catalog
+
+### Duplicate search
+- Grep `taprotate|hueblaster|oneshot|chainblast|popshot|cryptrun|starvoid|pegdrop|neondash|nighttreads|wave1` under `scripts/` / `public/games/` → none
+- Glob `scripts/wave*` → none; existing pattern is inline `Object.assign(games, …)` blocks inside `generate-games.mjs`
+- Closest: `orbmerge` block in `generate-games.mjs` (same rewrite style); insertcoin sources are external
+
+### Rationale
+Wave 1 is ~10 substantial bodies; a dedicated module keeps `generate-games.mjs` maintainable while matching the Orb Merge port approach.
+
+## 2026-07-28 — Push-to-production Cursor rule
+
+### Requested files
+- `.cursor/rules/push-both-repos.mdc` — when user asks to push to both repos, also Hostinger FTP + official seed when catalog/games change
+
+### Duplicate search
+- Glob `.cursor/rules/**` → none (no project rules yet)
+- Grep `Hostinger|lftp|push to both|thehappylab` under `.cursor/` → none
+- Closest docs: `docs/WEBAPP.md` deploy section (manual Hostinger FTP + remotes); no agent rule encoding the full ship checklist
+
+### Rationale
+User asked that “push to both repos” always include Hostinger FTP and official seed steps, not git-only.
+
 ## 2026-07-28 — Orb Merge (Drop Stack rewrite) notices
 
 ### Requested files

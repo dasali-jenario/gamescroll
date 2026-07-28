@@ -66,7 +66,10 @@ describe('catalog integrity', () => {
   })
 
   it('generator defines title, tip, and bg for every catalog id', () => {
-    const src = readFileSync(generatorPath, 'utf8')
+    const src = [
+      readFileSync(generatorPath, 'utf8'),
+      readFileSync(join(root, 'scripts', 'wave1-games.mjs'), 'utf8'),
+    ].join('\n')
     for (const entry of officialCatalog) {
       expect(src).toContain(`${entry.id}: {`)
       expect(src).toContain(`title: '${entry.title}'`)
