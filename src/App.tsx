@@ -114,6 +114,7 @@ export default function App() {
   return (
     <div
       className={`app${play.playingKey ? ' is-playing' : ''}${feed.introRunning ? ' is-intro' : ''}`}
+      onDoubleClick={(e) => e.preventDefault()}
     >
       {feed.resolvingShare && (
         <div className="share-loading" role="status">

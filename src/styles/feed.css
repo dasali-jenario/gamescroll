@@ -3,6 +3,9 @@
   height: 100%;
   position: relative;
   isolation: isolate;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .top-bar {
@@ -222,13 +225,18 @@
   bottom: 0;
   z-index: 47;
   height: var(--bottom-nav);
+  min-height: var(--bottom-nav);
+  max-height: var(--bottom-nav);
   box-sizing: border-box;
   display: flex;
   flex-direction: row;
   justify-content: space-evenly;
   align-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
   padding: 0.35rem 1.25rem env(safe-area-inset-bottom);
   pointer-events: none;
+  touch-action: manipulation;
   background: linear-gradient(
     to top,
     rgba(15, 20, 25, 0.92) 55%,

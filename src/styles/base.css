@@ -26,12 +26,18 @@ body,
   height: 100%;
 }
 
+html {
+  /* Kill double-tap zoom on the host shell (games iframes already opt out). */
+  touch-action: manipulation;
+}
+
 body {
   font-family: 'IBM Plex Sans', sans-serif;
   color: #fff;
   background: var(--stage);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
 }
 
 

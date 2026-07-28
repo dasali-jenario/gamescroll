@@ -121,6 +121,15 @@ describe('host CSS / App presentation contract', () => {
     expect(feedCss).toMatch(/bottom:\s*var\(--play-inset-bottom\)/)
   })
 
+  it('locks the bottom nav to a fixed height so it cannot expand', () => {
+    const block = feedCss.match(/\.bottom-nav \{([\s\S]*?)\n\}/)
+    expect(block?.[1]).toMatch(/height:\s*var\(--bottom-nav\)/)
+    expect(block?.[1]).toMatch(/min-height:\s*var\(--bottom-nav\)/)
+    expect(block?.[1]).toMatch(/max-height:\s*var\(--bottom-nav\)/)
+    expect(block?.[1]).toMatch(/overflow:\s*hidden/)
+    expect(baseCss).toMatch(/touch-action:\s*manipulation/)
+  })
+
   it('keeps the dark rail as a hint class, not a play-mode letterbox reserve', () => {
     expect(feedCss).toContain(`.${RAIL_HINT_CLASS}`)
     expect(feedCss).toMatch(
