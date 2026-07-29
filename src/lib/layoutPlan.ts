@@ -19,12 +19,61 @@ export type LayoutPlanResult =
   | { ok: true; plan: LayoutRect[] }
   | { ok: false; errors: string[]; plan: LayoutRect[] }
 
+/** Pixel rect produced by layoutFromPlan (plus original band). */
+export type PlanPixelRect = {
+  x: number
+  y: number
+  w: number
+  h: number
+  band: LayoutBand
+}
+
 const BANDS = new Set<LayoutBand>(['hud', 'title', 'focal', 'hint', 'cta', 'other'])
 
 const REF_W = 390
 const REF_H = 844
 /** Minimum gap between non-overlapping UI groups (px on reference frame). */
 const MIN_GAP_PX = 12
+
+/**
+ * Authoritative plan → pixel rects keyed by id.
+ * Injected on GS in the wrap shell / smoke host as GS.layoutFromPlan(plan, W, H).
+ */
+export function layoutFromPlan(
+  plan: LayoutRect[],
+  W: number,
+  H: number,
+): Record<string, PlanPixelRect> {
+  const out: Record<string, PlanPixelRect> = {}
+  for (const r of plan) {
+    out[r.id] = {
+      x: r.x * W,
+      y: r.y * H,
+      w: r.w * W,
+      h: r.h * H,
+      band: r.band,
+    }
+  }
+  return out
+}
+
+/** Runtime snippet assigned onto GS in wrap / smoke / harvest. */
+export const LAYOUT_FROM_PLAN_JS = `function(plan, w, h) {
+  var out = {}, ww = w != null ? w : 0, hh = h != null ? h : 0, i, r
+  if (!Array.isArray(plan)) return out
+  for (i = 0; i < plan.length; i++) {
+    r = plan[i]
+    if (!r || typeof r.id !== 'string') continue
+    out[r.id] = {
+      x: Number(r.x) * ww,
+      y: Number(r.y) * hh,
+      w: Number(r.w) * ww,
+      h: Number(r.h) * hh,
+      band: r.band || 'other'
+    }
+  }
+  return out
+}`
 
 export function parseLayoutPlan(raw: unknown): LayoutRect[] {
   if (!Array.isArray(raw)) return []

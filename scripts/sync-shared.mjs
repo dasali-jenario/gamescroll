@@ -45,6 +45,31 @@ const PAIRS = [
     dest: 'supabase/functions/_shared/patchBody.ts',
     label: 'src/lib/patchBody.ts',
   },
+  {
+    src: 'src/lib/layoutFidelity.ts',
+    dest: 'supabase/functions/_shared/layoutFidelity.ts',
+    label: 'src/lib/layoutFidelity.ts',
+  },
+  {
+    src: 'src/lib/mechanicScaffolds.ts',
+    dest: 'supabase/functions/_shared/mechanicScaffolds.ts',
+    label: 'src/lib/mechanicScaffolds.ts',
+  },
+  {
+    src: 'src/lib/layoutMutations.ts',
+    dest: 'supabase/functions/_shared/layoutMutations.ts',
+    label: 'src/lib/layoutMutations.ts',
+  },
+  {
+    src: 'src/lib/genericChrome.ts',
+    dest: 'supabase/functions/_shared/genericChrome.ts',
+    label: 'src/lib/genericChrome.ts',
+  },
+  {
+    src: 'src/lib/creatorPaths.ts',
+    dest: 'supabase/functions/_shared/creatorPaths.ts',
+    label: 'src/lib/creatorPaths.ts',
+  },
 ]
 
 function stripLeadingFileComment(text) {
@@ -70,7 +95,15 @@ function denoBanner(label) {
 }
 
 function renderDeno(srcText, label) {
-  return denoBanner(label) + stripLeadingFileComment(srcText)
+  // Deno Edge requires explicit .ts extensions on relative imports.
+  const withExt = srcText.replace(
+    /(from\s+['"])(\.\/[^'"]+?)(['"])/g,
+    (match, a, path, b) => {
+      if (/\.(ts|js|mjs|json)$/.test(path)) return match
+      return `${a}${path}.ts${b}`
+    },
+  )
+  return denoBanner(label) + stripLeadingFileComment(withExt)
 }
 
 let dirty = 0

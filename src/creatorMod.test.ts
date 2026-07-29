@@ -16,6 +16,10 @@ const sharedModules = [
   'qualityGate.ts',
   'chatTurn.ts',
   'publishDraft.ts',
+  'layoutFix.ts',
+  'mechanicScaffolds.ts',
+  'layoutMutations.ts',
+  'layoutFidelity.ts',
 ] as const
 
 describe('P2 creator carve + mod lazy iframes', () => {
@@ -23,9 +27,12 @@ describe('P2 creator carve + mod lazy iframes', () => {
     expect(creatorIndex.split('\n').length).toBeLessThan(120)
     expect(creatorIndex).toContain("from '../_shared/chatTurn.ts'")
     expect(creatorIndex).toContain("from '../_shared/publishDraft.ts'")
+    expect(creatorIndex).toContain("from '../_shared/layoutFix.ts'")
     expect(creatorIndex).toContain('handleChatTurn')
     expect(creatorIndex).toContain('handlePublish')
     expect(creatorIndex).toContain('handleModerate')
+    expect(creatorIndex).toContain('handleLayoutFix')
+    expect(creatorIndex).toContain("action === 'layout_fix'")
     expect(creatorIndex).not.toContain('SYSTEM_PROMPT')
     expect(creatorIndex).not.toContain('ensureGameQuality')
     expect(creatorIndex).not.toContain('OPENAI_API_KEY')
@@ -46,8 +53,16 @@ describe('P2 creator carve + mod lazy iframes', () => {
       join(root, 'supabase/functions/_shared/qualityGate.ts'),
       'utf8',
     )
+    const fix = readFileSync(
+      join(root, 'supabase/functions/_shared/layoutFix.ts'),
+      'utf8',
+    )
     expect(chat).toContain('export async function handleChatTurn')
+    expect(chat).toContain('materializeScaffold')
     expect(quality).toContain('export async function ensureGameQuality')
+    expect(quality).toContain('checkBodyLayoutFidelity')
+    expect(fix).toContain('export async function handleLayoutFix')
+    expect(fix).toContain('applyLayoutFix')
   })
 
   it('gates ModPage iframes with visibility/expand + usePlayableFrameSrc', () => {

@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 import { handleChatTurn } from '../_shared/chatTurn.ts'
+import { handleLayoutFix } from '../_shared/layoutFix.ts'
 import { handleModerate, handlePublish } from '../_shared/publishDraft.ts'
 
 const corsHeaders = {
@@ -50,6 +51,16 @@ Deno.serve(async (req) => {
         body,
         libBase,
         supabaseUrl,
+        jsonResponse,
+      })
+    }
+
+    if (action === 'layout_fix') {
+      return await handleLayoutFix({
+        admin,
+        userId: user.id,
+        body,
+        libBase,
         jsonResponse,
       })
     }

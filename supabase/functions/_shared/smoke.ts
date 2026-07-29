@@ -71,14 +71,42 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
 
   const canvas = stubCanvas()
   const ctx = stubCtx()
-  const GS = {
+  const GS: {
+    paused: boolean
+    reported: boolean
+    onFail: 'replay'
+    post: () => void
+    begin: () => void
+    halt: () => void
+    layoutFromPlan: (
+      plan: Array<{ id: string; x: number; y: number; w: number; h: number; band?: string }>,
+      w?: number,
+      h?: number,
+    ) => Record<string, { x: number; y: number; w: number; h: number; band: string }>
+  } = {
     paused: true,
     reported: false,
-    onFail: 'replay' as const,
+    onFail: 'replay',
     post: () => {},
     begin: () => {},
     halt: () => {
       GS.paused = true
+    },
+    layoutFromPlan(plan, w = 390, h = 844) {
+      const out: Record<string, { x: number; y: number; w: number; h: number; band: string }> =
+        {}
+      if (!Array.isArray(plan)) return out
+      for (const r of plan) {
+        if (!r || typeof r.id !== 'string') continue
+        out[r.id] = {
+          x: Number(r.x) * w,
+          y: Number(r.y) * h,
+          w: Number(r.w) * w,
+          h: Number(r.h) * h,
+          band: r.band || 'other',
+        }
+      }
+      return out
     },
   }
   // Proxy stubs so any Juice/PF helper the body reaches for resolves to a no-op.

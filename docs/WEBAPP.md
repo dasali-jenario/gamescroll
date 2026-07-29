@@ -289,7 +289,7 @@ Players can build single-player HTML5 games via the chatbot at `/create` ([setup
 | `approved` | Interleaved into the swipe feed |
 | `rejected` | Creator can iterate and republish |
 
-UGC HTML must pass the same host bridge contract and forbid multiplayer / network / saved-state APIs (`src/lib/gameValidator.ts`). Creator bodies are also required to match official catalog structure: HTML5/JS canvas with `layout` / `tick` / `draw` / `die` / `onHostStart` / `scorePos` / `diePos` and PF drawing helpers (`PF.sky` + layers), same shell as `scripts/generate-games.mjs`.
+UGC HTML must pass the same host bridge contract and forbid multiplayer / network / saved-state APIs (`src/lib/gameValidator.ts`). Creator bodies are also required to match official catalog structure: HTML5/JS canvas with `layout` / `tick` / `draw` / `die` / `onHostStart` / `scorePos` / `diePos` and PF drawing helpers (`PF.sky` + layers), same shell as `scripts/generate-games.mjs`. Better Game Builder Phases 0–1 (baselines, scaffolds, plan-driven layout, fidelity gate, Fix chips): see [CREATOR.md](CREATOR.md).
 
 ---
 
@@ -302,6 +302,9 @@ UGC HTML must pass the same host bridge contract and forbid multiplayer / networ
 | `npm run generate:games` | Write `public/games/*.html` + `src/generated/officialCatalog.ts` |
 | `npm run sync:shared` | Regenerate Deno `_shared` twins from `src/lib` |
 | `npm run quality` | typecheck + tests + `sync-shared --check` + `generate-games --check` |
+| `npm run check:ugc` | Smoke + layout fidelity for approved user UGC (needs Supabase env) |
+| `npm run baseline:ugc` | Phase 0 sample/classify report for recent user UGC |
+| `npm run sync:shared` | Regenerate Deno `_shared` twins (adds `.ts` on relative imports) |
 
 Coverage today:
 
@@ -312,5 +315,7 @@ Coverage today:
 - Feed window prune, message hub, blob LRU, play presentation, App hook-shell contract
 - Lazy `/create`+`/mod`, slim UGC selects, parallel share boot
 - Deno `_shared` parity with `src/lib` (via sync check)
+- Layout fidelity harvest/compare + creator baseline metrics (Phase 0)
+- Golden mechanic scaffolds, `GS.layoutFromPlan`, Create Fix chips / plan overlay (Phase 1)
 
 CI: [`.github/workflows/quality.yml`](../.github/workflows/quality.yml) runs `npm run quality` on push/PR to `main`.

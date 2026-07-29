@@ -69,9 +69,10 @@ Pick the closest of reaction/timing/dodge/drag/stack structure. Still require la
 }
 
 export function mechanicSeedMessage(family: MechanicFamily): string {
+  // Prefer scaffold seed — see scaffoldSeedMessage in mechanicScaffolds.ts (Edge imports it).
   return [
     `Selected mechanic family: ${family}.`,
-    'Use this template as the structural seed for bodyJs + layoutPlan (adapt visuals freely):',
+    'Use the GOLDEN SCAFFOLD path when provided: fill slots only; do not invent layout coordinates.',
     MECHANIC_TEMPLATES[family],
   ].join('\n')
 }

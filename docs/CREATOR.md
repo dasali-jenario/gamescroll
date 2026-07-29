@@ -55,11 +55,19 @@ Or ask Cursor to run that SQL for you.
 | Module | Role |
 |--------|------|
 | `creatorLlm.ts` | System prompt, OpenAI call, repair/critique helpers |
-| `qualityGate.ts` | `checkGame` / `ensureGameQuality` |
-| `chatTurn.ts` | `chat` action (interview → generate/iterate → draft upload) |
+| `qualityGate.ts` | `checkGame` / `ensureGameQuality` (smoke + layout fidelity) |
+| `chatTurn.ts` | `chat` action (interview → scaffold generate/iterate → draft upload) |
+| `layoutFix.ts` | `layout_fix` action (deterministic plan mutations) |
+| `mechanicScaffolds.ts` | Golden playable bodies + slot materialize |
 | `publishDraft.ts` | `publish` + `moderate` actions |
 
-After changing those files, redeploy: `supabase functions deploy creator --project-ref <ref>`.
+After changing those files (or synced `src/lib` twins), redeploy:
+
+```bash
+supabase functions deploy creator --project-ref "$(grep '^SUPABASE_PROJECT_REF=' .env.local | cut -d= -f2)"
+```
+
+`node scripts/sync-shared.mjs` regenerates Deno `_shared` twins from `src/lib/*` and appends `.ts` on relative imports (required for Edge bundling).
 
 ## Moderation previews
 
@@ -68,16 +76,79 @@ After changing those files, redeploy: `supabase functions deploy creator --proje
 ## Flow
 
 1. User opens `/create`, magic-link signs in.
-2. Chat interviews → Edge Function generates **official-style** bridge-compatible HTML5/JS canvas bodies (same contract as `scripts/generate-games.mjs`: `layout` / `tick` / `draw` / `die` / `onHostStart` / `scorePos` / `diePos` + PF drawing) → Storage + `ugc_games` draft (`brief.bodyJs` stores the editable game body).
-3. Before upload, each body is quality-gated: static layout/input/PF checks → **layoutPlan** overlap/safe-area validation → smoke-run (incl. **idle draw before start** + letterboxed playfield) → (optional) LLM text critique → repair if needed. Critique is skipped on clean patch iterates and when a ~95s time budget is low, to stay under Supabase’s ~150s idle timeout.
-4. Background check for live approved UGC: `npm run check:ugc` (smokes every `source=user` approved body in Supabase).
-5. First builds infer a **mechanic family** (reaction/timing/dodge/drag/stack) and seed an official-quality PF template; iterates use `OPENAI_MODEL_FAST` when set (else `OPENAI_MODEL`).
-6. Follow-up prompts load that `bodyJs` + `layoutPlan` (or recover body from stored HTML for older drafts) and ask the model to **edit in place**. Small tweaks come back as `patches` (search/replace) applied server-side; `brief.editMode` records `patch` or `full`, and unappliable patches fall back to one full-body retry.
-7. Only recent chat turns are sent to the model (first brief + last ~12 turns); the stored body carries the game state.
-8. **Publish** → `published` (shareable via `?g=<slug>` immediately).
-9. Moderator **Approve** → `approved` (enters main feed mix).
+2. Chat interviews → Edge infers a **mechanic family**:
+   - **Arcade** (reaction/timing/dodge/drag/stack) → clone a **golden scaffold**; LLM returns **slots** only.
+   - **Custom** (Wordle, puzzles, novel rules) → **freeform** path: LLM returns full `bodyJs` + `layoutPlan` (must use `GS.layoutFromPlan` + `layoutRects()`). Never silently remapped to reaction.
+   - First-build replies + Create welcome **state the path** (arcade format vs custom layout-checked).
+3. Before upload, each body is quality-gated: static checks → **layoutPlan** validation → smoke → **layout fidelity** (hard-fail) → optional LLM critique (skipped on arcade scaffold first builds / clean patches).
+4. Background check: `npm run check:ugc` (smoke + fidelity; missing harvest soft WARN for legacy).
+5. Iterates use `OPENAI_MODEL_FAST` when set. Layout Fix chips (`layout_fix`) mutate the plan deterministically.
+6. Only recent chat turns are sent to the model; stored body carries game state.
+7. **Publish** → `published` (`?g=<slug>`).
+8. Moderator **Approve** → `approved` (feed mix).
 
-Optional Edge secret: `OPENAI_MODEL_FAST` (cheaper/faster model for iterate, repair, critique). Default falls back to `OPENAI_MODEL` / `gpt-4.1`.
+Optional Edge secret: `OPENAI_MODEL_FAST`. Default falls back to `OPENAI_MODEL` / `gpt-4.1`.
+
+## Phase 0 — measure before rebuild
+
+Better Game Builder Phase 0 locks baselines so Phase 1 (plan-driven layout + scaffolds) is measurable.
+
+### Success target
+
+**≥80% of first builds publishable without a layout-fix chat turn** (`FIRST_BUILD_LAYOUT_PASS_TARGET` in [`src/lib/creatorMetrics.ts`](../src/lib/creatorMetrics.ts)).
+
+### Failure taxonomy
+
+Offline + gate errors map into:
+
+| Class | Meaning |
+|-------|---------|
+| `overlap` | `layoutPlan` rects collide |
+| `cta_off_band` | CTA outside lower-third band / undersized hit target |
+| `idle_crash` | Smoke throws on idle draw before `onHostStart` |
+| `unresponsive_hit` | Pointer / hit-target failures |
+| `playfield_mismatch` | Harvested runtime rects drift from `layoutPlan` beyond ε |
+| `no_harvest` | Body exposes no `layoutRects()` / `layoutRects` / `L` / `rects` graph |
+| `other` | Unclassified gate failure |
+
+### Layout fidelity
+
+[`src/lib/layoutFidelity.ts`](../src/lib/layoutFidelity.ts) harvests named `{x,y,w,h}` px rects after `layout()` and compares them to `layoutPlan` fractions (default ε = `0.04` of W/H on the 390×844 reference).
+
+- **`npm run check:ugc`** — fails on smoke errors and on fidelity **mismatch** when a harvest graph exists; missing harvest is a **soft WARN** for legacy approved UGC.
+- **`npm run baseline:ugc`** — samples recent `source=user` drafts/published/approved rows, classifies failures, prints overall + **arcade vs freeform** pass rates / critique-skip / turns-to-publish / patch-vs-full.
+- **Upload path (`checkGame`)** — Phase 1 hard-fails missing harvest and fidelity mismatch (scaffolds always expose `layoutRects()`).
+
+The **≥80% first-build layout target** is judged primarily on the **arcade** cohort (`meetsArcadeTarget`). Freeform pass rate is informational — novel games may need more turns.
+
+### Creator telemetry contract
+
+Event names (for Edge/client instrumentation; props helpers in `creatorMetrics`):
+
+| Event | Purpose |
+|-------|---------|
+| `creator_first_build_check` | `checkGame` pass/fail + failure classes + mechanic + `build_path` |
+| `creator_critique` | ran vs skipped (time budget / clean patch) |
+| `creator_publish` | user chat turns until publish |
+| `creator_edit_mode` | `patch` vs `full` rewrite |
+
+Stored `brief.editMode` + `brief.critiqueIssues` + `brief.buildPath` / `brief.mechanic` support offline baselines via `summarizeCreatorBaseline`.
+
+## Phase 1 — layout as source of truth (shipped + Edge deployed 2026-07-29)
+
+- **`GS.layoutFromPlan(plan, W, H)`** in the wrap shell — scaffolds/freeform read `L = GS.layoutFromPlan(LAYOUT_PLAN, W, H)` and expose `layoutRects()`.
+- **Arcade golden scaffolds** ([`mechanicScaffolds.ts`](../src/lib/mechanicScaffolds.ts)): reaction / timing / dodge / drag / stack — optional fast path when that family is inferred.
+- **Custom FREEFORM** (Variety Phase 0–1): novel prompts get full `bodyJs` + **generic portrait chrome** (`DEFAULT_PORTRAIT_CHROME` + `GS.layoutFromPlan` / `layoutRects`) — not remapped to reaction, not a Wordle-specific template.
+- **Geometric gate** in [`qualityGate.ts`](../supabase/functions/_shared/qualityGate.ts): smoke + fidelity with `requireHarvest: true`.
+- **Fix chips** on Create: `layout_fix` + plan overlay.
+- Redeploy: `supabase functions deploy creator --project-ref "$(grep '^SUPABASE_PROJECT_REF=' .env.local | cut -d= -f2)"`.
+
+## Variety Phase 2 — path honesty + split metrics
+
+- First-build assistant replies prepend an **arcade format** vs **custom (layout-checked)** line ([`creatorPaths.ts`](../src/lib/creatorPaths.ts)); Create welcome explains both paths.
+- Draft `brief.buildPath` is `arcade` | `freeform` for baselines.
+- No Create “genre studio” modes — product does not steer users into a short list of named minigame types.
+- Metrics: `arcadePassRate` / `freeformPassRate` in `summarizeCreatorBaseline`.
 
 ## Game body requirements (same as official catalog)
 
@@ -88,3 +159,4 @@ UGC `bodyJs` must match official games:
 - Visuals: `PF.sky` plus PF helpers (`blobs` / `dots` / `buddy` / `block` / `soft` / …)
 - Host contract: `GS.paused`, `bump` / `setScore`, `die()` — no networking, storage, or DOM controls
 - Portrait mobile layout + `layoutPlan` overlap checks (UGC-only gate on top of the catalog contract)
+- **Layout harvest (required on upload):** expose named rects via `layoutRects()` (or `layoutRects` / `L` / `rects`) keyed by `layoutPlan` ids; prefer `GS.layoutFromPlan(LAYOUT_PLAN, W, H)`

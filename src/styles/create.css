@@ -175,6 +175,7 @@
 }
 
 .create-preview-frame {
+  position: relative;
   aspect-ratio: 9 / 16;
   max-height: min(58vh, 560px);
   border-radius: 1rem;
@@ -189,6 +190,51 @@
   border: 0;
   display: block;
   background: #000;
+}
+
+.create-plan-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.create-plan-rect {
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-sizing: border-box;
+  font: 600 0.55rem/1 "Segoe UI", sans-serif;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+  padding: 2px 3px;
+}
+
+.create-fix-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.65rem 0 0.35rem;
+}
+
+.create-chip {
+  border: 1px solid rgba(243, 238, 228, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font: 600 0.75rem/1.2 inherit;
+  cursor: pointer;
+}
+
+.create-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.create-chip.active {
+  border-color: rgba(46, 196, 182, 0.7);
+  background: rgba(46, 196, 182, 0.15);
 }
 
 .create-preview-empty {

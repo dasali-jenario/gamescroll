@@ -8,15 +8,29 @@ import {
 } from 'react'
 import { Link } from 'react-router-dom'
 import { CreatorPreview } from '../components/CreatorPreview'
+import { LayoutPlanOverlay } from '../components/LayoutPlanOverlay'
 import { getSupabase, isSupabaseConfigured, type UgcGameRow } from '../lib/supabase'
+import { parseLayoutPlan, type LayoutRect } from '../lib/layoutPlan'
 import { fetchMyUgcGames, invokeCreator, ugcRowToGame } from '../lib/ugc'
 import { gameShareUrl, shareGame } from '../share'
 import type { User } from '@supabase/supabase-js'
 
 type ChatBubble = { role: 'user' | 'assistant'; content: string }
+type LayoutFixKind = 'fix_overlap' | 'enlarge_cta' | 'move_cta_down'
 
 const WELCOME =
-  "Describe the mini-game you want. I'll ask a few quick questions, then build a single-player HTML5 canvas game for Gamescroll — same style as the official catalog games.\n\nAfter the first build, follow-ups edit that game in place (layout, controls, visuals) instead of starting over.\n\nLimits: no multiplayer, no backend, no saved progress."
+  "Describe the mini-game you want. I'll ask a few quick questions, then build a single-player HTML5 canvas game for Gamescroll — same style as the official catalog games.\n\nIf it fits a classic arcade format (reaction, timing, dodge, drag, stack), I'll say so and use that locked layout. Otherwise I'll build a custom, layout-checked game — I won't silently turn your idea into a different genre.\n\nAfter the first build, follow-ups edit that game in place (layout, controls, visuals) instead of starting over.\n\nLimits: no multiplayer, no backend, no saved progress."
+
+const FIX_CHIPS: { id: LayoutFixKind; label: string }[] = [
+  { id: 'fix_overlap', label: 'Fix overlap' },
+  { id: 'enlarge_cta', label: 'Bigger button' },
+  { id: 'move_cta_down', label: 'Move CTA down' },
+]
+
+function planFromDraft(draft: UgcGameRow | null): LayoutRect[] {
+  const brief = draft?.brief as { layoutPlan?: unknown } | null | undefined
+  return parseLayoutPlan(brief?.layoutPlan)
+}
 
 export function CreatePage() {
   const configured = isSupabaseConfigured()
@@ -32,6 +46,8 @@ export function CreatePage() {
   const [draft, setDraft] = useState<UgcGameRow | null>(null)
   const [previewHtml, setPreviewHtml] = useState<string | null>(null)
   const [myGames, setMyGames] = useState<UgcGameRow[]>([])
+  const [showPlanOverlay, setShowPlanOverlay] = useState(false)
+  const layoutPlan = useMemo(() => planFromDraft(draft), [draft])
   const previewUrl = useMemo(() => {
     if (previewHtml) return URL.createObjectURL(new Blob([previewHtml], { type: 'text/html' }))
     if (draft?.html_url) return draft.html_url
@@ -125,7 +141,56 @@ export function CreatePage() {
     }
     if (data.previewHtml) setPreviewHtml(data.previewHtml)
     if (data.validationErrors?.length) {
+      const bullets = data.validationErrors.map((e) => `• ${e}`).join('\n')
       setError(data.validationErrors.join(' · '))
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `Layout / quality issues to fix:\n${bullets}`,
+        },
+      ])
+    }
+  }
+
+  const runLayoutFix = async (fix: LayoutFixKind) => {
+    if (!draft || busy) return
+    setBusy(true)
+    setError(null)
+    const { data, error: err } = await invokeCreator<{
+      reply: string
+      phase: string
+      game: UgcGameRow | null
+      previewHtml?: string
+      validationErrors?: string[]
+    }>({
+      action: 'layout_fix',
+      gameId: draft.id,
+      fix,
+    })
+    setBusy(false)
+    if (err || !data) {
+      setError(err || 'Layout fix failed')
+      return
+    }
+    setMessages((prev) => [
+      ...prev,
+      { role: 'assistant', content: data.reply || 'Layout updated.' },
+    ])
+    if (data.game) {
+      setDraft(data.game)
+      void refreshMine()
+    }
+    if (data.previewHtml) setPreviewHtml(data.previewHtml)
+    if (data.validationErrors?.length) {
+      setError(data.validationErrors.join(' · '))
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `Could not apply fix:\n${data.validationErrors!.map((e) => `• ${e}`).join('\n')}`,
+        },
+      ])
     }
   }
 
@@ -247,11 +312,14 @@ export function CreatePage() {
           <section className="create-side" aria-label="Preview and publish">
             <div className="create-preview-frame">
               {previewUrl ? (
-                <CreatorPreview
-                  key={previewUrl}
-                  title={draft?.title || 'Preview'}
-                  src={previewUrl}
-                />
+                <>
+                  <CreatorPreview
+                    key={previewUrl}
+                    title={draft?.title || 'Preview'}
+                    src={previewUrl}
+                  />
+                  <LayoutPlanOverlay plan={layoutPlan} visible={showPlanOverlay} />
+                </>
               ) : (
                 <div className="create-preview-empty">Preview appears after a game is built</div>
               )}
@@ -266,6 +334,27 @@ export function CreatePage() {
                       ? ` · ${gameShareUrl(draft.slug)}`
                       : ''}
                   </div>
+                </div>
+                <div className="create-fix-chips" role="group" aria-label="Layout fixes">
+                  {FIX_CHIPS.map((chip) => (
+                    <button
+                      key={chip.id}
+                      type="button"
+                      className="create-chip"
+                      disabled={busy || !layoutPlan.length}
+                      onClick={() => void runLayoutFix(chip.id)}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className={`create-chip${showPlanOverlay ? ' active' : ''}`}
+                    disabled={!layoutPlan.length}
+                    onClick={() => setShowPlanOverlay((v) => !v)}
+                  >
+                    {showPlanOverlay ? 'Hide plan' : 'Show plan'}
+                  </button>
                 </div>
                 <div className="create-action-row">
                   {(draft.status === 'draft' || draft.status === 'rejected') && (

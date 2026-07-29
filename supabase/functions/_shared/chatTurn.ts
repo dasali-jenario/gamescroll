@@ -1,13 +1,26 @@
 /** Creator chat action: interview → generate/iterate → quality → draft upload. */
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
-import { canonExampleFor } from './canonExamples.ts'
 import { applyBodyPatches } from './patchBody.ts'
 import { parseLayoutPlan, type LayoutRect } from './layoutPlan.ts'
 import {
   inferMechanicFromMessages,
-  mechanicSeedMessage,
   type MechanicFamily,
 } from './mechanics.ts'
+import {
+  firstBuildSeedMessage,
+  hasArcadeScaffold,
+  materializeScaffold,
+  missingSlotsBinding,
+  parseScaffoldSlots,
+} from './mechanicScaffolds.ts'
+import {
+  ensureFreeformChrome,
+  resolveFreeformLayoutPlan,
+} from './genericChrome.ts'
+import {
+  resolveBuildPath,
+  withPathHonesty,
+} from './creatorPaths.ts'
 import { wrapGameHtml } from './wrap.ts'
 import { validateWrappedHtml } from './validate.ts'
 import {
@@ -23,6 +36,24 @@ import {
   type LlmGamePayload,
 } from './creatorLlm.ts'
 import { ensureGameQuality } from './qualityGate.ts'
+
+function applyScaffoldToGame(
+  game: LlmGamePayload,
+  mechanic: MechanicFamily,
+): LlmGamePayload {
+  const family = (game.mechanic as MechanicFamily) || mechanic
+  if (!hasArcadeScaffold(family)) {
+    throw new Error(`applyScaffoldToGame called for non-arcade family "${family}"`)
+  }
+  const slots = parseScaffoldSlots(game.slots)
+  const built = materializeScaffold(family, slots)
+  return {
+    ...game,
+    mechanic: built.family,
+    layoutPlan: built.layoutPlan,
+    bodyJs: built.bodyJs,
+  }
+}
 
 export async function handleChatTurn(opts: {
   admin: SupabaseClient
@@ -91,15 +122,10 @@ export async function handleChatTurn(opts: {
       : inferMechanicFromMessages(userMessages)
   
     if (!existingBodyJs) {
-      // Seed first builds with a mechanic family template + one matching canon example.
+      // Arcade → scaffold seed; custom → freeform bodyJs seed.
       const seed: ChatMessage = {
         role: 'user',
-        content: [
-          mechanicSeedMessage(mechanic),
-          '',
-          'Copy this canon structure — same HTML5/JS + PF style as official Gamescroll games (adapt visuals/mechanics, keep quality):',
-          canonExampleFor(mechanic),
-        ].join('\n'),
+        content: firstBuildSeedMessage(mechanic),
       }
       const lastUserIdx = (() => {
         for (let i = llmMessages.length - 1; i >= 0; i--) {
@@ -196,6 +222,27 @@ export async function handleChatTurn(opts: {
         }
       }
   
+      const family = (game.mechanic as MechanicFamily) || mechanic
+      const useArcadeScaffold = !existingBodyJs && hasArcadeScaffold(family)
+
+      if (useArcadeScaffold) {
+        // Arcade first builds: locked scaffold body; LLM fills slots only.
+        game = applyScaffoldToGame(game, family)
+        editMode = 'full'
+      } else if (!existingBodyJs) {
+        // Custom freeform: lock genre-agnostic chrome plan + layoutFromPlan harvest.
+        const plan = resolveFreeformLayoutPlan(
+          game.layoutPlan.length ? game.layoutPlan : undefined,
+        )
+        game = {
+          ...game,
+          mechanic: 'custom',
+          layoutPlan: plan,
+          bodyJs: ensureFreeformChrome(game.bodyJs, plan),
+        }
+        editMode = 'full'
+      }
+
       if (!game.bodyJs.trim()) {
         return jsonResponse({
           reply: 'The generated game came back empty. Try describing it again.',
@@ -204,11 +251,31 @@ export async function handleChatTurn(opts: {
           validationErrors: ['model returned no bodyJs'],
         })
       }
-  
-      const quality = await ensureGameQuality(game, llmMessages, {
+
+      let quality = await ensureGameQuality(game, llmMessages, {
         startedAt,
-        skipCritique: editMode === 'patch',
+        skipCritique: editMode === 'patch' || useArcadeScaffold,
+        requireHarvest: true,
+        lockBody: useArcadeScaffold,
       })
+      if (!quality.ok && useArcadeScaffold) {
+        // Rematerialize once if anything still failed (should be rare).
+        game = applyScaffoldToGame(game, family)
+        quality = await ensureGameQuality(game, llmMessages, {
+          startedAt,
+          skipCritique: true,
+          requireHarvest: true,
+          lockBody: true,
+        })
+      }
+      if (
+        quality.ok &&
+        useArcadeScaffold &&
+        missingSlotsBinding(quality.game.bodyJs)
+      ) {
+        game = applyScaffoldToGame(quality.game, family)
+        quality = { ok: true, game, critiqueIssues: quality.critiqueIssues }
+      }
       if (!quality.ok) {
         return jsonResponse({
           reply:
@@ -220,6 +287,17 @@ export async function handleChatTurn(opts: {
         })
       }
       game = quality.game
+
+      const buildPath = useArcadeScaffold ? 'arcade' : resolveBuildPath(family)
+      const defaultBuilt = `Built "${game.title}". Preview it, then publish when ready.`
+      // First builds: state arcade vs custom clearly (never silent genre swap).
+      const publicReply = !existingBodyJs
+        ? withPathHonesty(
+            turn.reply || defaultBuilt,
+            buildPath,
+            useArcadeScaffold ? family : game.mechanic || 'custom',
+          )
+        : turn.reply || defaultBuilt
   
       const html = wrapGameHtml({
         title: game.title,
@@ -265,16 +343,17 @@ export async function handleChatTurn(opts: {
         html_url: playUrl || publicUrl.publicUrl,
         brief: {
           bg: game.bg,
-          lastReply: turn.reply,
+          lastReply: publicReply,
           bodyJs: game.bodyJs,
           layoutPlan: game.layoutPlan,
           mechanic: game.mechanic || mechanic,
+          buildPath,
           editMode,
           critiqueIssues: quality.critiqueIssues.slice(0, 12),
         },
         conversation: userMessages.concat({
           role: 'assistant' as const,
-          content: turn.reply,
+          content: publicReply,
         }),
       }
   
@@ -310,7 +389,7 @@ export async function handleChatTurn(opts: {
       }
   
       return jsonResponse({
-        reply: turn.reply || `Built "${game.title}". Preview it, then publish when ready.`,
+        reply: publicReply,
         phase: existingBodyJs ? 'iterated' : turn.phase,
         game: saved,
         previewHtml: html,

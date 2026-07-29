@@ -1,5 +1,95 @@
 # New file requests
 
+## 2026-07-29 — Creator Variety Phase 2 (path honesty + split metrics)
+
+### Requested files
+- `src/lib/creatorPaths.ts` — arcade vs freeform honesty prefixes (`withPathHonesty`)
+- `src/creatorPaths.test.ts` — path labels + no-duplicate prepend
+- Updates: `creatorMetrics` (split arcade/freeform rates), `chatTurn` (brief.buildPath + honest reply), Create welcome, `baseline-ugc-layout.mjs`, `sync-shared.mjs`, `docs/CREATOR.md`, Variety + Better Game Builder plans
+
+### Duplicate search
+- Grep `creatorPaths|withPathHonesty|pathHonesty|buildPath|arcadePassRate|meetsArcadeTarget` → none prior
+- Closest: `creatorMetrics` (overall firstBuildPassRate only); Create `WELCOME` (no path explanation); chatTurn replies without path label
+
+### Rationale
+Variety Phase 2: honest UX + metrics that do not dilute the arcade layout target with freeform variety.
+
+## 2026-07-29 — Creator Variety Phase 1 (generic chrome)
+
+### Requested files
+- `src/lib/genericChrome.ts` — default portrait bands, `ensureFreeformChrome`, freeform seed section
+- `src/genericChrome.test.ts` — chrome contract + fidelity after ensure
+- Updates: `mechanicScaffolds` seed, `chatTurn` (ensure chrome on custom first build), `creatorLlm`, `sync-shared.mjs`, `docs/CREATOR.md`
+
+### Duplicate search
+- Grep `genericChrome|DEFAULT_PORTRAIT_CHROME|ensureFreeformChrome|freeformChromeSeed` → none
+- Closest: arcade `layoutPlan`s inside mechanicScaffolds (genre-specific full games); layoutPlan.ts (validation only)
+
+### Rationale
+Variety Phase 1: genre-agnostic chrome so freeform stays layout-reliable without Wordle/quiz scaffolds.
+
+## 2026-07-29 — Creator Variety Phase 0 (unblock custom freeform)
+
+### Requested files
+- Updates: `src/lib/mechanicScaffolds.ts` (`hasArcadeScaffold`, `customFreeformSeedMessage`, no custom→reaction), `chatTurn.ts` (arcade-only materialize), `creatorLlm.ts` (FREEFORM prompt), tests, `docs/CREATOR.md`
+
+### Duplicate search
+- Grep `hasArcadeScaffold|customFreeformSeedMessage|FREEFORM PATH|custom → reaction` → prior code forced custom→reaction via `resolveScaffoldFamily`
+- Closest: arcade scaffolds (keep as optional fast path)
+
+### Rationale
+Variety Phase 0: restore freeform codegen for novel games while keeping layout geom gate; arcade scaffolds only when family matches.
+
+## 2026-07-29 — Better Game Builder Phase 1 docs/tests lock-in
+
+### Requested files
+- `src/builderPhase1.test.ts` — Create UI / chatTurn scaffold / qualityGate / sync-shared / CREATOR.md contracts
+- Updates: plan (`better_game_builder_adbe1a51.plan.md`), `docs/CREATOR.md`, `docs/WEBAPP.md`, `creatorMod.test.ts`, `creatorMetrics` classifier (drop spurious `other` with `no_harvest`)
+
+### Duplicate search
+- Grep `builderPhase1|GOLDEN SCAFFOLD|layout_fix` under `src/*.test.ts` → Phase 1 behavior covered piecemeal in `mechanicScaffolds.test.ts` / `creatorMod.test.ts`, no single Phase 1 contract file
+- Closest: `creatorMod.test.ts` (Edge carve), `mechanicScaffolds.test.ts` (runtime scaffolds)
+
+### Rationale
+Lock deployed Phase 1 behavior in docs + regression tests after Edge deploy; keep plan sequencing on Phase 2.
+
+## 2026-07-29 — Better Game Builder Phase 1 (scaffolds + plan-driven layout)
+
+### Requested files
+- `src/lib/mechanicScaffolds.ts` — 5 golden playable scaffolds + slot materialize helpers
+- `src/lib/layoutMutations.ts` — deterministic Fix-overlap / enlarge-CTA / move-CTA-down
+- `src/mechanicScaffolds.test.ts` — scaffold smoke + fidelity + mutation coverage
+- `src/components/LayoutPlanOverlay.tsx` — creator preview plan debug overlay
+- `supabase/functions/_shared/layoutFix.ts` — `layout_fix` Edge action
+- Updates: `layoutPlan.ts` (`layoutFromPlan`), `gameWrap` / `gameSmoke` / `layoutFidelity` (inject helper), `qualityGate` (hard harvest), `chatTurn` (scaffold first-build), `creator/index.ts`, `CreatePage` + `create.css`, `sync-shared.mjs`, `docs/CREATOR.md`
+
+### Duplicate search
+- Grep `layoutFromPlan|mechanicScaffolds|materializeScaffold|applyLayoutFix|layout_fix|LayoutPlanOverlay` under `src/` / `supabase/` → none before this
+- Glob `**/*scaffold*` / `**/layoutMutation*` / `**/LayoutPlan*` → only `layoutPlan.ts` (validation) and Phase 0 `layoutFidelity.ts`
+- Closest: thin `MECHANIC_TEMPLATES` + `canonExamples.ts` (prompt seeds, not shippable locked bodies); LLM critique for layout (soft, often skipped)
+
+### Rationale
+Phase 1: make `layoutPlan` authoritative via `GS.layoutFromPlan`, clone golden scaffolds on first build (LLM fills slots), hard geometric gate on upload, and deterministic Fix chips instead of full rewrites.
+
+## 2026-07-29 — Better Game Builder Phase 0 (metrics + layout fidelity)
+
+### Requested files
+- `src/lib/layoutFidelity.ts` — harvest runtime rects + compare to `layoutPlan` (ε gate)
+- `src/layoutFidelity.test.ts` — unit coverage for harvest / drift / soft missing-harvest
+- `src/lib/creatorMetrics.ts` — failure taxonomy, baseline aggregation, telemetry event names
+- `src/creatorMetrics.test.ts` — classify + summarize + props helpers
+- `scripts/baseline-ugc-layout.mjs` — sample recent user UGC, classify, print Phase 0 report
+- Updates: `scripts/check-ugc-games.mjs` (fidelity after smoke), `package.json` (`baseline:ugc`), `docs/CREATOR.md` (Phase 0 section)
+
+### Duplicate search
+- Grep `layoutFidelity|checkBodyLayoutFidelity|harvestLayoutRects|LAYOUT_FIDELITY` under `src/` / `scripts/` → none
+- Grep `creatorMetrics|FIRST_BUILD_LAYOUT_PASS|creator_first_build_check|summarizeCreatorBaseline` → none
+- Grep `baseline-ugc|baseline:ugc` → none
+- Closest: `layoutPlan.ts` (plan validation only), `gameSmoke.ts` (runtime smoke, no plan↔rect compare), `metrics.ts` / `feed_telemetry_events` (feed visits, not creator gate), `check-ugc-games.mjs` (smoke-only before this)
+
+### Rationale
+Phase 0 of Better Game Builder: measure first-build / critique-skip / turns-to-publish and add a geometric layout-fidelity check before Phase 1 makes `layoutPlan` authoritative.
+
 ## 2026-07-28 — ugc_games plays / players counters
 
 ### Requested files

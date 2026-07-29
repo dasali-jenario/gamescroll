@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
- * Background / CI check: smoke every approved user UGC game body in Supabase.
+ * Background / CI check: smoke + layout fidelity for approved user UGC in Supabase.
  *
  * Requires .env.local: SUPABASE_PROJECT_REF, SUPABASE_ACCESS_TOKEN
  * Usage: node scripts/check-ugc-games.mjs
- * Exit 1 if any game fails smoke (idle draw, letterbox, play).
+ * Exit 1 if any game fails smoke, or fails layout fidelity when a harvest graph exists.
+ * Missing harvest is reported (Phase 0 soft) but does not fail the run yet — Phase 1 hardens this.
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -77,9 +78,24 @@ if (!projectRef || !accessToken) {
   process.exit(1)
 }
 
-// Load smoke via TypeScript strip-types
+// Load smoke + fidelity via TypeScript strip-types
 const smokeUrl = pathToFileURL(join(root, 'src/lib/gameSmoke.ts')).href
+const fidelityUrl = pathToFileURL(join(root, 'src/lib/layoutFidelity.ts')).href
 const { smokeGameBody } = await import(smokeUrl)
+const { checkBodyLayoutFidelity } = await import(fidelityUrl)
+
+function parsePlan(raw) {
+  if (Array.isArray(raw)) return raw
+  if (typeof raw === 'string') {
+    try {
+      const j = JSON.parse(raw)
+      return Array.isArray(j) ? j : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
 
 const { res, json, text } = await managementFetch(
   `/projects/${projectRef}/database/query`,
@@ -88,7 +104,9 @@ const { res, json, text } = await managementFetch(
     method: 'POST',
     body: JSON.stringify({
       query: `
-select slug, title, status, source, html_path, brief->>'bodyJs' as body_js
+select slug, title, status, source, html_path,
+       brief->>'bodyJs' as body_js,
+       brief->'layoutPlan' as layout_plan
 from public.ugc_games
 where status = 'approved' and source = 'user'
 order by updated_at desc
@@ -116,6 +134,7 @@ const supabaseUrl =
   env.VITE_SUPABASE_URL || `https://${projectRef}.supabase.co`
 
 let failed = 0
+let missingHarvest = 0
 for (const row of rows) {
   let body = row.body_js || ''
   if (!body && row.html_path && serviceKey) {
@@ -133,15 +152,39 @@ for (const row of rows) {
     continue
   }
   const result = smokeGameBody(body)
-  if (result.ok) {
-    console.log(`OK   ${row.slug} (${row.title})`)
-  } else {
+  if (!result.ok) {
     failed += 1
     console.error(`FAIL ${row.slug} (${row.title})`)
     for (const e of result.errors) console.error(`     - ${e}`)
+    continue
   }
+
+  const plan = parsePlan(row.layout_plan)
+  if (!plan.length) {
+    missingHarvest += 1
+    console.log(`OK   ${row.slug} (${row.title}) [no layoutPlan — fidelity skipped]`)
+    continue
+  }
+  const fidelity = checkBodyLayoutFidelity(body, plan)
+  if (fidelity.ok) {
+    console.log(
+      `OK   ${row.slug} (${row.title}) [fidelity ${fidelity.compared} via ${fidelity.source}]`,
+    )
+    continue
+  }
+  if (!fidelity.ok && fidelity.missingHarvest) {
+    missingHarvest += 1
+    console.log(`WARN ${row.slug} (${row.title}) [no harvest graph — Phase 0 soft]`)
+    continue
+  }
+  failed += 1
+  console.error(`FAIL ${row.slug} (${row.title}) [layout fidelity]`)
+  for (const e of fidelity.errors || []) console.error(`     - ${e}`)
 }
 
+if (missingHarvest) {
+  console.log(`[check-ugc] ${missingHarvest} game(s) without harvest/plan (Phase 0 soft)`)
+}
 if (failed) {
   console.error(`[check-ugc] ${failed} failure(s)`)
   process.exit(1)

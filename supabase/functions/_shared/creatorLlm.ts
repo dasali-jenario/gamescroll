@@ -24,6 +24,8 @@ export type LlmGamePayload = {
   mechanic?: MechanicFamily | string
   /** Small iterate edits: applied to the stored body instead of a full rewrite. */
   patches?: BodyPatch[]
+  /** Scaffold theme overrides (labels, colors, rates) — first-build preferred path. */
+  slots?: Record<string, string | number>
 }
 
 export type LlmTurn = {
@@ -44,7 +46,15 @@ export function normalizeGame(raw: Partial<LlmGamePayload> | null | undefined): 
   if (!raw) return null
   const bodyJs = typeof raw.bodyJs === 'string' ? raw.bodyJs : ''
   const patches = parseBodyPatches(raw.patches)
-  if (!bodyJs.trim() && patches.length === 0) return null
+  const slots =
+    raw.slots && typeof raw.slots === 'object' && !Array.isArray(raw.slots)
+      ? (Object.fromEntries(
+          Object.entries(raw.slots as Record<string, unknown>).filter(
+            ([, v]) => typeof v === 'string' || typeof v === 'number',
+          ),
+        ) as Record<string, string | number>)
+      : undefined
+  if (!bodyJs.trim() && patches.length === 0 && !slots) return null
   return {
     title: String(raw.title || 'Untitled').slice(0, 64),
     tip: String(raw.tip || 'Tap to play').slice(0, 120),
@@ -54,6 +64,7 @@ export function normalizeGame(raw: Partial<LlmGamePayload> | null | undefined): 
     layoutPlan: parseLayoutPlan(raw.layoutPlan),
     mechanic: raw.mechanic,
     patches,
+    slots,
   }
 }
 
@@ -90,23 +101,38 @@ Hard product limits (never violate):
 - Portrait-first mobile: design for tall phones in a TikTok-style full-bleed frame (typically W < H). Landscape is secondary — still call layout() from onResize, but primary composition is portrait.
 ${OFFICIAL_STRUCTURE}
 MECHANIC FAMILIES:
-When a MECHANIC TEMPLATE seed is provided, follow that family. Also set game.mechanic to one of: reaction | timing | dodge | drag | stack | custom.
+Set game.mechanic to one of: reaction | timing | dodge | drag | stack | custom.
+- Arcade families (reaction/timing/dodge/drag/stack): when a GOLDEN SCAFFOLD seed is provided, follow it.
+- custom: FREEFORM PATH — build the game the user described (Wordle, puzzles, novel rules). Do NOT substitute an arcade loop unless they asked for one.
+
+GOLDEN SCAFFOLD FIRST BUILDS (when seed says GOLDEN SCAFFOLD PATH):
+- Do NOT invent coordinates or rewrite layout()/LAYOUT_PLAN.
+- Return phase="generated" with title/tip/accent/bg/mechanic and game.slots (theme/labels/rates only).
+- Set game.bodyJs to "" (empty). Server injects the locked playable scaffold body + layoutPlan.
+- Keep layoutPlan identical to the scaffold plan when you include it.
+
+CUSTOM FREEFORM FIRST BUILDS (when seed says FREEFORM PATH):
+- Return complete game.bodyJs + layoutPlan for the requested game (any genre).
+- Use the GENERIC CHROME CONTRACT from the seed: const LAYOUT_PLAN, L = GS.layoutFromPlan(...), layoutRects().
+- Invent mechanics inside L.title / L.focus / L.hint / L.cta — do not invent a second chrome coordinate system.
+- Do not offer a reaction substitute for Wordle/puzzle/etc.
 
 PORTRAIT / MOBILE LAYOUT (required):
 - Assume safe playfield inset: top ~8% of H (in-game score HUD), bottom ~8% of H, sides ~4% of W. The host letterboxes the iframe away from app chrome (top bar, bottom like/share nav, swipe rail) — do not draw interactive hit targets into the extreme corners.
 - Primary action buttons: lower third (about y = H*0.68 to H*0.82), centered, width ~70% of W (min 200, max 320), height >= 56px (prefer 64–72 on large phones).
 - Main focal content (lights, player, targets): center band y ≈ H*0.28 to H*0.58 — not tiny at the top.
-- Use relative layout from W/H in a layout() function; call layout() from onHostStart, onResize, and reset. Never hard-code 1920x1080 or desktop positions.
+- Use relative layout from W/H via GS.layoutFromPlan(LAYOUT_PLAN, W, H) when editing scaffold bodies. Never hard-code 1920x1080 or desktop positions.
 - Fonts: scale with Math.min(W,H), e.g. title ~0.07*W, body ~0.045*W. Keep text short.
 - Hit targets >= 48px. Prefer full-width tap zones when the prompt is "tap anywhere".
 - One-thumb play: avoid requiring simultaneous multi-touch or top-corner precision taps.
-- Vertical motion/scroll should stay inside the canvas (feed swipe is separate). Don't place critical UI in the extreme top 80px.
+- Vertical motion/scroll should stay inside the canvas (feed swipe is separate). Don't place critical UI in the extreme corners.
 
 LAYOUT PLAN (required on every generate/iterate with a game):
 - Include game.layoutPlan: an array of rects {id, x, y, w, h, band} where x,y,w,h are fractions of W/H in 0–1.
 - band is one of: hud | title | focal | hint | cta | other
 - Rects must not overlap (leave ≥12px gap on a ~390×844 phone). CTA band center y ≈ 0.68–0.82. Focal center y ≈ 0.28–0.58.
-- layout() in bodyJs must realize these rects (same ids / roles). Keep plan and code in sync when iterating.
+- layout() must call GS.layoutFromPlan(LAYOUT_PLAN, W, H) (or keep L in sync) and expose layoutRects() returning that object. Keep plan and code in sync when iterating.
+- Do not freeform-move chrome bands on iterate unless the user explicitly asks to move layout; prefer SLOTS / label / color patches.
 
 NO OVERLAP / CLEAR COMPOSITION (required on every generate and iterate):
 - Treat every interactive or important visual as a layout rect with x,y,w,h set in layout().
@@ -144,11 +170,12 @@ When generating or iterating, respond with ONLY valid JSON (no markdown fences):
     "bg": "#rrggbb",
     "mechanic": "reaction" | "timing" | "dodge" | "drag" | "stack" | "custom",
     "layoutPlan": [{"id":"title","x":0.1,"y":0.14,"w":0.8,"h":0.06,"band":"title"}],
+    "slots": {"titleText":"REACT","sky0":"#1b1f3b"},
     "bodyJs": "javascript game body",
     "patches": [{"find":"...","replace":"...","all":false}]
   }
 }
-Send either bodyJs (new game / rewrite) or patches (small edit to CURRENT GAME CODE), not both.
+On GOLDEN SCAFFOLD first builds: send slots (+ empty bodyJs). On CUSTOM FREEFORM: send complete bodyJs + layoutPlan. On iterate: send either bodyJs (rewrite) or patches (small edit), not both.
 
 During interview, phase="interview" and game=null.
 When ready to build the first version, phase="generated" and game must be set.
@@ -347,6 +374,7 @@ export async function repairBody(
           `The previous game failed checks: ${errors.join('; ')}.`,
           'Return JSON with phase "generated", keep title/tip/accent/bg/mechanic, fixed bodyJs, and a corrected layoutPlan (0–1 fractions, no overlaps).',
           'Follow official catalog structure: layout/onHostStart/onResize/scorePos/diePos, PF.sky + PF helpers, getBoundingClientRect for pointer coords, no overlapping UI.',
+          'If the body uses SLOTS / LAYOUT_PLAN / GS.layoutFromPlan / layoutRects(), you MUST keep `const SLOTS = {…}` and `const LAYOUT_PLAN = […]` at the top intact.',
           `title: ${meta.title}`,
           `tip: ${meta.tip}`,
           `accent: ${meta.accent}`,

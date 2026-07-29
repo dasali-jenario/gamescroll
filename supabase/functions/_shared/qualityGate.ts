@@ -1,5 +1,6 @@
 /** Validate / smoke / repair / critique loop for generated UGC bodies. */
 import { validateLayoutPlan } from './layoutPlan.ts'
+import { checkBodyLayoutFidelity } from './layoutFidelity.ts'
 import { smokeGameBody } from './smoke.ts'
 import { validateGameBody } from './validate.ts'
 import {
@@ -11,15 +12,26 @@ import {
 
 export function checkGame(
   game: LlmGamePayload,
+  opts?: { requireHarvest?: boolean },
 ): { ok: true } | { ok: false; errors: string[] } {
   const errors: string[] = []
   const staticCheck = validateGameBody(game.bodyJs)
   if (!staticCheck.ok) errors.push(...staticCheck.errors)
   const planCheck = validateLayoutPlan(game.layoutPlan)
   if (!planCheck.ok) errors.push(...planCheck.errors)
+  // Catch critique/repair rewrites that drop `const SLOTS` but leave SLOTS.foo usage.
+  if (/\bSLOTS\s*[.\[]/.test(game.bodyJs) && !/const\s+SLOTS\s*=/.test(game.bodyJs)) {
+    errors.push(
+      'bodyJs references SLOTS but const SLOTS is missing (preserve scaffold SLOTS / rematerialize)',
+    )
+  }
   if (errors.length) return { ok: false, errors }
   const smoke = smokeGameBody(game.bodyJs)
   if (!smoke.ok) return smoke
+  const fidelity = checkBodyLayoutFidelity(game.bodyJs, planCheck.plan, {
+    requireHarvest: opts?.requireHarvest !== false,
+  })
+  if (!fidelity.ok) return { ok: false, errors: fidelity.errors }
   return { ok: true }
 }
 
@@ -29,30 +41,38 @@ export const QUALITY_DEADLINE_MS = 95_000
 export async function ensureGameQuality(
   game: LlmGamePayload,
   prior: ChatMessage[],
-  opts?: { skipCritique?: boolean; startedAt?: number },
+  opts?: {
+    skipCritique?: boolean
+    startedAt?: number
+    requireHarvest?: boolean
+    /** Scaffold first builds: never LLM-rewrite bodyJs (slots-only path). */
+    lockBody?: boolean
+  },
 ): Promise<
   | { ok: true; game: LlmGamePayload; critiqueIssues: string[] }
   | { ok: false; errors: string[]; game: LlmGamePayload }
 > {
   const startedAt = opts?.startedAt ?? Date.now()
   const remaining = () => QUALITY_DEADLINE_MS - (Date.now() - startedAt)
+  const requireHarvest = opts?.requireHarvest !== false
+  const lockBody = Boolean(opts?.lockBody)
   let current = game
-  let check = checkGame(current)
+  let check = checkGame(current, { requireHarvest })
   if (!check.ok) {
-    if (remaining() < 25_000) {
+    if (lockBody || remaining() < 25_000) {
       return { ok: false, errors: check.errors, game: current }
     }
     current = await repairBody(current.bodyJs, check.errors, prior, current)
-    check = checkGame(current)
+    check = checkGame(current, { requireHarvest })
     if (!check.ok) return { ok: false, errors: check.errors, game: current }
   }
 
-  if (opts?.skipCritique || remaining() < 35_000) {
+  if (opts?.skipCritique || lockBody || remaining() < 35_000) {
     return {
       ok: true,
       game: current,
-      critiqueIssues: opts?.skipCritique
-        ? ['critique skipped: clean patch iterate']
+      critiqueIssues: opts?.skipCritique || lockBody
+        ? ['critique skipped: scaffold/patch path']
         : ['critique skipped: time budget'],
     }
   }
@@ -60,18 +80,21 @@ export async function ensureGameQuality(
   const critique = await critiqueAndFix(current)
   current = critique.game
   if (critique.changed) {
-    check = checkGame(current)
+    check = checkGame(current, { requireHarvest })
     if (!check.ok) {
       if (remaining() < 25_000) {
-        // Prefer shipping the pre-critique body over timing out.
-        return { ok: true, game, critiqueIssues: [...critique.issues, ...check.errors] }
+        // Prefer shipping the pre-critique body only if it still passes geometry.
+        const pre = checkGame(game, { requireHarvest })
+        if (pre.ok) {
+          return { ok: true, game, critiqueIssues: [...critique.issues, ...check.errors] }
+        }
+        return { ok: false, errors: check.errors, game: current }
       }
       current = await repairBody(current.bodyJs, check.errors, prior, current)
-      check = checkGame(current)
+      check = checkGame(current, { requireHarvest })
       if (!check.ok) return { ok: false, errors: check.errors, game: current }
     }
   }
 
   return { ok: true, game: current, critiqueIssues: critique.issues }
 }
-

@@ -114,6 +114,24 @@ ${BRIDGE}
     const scoreEl = document.getElementById('score')
     const dpr = Math.min(devicePixelRatio || 1, 2)
     let W = 0, H = 0, score = 0, last = performance.now()
+    GS.layoutFromPlan = function (plan, w, h) {
+      const ww = w != null ? w : W
+      const hh = h != null ? h : H
+      const out = {}
+      if (!Array.isArray(plan)) return out
+      for (let i = 0; i < plan.length; i++) {
+        const r = plan[i]
+        if (!r || typeof r.id !== 'string') continue
+        out[r.id] = {
+          x: Number(r.x) * ww,
+          y: Number(r.y) * hh,
+          w: Number(r.w) * ww,
+          h: Number(r.h) * hh,
+          band: r.band || 'other',
+        }
+      }
+      return out
+    }
     function setScore(n) { score = Math.max(0, n|0); scoreEl.textContent = String(score) }
     function reportScore() {
       if (score > 0) {
