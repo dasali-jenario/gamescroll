@@ -719,42 +719,19 @@
   pointer-events: none;
 }
 
-/* Privacy disclosure — fixed info control + panel */
+/* Privacy disclosure — nav-aligned info control + panel */
 .privacy-info-btn {
-  position: fixed;
-  right: calc(0.75rem + env(safe-area-inset-right, 0px));
-  bottom: calc(var(--bottom-nav) + 0.55rem);
-  z-index: 52;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(15, 20, 25, 0.55);
-  color: rgba(243, 238, 228, 0.92);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
-  transition: transform 0.2s var(--ease), background 0.2s, border-color 0.2s;
-}
-
-.privacy-info-btn:hover,
-.privacy-info-btn:focus-visible {
-  background: rgba(243, 238, 228, 0.96);
-  color: var(--ink);
-  border-color: transparent;
-  outline: none;
-}
-
-.privacy-info-btn:active {
-  transform: scale(0.94);
+  width: 2.4rem;
+  min-width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  gap: 0;
 }
 
 .privacy-info-glyph {
   font-family: 'Bricolage Grotesque', sans-serif;
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 1rem;
   line-height: 1;
   font-style: italic;
 }

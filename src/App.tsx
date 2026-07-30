@@ -2,7 +2,6 @@ import { useCallback, useRef, useState } from 'react'
 import { BottomNav } from './components/BottomNav'
 import { GameCard } from './components/GameCard'
 import { GameOverOverlay } from './components/GameOverOverlay'
-import { PrivacyDisclosure } from './components/PrivacyDisclosure'
 import { SwipeCue } from './components/SwipeCue'
 import { useChromeInsets } from './hooks/useChromeInsets'
 import { useFeedGestures } from './hooks/useFeedGestures'
@@ -271,8 +270,6 @@ export default function App() {
           onPlayAnother={goToNextGame}
         />
       )}
-
-      <PrivacyDisclosure />
     </div>
   )
 }

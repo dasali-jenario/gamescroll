@@ -1,6 +1,7 @@
 import { useEffect, useState, type Ref } from 'react'
 import type { Game } from '../games'
 import { shareGame } from '../share'
+import { PrivacyDisclosure } from './PrivacyDisclosure'
 
 type Props = {
   game: Game | undefined
@@ -10,7 +11,7 @@ type Props = {
   navRef?: Ref<HTMLElement | null>
 }
 
-/** Viewport-fixed Like / Share bar for the active feed game. */
+/** Viewport-fixed Like / Share / Info bar for the active feed game. */
 export function BottomNav({ game, liked, isPlaying, onLike, navRef }: Props) {
   const [shareNote, setShareNote] = useState<string | null>(null)
 
@@ -64,6 +65,7 @@ export function BottomNav({ game, liked, isPlaying, onLike, navRef }: Props) {
           </span>
         )}
       </div>
+      <PrivacyDisclosure />
     </nav>
   )
 }
