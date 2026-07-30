@@ -770,23 +770,33 @@ export const wave2Games = {
       const solved = []
       for (let i = 0; i < colors; i++) solved.push(Array(cap).fill(i))
       for (let i = 0; i < empties; i++) solved.push([])
-      // scramble with legal reverse pours
+      // Scramble with reverse pours that ignore color match so tubes mix
+      // different colors (still solvable: every state is reachable from solved).
       tubes = solved.map(t => t.slice())
-      for (let s = 0; s < 40 + lv * 8; s++) {
+      const scramble = 60 + lv * 14
+      for (let s = 0; s < scramble; s++) {
         const from = (Math.random() * n) | 0
         const to = (Math.random() * n) | 0
         if (from === to || !tubes[from].length || tubes[to].length >= cap) continue
-        const color = tubes[from][tubes[from].length - 1]
-        if (tubes[to].length && tubes[to][tubes[to].length - 1] !== color) continue
-        let moved = 0
-        while (
-          tubes[from].length &&
-          tubes[from][tubes[from].length - 1] === color &&
-          tubes[to].length < cap &&
-          moved < 3
-        ) {
-          tubes[to].push(tubes[from].pop())
-          moved++
+        // Avoid trivially undoing a completed mono tube into an empty one.
+        if (
+          tubes[to].length === 0 &&
+          tubes[from].length === cap &&
+          tubes[from].every(c => c === tubes[from][0])
+        ) continue
+        tubes[to].push(tubes[from].pop())
+      }
+      if (tubes.every(t => !t.length || (t.length === cap && t.every(c => c === t[0])))) {
+        // Rare: still sorted — force one mixed pour.
+        for (let a = 0; a < n; a++) {
+          if (!tubes[a].length) continue
+          for (let b = 0; b < n; b++) {
+            if (a === b || tubes[b].length >= cap) continue
+            if (!tubes[b].length || tubes[b][tubes[b].length - 1] !== tubes[a][tubes[a].length - 1]) {
+              tubes[b].push(tubes[a].pop())
+              return
+            }
+          }
         }
       }
     }

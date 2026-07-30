@@ -59,7 +59,7 @@ let answer = "", phase = "idle", grid = Array(6).fill(0).map(() => Array(5).fill
 const kbRows = [
   "QWERTYUIOP".split(""),
   "ASDFGHJKL".split(""),
-  ["ENTER", ..."ZXCVBNM".split(""), "DEL"]
+  [..."ZXCVBNM".split(""), "DEL"]
 ];
 function emptyGrid(){ return Array(6).fill(0).map(() => Array(5).fill("")) }
 function pickWord() {
@@ -96,18 +96,20 @@ function layout() {
       });
     }
   }
-  // Shared letter width from the 10-key top row; ENTER/DEL are 1.5× so the
-  // bottom row still totals 10 units and stays inside the playfield.
+  // Letter rows use a shared key width; DEL is 1.5×. Enter is a dedicated
+  // submit button under the keyboard (not a letter-sized key).
   layoutRects.kbKeys = [];
   const kb = layoutRects.kb;
   const rowGap = Math.max(6, H * 0.008);
   const keyGap = Math.max(3, Math.min(6, W * 0.01));
+  const enterH = Math.max(36, kb.h * 0.22);
+  const letterAreaH = kb.h - enterH - rowGap;
   const letterW = (kb.w - keyGap * 9) / 10;
-  const keyH = (kb.h - 2 * rowGap) / 3;
+  const keyH = (letterAreaH - 2 * rowGap) / 3;
   let kbY = kb.y;
   for (let i = 0; i < 3; ++i) {
     const keys = kbRows[i];
-    const widths = keys.map((label) => (label === 'ENTER' || label === 'DEL' ? letterW * 1.5 : letterW));
+    const widths = keys.map((label) => (label === 'DEL' ? letterW * 1.5 : letterW));
     const totalW = widths.reduce((a, b) => a + b, 0) + keyGap * (keys.length - 1);
     let rowX = kb.x + Math.max(0, (kb.w - totalW) / 2);
     for (let j = 0; j < keys.length; ++j) {
@@ -122,6 +124,13 @@ function layout() {
     }
     kbY += keyH + rowGap;
   }
+  const enterW = Math.min(kb.w, letterW * 6 + keyGap * 5);
+  layoutRects.enterBtn = {
+    x: kb.x + (kb.w - enterW) / 2,
+    y: kb.y + kb.h - enterH,
+    w: enterW,
+    h: enterH,
+  };
 }
 function reset(){
   layout();
@@ -169,31 +178,33 @@ function pointerXY(e){
 function hitRect(obj, x, y){
   return x >= obj.x && x <= obj.x + obj.w && y >= obj.y && y <= obj.y + obj.h;
 }
+function submitGuess(){
+  if (col < 5) { hintMsg = "Fill all 5 letters"; return; }
+  const guess = grid[row].join("");
+  if (guess === answer) {
+    ++row;
+    updateKbState();
+    --row;
+    bumpWin();
+    return;
+  }
+  ++row;
+  updateKbState();
+  col = 0;
+  hintMsg = "";
+  if (row >= 6) die();
+}
 canvas.addEventListener("pointerdown", function (e) {
   if (GS.paused) return;
-  if (!layoutRects.kbKeys) layout();
+  if (!layoutRects.kbKeys || !layoutRects.enterBtn) layout();
   const { x, y } = pointerXY(e);
   if (phase === "play") {
+    if (hitRect(layoutRects.enterBtn, x, y)) { submitGuess(); return; }
     for (const key of layoutRects.kbKeys) {
       if (!hitRect(key, x, y)) continue;
       const label = key.label;
       if (label === "DEL") {
         if (col > 0) { --col; grid[row][col] = ""; }
-      } else if (label === "ENTER") {
-        if (col < 5) { hintMsg = "Fill all 5 letters"; break; }
-        const guess = grid[row].join("");
-        if (guess === answer) {
-          ++row;
-          updateKbState();
-          --row;
-          bumpWin();
-          break;
-        }
-        ++row;
-        updateKbState();
-        col = 0;
-        hintMsg = "";
-        if (row >= 6) die();
       } else if (col < 5 && /^[A-Z]$/.test(label)) {
         grid[row][col] = label;
         ++col;
@@ -206,7 +217,7 @@ canvas.addEventListener("pointerdown", function (e) {
 });
 function tick(dt){ if (GS.paused) return; }
 function draw(){
-  if (!layoutRects.cells || !layoutRects.kbKeys) layout();
+  if (!layoutRects.cells || !layoutRects.kbKeys || !layoutRects.enterBtn) layout();
   if (!grid.length) grid = emptyGrid();
   if (typeof PF !== 'undefined' && PF && PF.sky) {
     PF.sky(ctx, W, H, '#fff3e6', '#ffe5ec', '#e0e5ff');
@@ -255,7 +266,7 @@ function draw(){
     if (typeof PF !== 'undefined' && PF && PF.rr) PF.rr(ctx, key.x, key.y, key.w, key.h, Math.min(key.w, key.h) * 0.22);
     else ctx.rect(key.x, key.y, key.w, key.h);
     let bg = '#e0e0e0', fg = '#242c3b';
-    if (key.label === "ENTER" || key.label === "DEL") { bg = "#29c7fa"; fg = "#fff"; }
+    if (key.label === "DEL") { bg = "#29c7fa"; fg = "#fff"; }
     if (/^[A-Z]$/.test(key.label) && kbState[key.label]) {
       if (kbState[key.label] === "green") bg = "#3ec46d";
       else if (kbState[key.label] === "yellow") bg = "#ffd23f";
@@ -270,6 +281,16 @@ function draw(){
     ctx.fillStyle = fg;
     ctx.fillText(key.label, key.x + key.w / 2, key.y + key.h * 0.66);
   }
+  const btn = layoutRects.enterBtn;
+  ctx.beginPath();
+  if (typeof PF !== 'undefined' && PF && PF.rr) PF.rr(ctx, btn.x, btn.y, btn.w, btn.h, Math.min(btn.w, btn.h) * 0.28);
+  else ctx.rect(btn.x, btn.y, btn.w, btn.h);
+  ctx.fillStyle = '#242c3b';
+  ctx.fill();
+  ctx.font = '700 ' + Math.floor(btn.h * 0.42) + 'px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff';
+  ctx.fillText('Enter', btn.x + btn.w / 2, btn.y + btn.h * 0.66);
   ctx.restore();
 }
 `
