@@ -115,4 +115,19 @@ describe('Variety Phase 2 — path honesty', () => {
     const sync = readFileSync(join(root, 'scripts/sync-shared.mjs'), 'utf8')
     expect(sync).toContain('creatorPaths.ts')
   })
+
+  it('chatTurn logs creator_quality_fail via creatorLog', () => {
+    const chat = readFileSync(
+      join(root, 'supabase/functions/_shared/chatTurn.ts'),
+      'utf8',
+    )
+    expect(chat).toContain('logCreatorRun')
+    expect(chat).toContain('creator_quality_fail')
+    expect(chat).toContain('creator_draft_saved')
+    const log = readFileSync(
+      join(root, 'supabase/functions/_shared/creatorLog.ts'),
+      'utf8',
+    )
+    expect(log).toContain('creator_run_logs')
+  })
 })

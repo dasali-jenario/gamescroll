@@ -1,5 +1,19 @@
 # New file requests
 
+## 2026-07-30 — Creator run logs (Supabase)
+
+### Requested files
+- `supabase/migrations/20260730140000_creator_run_logs.sql` — `creator_run_logs` table + RLS
+- `supabase/functions/_shared/creatorLog.ts` — Edge `logCreatorRun` (DB insert + console)
+- Updates: `chatTurn.ts` (log start / quality fail / draft save / interview), smoke stack snippet, `setup-supabase.mjs`, `docs/CREATOR.md`
+
+### Duplicate search
+- Grep `creator_run_logs|logCreatorRun|creatorLog` → none
+- Closest: `feed_telemetry_events` (client feed only), `creatorMetrics` event *names* (no Edge emit), Supabase Function console (ephemeral)
+
+### Rationale
+Diagnose creator smoke/quality failures (e.g. `c is not defined`) with prompt + bodyJs + errors persisted in Supabase.
+
 ## 2026-07-29 — Creator Variety Phase 2 (path honesty + split metrics)
 
 ### Requested files

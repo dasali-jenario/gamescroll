@@ -36,6 +36,7 @@ import {
   type LlmGamePayload,
 } from './creatorLlm.ts'
 import { ensureGameQuality } from './qualityGate.ts'
+import { lastUserPrompt, logCreatorRun } from './creatorLog.ts'
 
 function applyScaffoldToGame(
   game: LlmGamePayload,
@@ -120,6 +121,20 @@ export async function handleChatTurn(opts: {
       ? ((existingMechanic as MechanicFamily) ||
         inferMechanicFromMessages(userMessages))
       : inferMechanicFromMessages(userMessages)
+    const userPrompt = lastUserPrompt(userMessages)
+
+    await logCreatorRun(admin, {
+      user_id: user.id,
+      event: 'creator_chat_start',
+      game_id: gameId || null,
+      slug: existing?.slug || null,
+      mechanic,
+      user_prompt: userPrompt,
+      props: {
+        has_existing_body: Boolean(existingBodyJs),
+        message_count: userMessages.length,
+      },
+    })
   
     if (!existingBodyJs) {
       // Arcade → scaffold seed; custom → freeform bodyJs seed.
@@ -211,6 +226,19 @@ export async function handleChatTurn(opts: {
                 : game.layoutPlan,
             }
           } else {
+            await logCreatorRun(admin, {
+              user_id: user.id,
+              event: 'creator_patch_fail',
+              game_id: existing?.id || gameId || null,
+              slug: existing?.slug || null,
+              phase: 'interview',
+              mechanic,
+              ok: false,
+              errors: patched.errors,
+              duration_ms: Date.now() - startedAt,
+              user_prompt: userPrompt,
+              body_js: existingBodyJs,
+            })
             return jsonResponse({
               reply:
                 'I could not apply that edit cleanly. Try describing the change again.',
@@ -244,6 +272,18 @@ export async function handleChatTurn(opts: {
       }
 
       if (!game.bodyJs.trim()) {
+        await logCreatorRun(admin, {
+          user_id: user.id,
+          event: 'creator_empty_body',
+          game_id: existing?.id || gameId || null,
+          slug: existing?.slug || null,
+          phase: turn.phase,
+          mechanic: game.mechanic || mechanic,
+          ok: false,
+          errors: ['model returned no bodyJs'],
+          duration_ms: Date.now() - startedAt,
+          user_prompt: userPrompt,
+        })
         return jsonResponse({
           reply: 'The generated game came back empty. Try describing it again.',
           phase: 'interview',
@@ -277,6 +317,28 @@ export async function handleChatTurn(opts: {
         quality = { ok: true, game, critiqueIssues: quality.critiqueIssues }
       }
       if (!quality.ok) {
+        const failPath = useArcadeScaffold
+          ? 'arcade'
+          : resolveBuildPath(family)
+        await logCreatorRun(admin, {
+          user_id: user.id,
+          event: 'creator_quality_fail',
+          game_id: existing?.id || gameId || null,
+          slug: existing?.slug || null,
+          phase: turn.phase,
+          mechanic: game.mechanic || mechanic,
+          build_path: failPath,
+          ok: false,
+          errors: quality.errors,
+          duration_ms: Date.now() - startedAt,
+          user_prompt: userPrompt,
+          body_js: quality.game?.bodyJs || game.bodyJs,
+          props: {
+            edit_mode: editMode,
+            use_arcade_scaffold: useArcadeScaffold,
+            title: game.title,
+          },
+        })
         return jsonResponse({
           reply:
             turn.reply ||
@@ -308,6 +370,20 @@ export async function handleChatTurn(opts: {
       })
       const htmlCheck = validateWrappedHtml(html)
       if (!htmlCheck.ok) {
+        await logCreatorRun(admin, {
+          user_id: user.id,
+          event: 'creator_html_fail',
+          game_id: existing?.id || gameId || null,
+          slug: existing?.slug || null,
+          phase: turn.phase,
+          mechanic: game.mechanic || mechanic,
+          build_path: buildPath,
+          ok: false,
+          errors: htmlCheck.errors,
+          duration_ms: Date.now() - startedAt,
+          user_prompt: userPrompt,
+          body_js: game.bodyJs,
+        })
         return jsonResponse({
           reply: 'Generated HTML failed safety checks. Please try again.',
           phase: 'interview',
@@ -327,6 +403,19 @@ export async function handleChatTurn(opts: {
           upsert: true,
         })
       if (uploadError) {
+        await logCreatorRun(admin, {
+          user_id: user.id,
+          event: 'creator_upload_fail',
+          game_id: existing?.id || gameId || null,
+          slug,
+          phase: turn.phase,
+          mechanic: game.mechanic || mechanic,
+          build_path: buildPath,
+          ok: false,
+          errors: [uploadError.message],
+          duration_ms: Date.now() - startedAt,
+          user_prompt: userPrompt,
+        })
         return jsonResponse({ error: `Upload failed: ${uploadError.message}` }, 500)
       }
   
@@ -376,7 +465,21 @@ export async function handleChatTurn(opts: {
           .eq('creator_id', user.id)
           .select('*')
           .single()
-        if (error) return jsonResponse({ error: error.message }, 500)
+        if (error) {
+          await logCreatorRun(admin, {
+            user_id: user.id,
+            event: 'creator_db_fail',
+            game_id: existing.id,
+            slug,
+            mechanic: game.mechanic || mechanic,
+            build_path: buildPath,
+            ok: false,
+            errors: [error.message],
+            duration_ms: Date.now() - startedAt,
+            user_prompt: userPrompt,
+          })
+          return jsonResponse({ error: error.message }, 500)
+        }
         saved = data
       } else {
         const { data, error } = await admin
@@ -384,9 +487,43 @@ export async function handleChatTurn(opts: {
           .insert(row)
           .select('*')
           .single()
-        if (error) return jsonResponse({ error: error.message }, 500)
+        if (error) {
+          await logCreatorRun(admin, {
+            user_id: user.id,
+            event: 'creator_db_fail',
+            slug,
+            mechanic: game.mechanic || mechanic,
+            build_path: buildPath,
+            ok: false,
+            errors: [error.message],
+            duration_ms: Date.now() - startedAt,
+            user_prompt: userPrompt,
+          })
+          return jsonResponse({ error: error.message }, 500)
+        }
         saved = data
       }
+
+      await logCreatorRun(admin, {
+        user_id: user.id,
+        event: 'creator_draft_saved',
+        game_id: saved?.id || null,
+        slug,
+        phase: existingBodyJs ? 'iterated' : turn.phase,
+        mechanic: game.mechanic || mechanic,
+        build_path: buildPath,
+        ok: true,
+        errors: [],
+        duration_ms: Date.now() - startedAt,
+        user_prompt: userPrompt,
+        body_js: game.bodyJs,
+        props: {
+          edit_mode: editMode,
+          use_arcade_scaffold: useArcadeScaffold,
+          critique_issues: quality.critiqueIssues.slice(0, 8),
+          title: game.title,
+        },
+      })
   
       return jsonResponse({
         reply: publicReply,
@@ -396,6 +533,19 @@ export async function handleChatTurn(opts: {
       })
     }
   
+    await logCreatorRun(admin, {
+      user_id: user.id,
+      event: 'creator_interview',
+      game_id: existing?.id || gameId || null,
+      slug: existing?.slug || null,
+      phase: 'interview',
+      mechanic,
+      ok: true,
+      duration_ms: Date.now() - startedAt,
+      user_prompt: userPrompt,
+      props: { llm_phase: turn.phase },
+    })
+
     return jsonResponse({
       reply: turn.reply || 'Tell me more about the game you want.',
       phase: 'interview',

@@ -176,7 +176,18 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
     ) as ApiFns
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    return { ok: false, errors: [`smoke load failed: ${msg}`] }
+    const stack =
+      err instanceof Error && err.stack
+        ? err.stack.split('\n').slice(0, 4).join(' | ')
+        : ''
+    return {
+      ok: false,
+      errors: [
+        stack
+          ? `smoke load failed: ${msg} :: ${stack}`
+          : `smoke load failed: ${msg}`,
+      ],
+    }
   }
 
   if (!api.tick) errors.push('smoke: tick is not defined after load')

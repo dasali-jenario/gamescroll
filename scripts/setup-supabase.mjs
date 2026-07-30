@@ -188,6 +188,7 @@ log('Applying migrations via Management SQL API…')
     'supabase/migrations/20260727130000_ugc_games_source.sql',
     'supabase/migrations/20260727210000_feed_telemetry_events.sql',
     'supabase/migrations/20260728213000_ugc_games_play_counts.sql',
+    'supabase/migrations/20260730140000_creator_run_logs.sql',
   ]
   for (const rel of migrations) {
     const migrationPath = join(root, rel)
