@@ -1,5 +1,18 @@
 # New file requests
 
+## 2026-07-30 — Privacy disclosure (info button)
+
+### Requested files
+- `src/components/PrivacyDisclosure.tsx` — bottom-right (i) control + privacy panel for Gamescroll / The Happy Lab GmbH
+- Styles in `src/styles/feed.css`; wired from `src/App.tsx`
+
+### Duplicate search
+- Grep `PrivacyDisclosure|privacy-disclosure|InfoButton|AboutOverlay|privacy|cookie` in `src/` → none for UI
+- Closest: `GameOverOverlay` (dialog pattern), `BottomNav` (fixed chrome), no privacy/about surface
+
+### Rationale
+EU/UK-facing disclosure without a cookie consent banner; provider + data practices reachable from the play feed.
+
 ## 2026-07-30 — Creator run logs (Supabase)
 
 ### Requested files
