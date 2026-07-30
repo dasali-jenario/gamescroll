@@ -1,4 +1,9 @@
+import { useEffect, useState } from 'react'
+import type { Game } from '../games'
+import { shareGame } from '../share'
+
 type Props = {
+  game: Game
   score: number
   best: number
   /** When true, lower scores are better (reaction time). */
@@ -8,14 +13,22 @@ type Props = {
 }
 
 export function GameOverOverlay({
+  game,
   score,
   best,
   lowerIsBetter = false,
   onPlayAgain,
   onPlayAnother,
 }: Props) {
+  const [shareNote, setShareNote] = useState<string | null>(null)
   const isNewBest =
     score > 0 && (lowerIsBetter ? score <= best : score >= best)
+
+  useEffect(() => {
+    if (!shareNote) return
+    const t = window.setTimeout(() => setShareNote(null), 1800)
+    return () => window.clearTimeout(t)
+  }, [shareNote])
 
   return (
     <div
@@ -47,6 +60,31 @@ export function GameOverOverlay({
           >
             Play another
           </button>
+          <div className="game-over-share-wrap">
+            <button
+              type="button"
+              className="game-over-share"
+              aria-label={`Share ${game.title}`}
+              onClick={async () => {
+                const result = await shareGame(game)
+                if (result === 'copied') setShareNote('Link copied')
+                else if (result === 'failed') setShareNote('Couldn’t share')
+              }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="18" cy="5" r="2.5" />
+                <circle cx="6" cy="12" r="2.5" />
+                <circle cx="18" cy="19" r="2.5" />
+                <path d="M8.4 13.2 15.6 17.3M15.6 6.7 8.4 10.8" />
+              </svg>
+              Share
+            </button>
+            {shareNote && (
+              <span className="share-note" role="status">
+                {shareNote}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

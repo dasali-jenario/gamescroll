@@ -89,13 +89,13 @@ flowchart TB
 |------|------|
 | `App.tsx` | Composition shell: wires hooks, nav glue (`goToNext` / `goToPrev`), chrome JSX |
 | `hooks/useFeedSession.ts` | Boot / UGC community, jackpot intro, append/prune window, activeIndex, scroll |
-| `hooks/usePlaySession.ts` | playingKey, scores, game-over, auto-restart, rail hint, cue/nudge, deploy reload |
+| `hooks/usePlaySession.ts` | playingKey, scores, game-over, rail hint, cue/nudge, deploy reload |
 | `hooks/useFeedGestures.ts` | Keyboard, intro cancel, nudge swipe, silent-rail swipe, play-mode scroll lock |
 | `games.ts` | Feed helpers + `Game` type; official list from `generated/officialCatalog.ts` |
 | `generated/officialCatalog.ts` | Emitted `{ id, title, tip, accent }` (from `generate-games.mjs`) |
 | `components/GameCard.tsx` | iframe load + bridge |
 | `components/BottomNav.tsx` | fixed bottom like/share nav for the active game |
-| `components/GameOverOverlay.tsx` | Fail UI when auto-restart is off |
+| `components/GameOverOverlay.tsx` | Fail UI: score, Play again / Play another / Share |
 | `components/SwipeCue.tsx` | Brief “Swipe / Next game” chip (5s after intro) |
 | `lib/feedIntro.ts` | Jackpot reel sequence (every cold start) |
 | `lib/feedWindow.ts` | Sliding-window append/prune + scroll-index remap |
@@ -109,7 +109,6 @@ flowchart TB
 | `share.ts` | `?g=` deep links + Web Share / clipboard; share text includes personal high score when stored |
 | `highscores.ts` | Per-game best scores (`gs_highscores`); read by share + top-bar Best |
 | `metrics.ts` | Visits + sparse feed telemetry batcher |
-| `experiments.ts` | Auto-restart preference ↔ iframe `onFail` |
 | `updateCheck.ts` | Poll `/version.json` every 12s; cache-bust reload when a new deploy is live |
 | `index.css` | Import barrel for `styles/{base,feed,create,mod}.css` |
 
@@ -160,9 +159,9 @@ Messages use the `gamescroll:` prefix. Origin is `'*'` (static same-site iframes
 **Typical play session**
 
 1. Card becomes playing → iframe loads → game posts `ready`.
-2. Host posts `start` with `onFail` from the auto-restart preference.
+2. Host posts `start` with `onFail: 'gameover'`.
 3. Game unpauses, posts `playing`, reports `score` while running.
-4. On fail: either in-iframe reset (`replay`) or `died` + host overlay (`gameover`).
+4. On fail: game posts `died`; host shows `GameOverOverlay` (Play again / Play another / Share).
 5. Strong vertical flings inside the iframe forward `swipe-next` / `swipe-prev` so the feed can move even while the iframe captures pointers.
 
 In-iframe swipe thresholds: distance ≥ `max(140, 0.22 × height)`, duration ≤ 350ms, and vertical dominance `|dy| ≥ dx × 2.2`.
@@ -192,25 +191,13 @@ https://play.thehappylab.com/?g=pong
 
 `readSharedGameParam()` / `getGameById` pin a catalog id when present. If the slug is UGC-only, feed boot fetches that row **in parallel** with the approved community list (`resolveFeedBoot`), then rebuilds the first batch and autoplays after the intro reel.
 
-Share (`shareGame` / `gameShareText`) uses `navigator.share` when available, otherwise clipboard. The share body is `Play {title} — {tip}`; if `gs_highscores` has a best for that game id, it appends `My high score: {n}`. Clipboard fallback copies URL only when there is no score; with a score it copies the share text plus the absolute `?g=` URL.
-
-### Query prefs
-
-| Param | Effect |
-|-------|--------|
-| `?autorestart=1\|0` | Force auto-restart on/off (persisted) |
-| `?fail=replay\|gameover` | Legacy alias for the same |
+Share (`shareGame` / `gameShareText`) uses `navigator.share` when available, otherwise clipboard. The share body is `Play {title} — {tip}`; if `gs_highscores` has a best for that game id, it appends `My high score: {n}`. Clipboard fallback copies URL only when there is no score; with a score it copies the share text plus the absolute `?g=` URL. Share is available from the bottom nav and the game-over overlay.
 
 ---
 
-## Fail modes (auto-restart)
+## Fail → game over
 
-| Auto-restart | `onFail` | On die |
-|--------------|----------|--------|
-| On (default) | `replay` | Game resets inside the iframe; no host overlay |
-| Off | `gameover` | Game posts `died`, host shows `GameOverOverlay` (Play again / Play another) |
-
-Preference resolution: URL → `localStorage` (`gs_auto_restart`, legacy `gs_fail_mode`) → default `true`.
+On die, games always post `gamescroll:died` (`onFail: 'gameover'`). The host shows `GameOverOverlay` with score, Play again, Play another, and Share.
 
 ---
 
@@ -223,8 +210,6 @@ Owned by the host (sandboxed games cannot use storage).
 | `gs_highscores` | Best score per game id (also included in Share text when present) |
 | `gs_uid` | Anonymous visitor id |
 | `gs_visits` / `gs_last_seen` | Daily visit counting |
-| `gs_auto_restart` | Auto-restart preference |
-| `gs_fail_mode` | Legacy fail-mode preference |
 
 Likes in the bottom-nav control are in-memory only for the session.
 
@@ -308,7 +293,7 @@ UGC HTML must pass the same host bridge contract and forbid multiplayer / networ
 
 Coverage today:
 
-- Catalog shape, feed keys, share deep links (including personal high score in share text), highscores, auto-restart prefs
+- Catalog shape, feed keys, share deep links (including personal high score in share text), highscores
 - Catalog ids ↔ `public/games/*.html`, bridge message contract, culled games stay gone
 - Generated `officialCatalog.ts` stays in sync with `generate-games.mjs`
 - UGC wrap/validator (forbidden APIs + bridge snippets)

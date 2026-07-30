@@ -125,7 +125,9 @@ describe('host CSS / App presentation contract', () => {
 
   it('sizes the top bar from content + safe-area (no circular min-height)', () => {
     const block = feedCss.match(/\.top-bar \{([\s\S]*?)\n\}/)
-    expect(block?.[1]).toMatch(/padding:\s*calc\(0\.55rem \+ var\(--safe-top\)\)/)
+    expect(block?.[1]).toMatch(
+      /padding:\s*calc\(0\.55rem \+ var\(--safe-top\)\)/,
+    )
     expect(block?.[1]).not.toMatch(/min-height:\s*var\(--chrome-top\)/)
     expect(baseCss).toMatch(/--safe-top:\s*env\(safe-area-inset-top/)
   })

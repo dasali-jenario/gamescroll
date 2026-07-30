@@ -5,10 +5,6 @@ import {
   useState,
   type MutableRefObject,
 } from 'react'
-import {
-  persistAutoRestart,
-  resolveAutoRestart,
-} from '../experiments'
 import { loadHighscores, recordHighscore } from '../highscores'
 import {
   QUALIFIED_PLAY_MS,
@@ -44,7 +40,6 @@ export function usePlaySession({
   const cueSpentRef = useRef(false)
   const [railHintVisible, setRailHintVisible] = useState(true)
   const [highscores, setHighscores] = useState(loadHighscores)
-  const [autoRestart, setAutoRestart] = useState(() => resolveAutoRestart())
   const [gameOver, setGameOver] = useState<GameOverState | null>(null)
   const [restartKey, setRestartKey] = useState(0)
 
@@ -154,32 +149,19 @@ export function usePlaySession({
     )
   }, [])
 
-  const onDied = useCallback(
-    (gameId: string, score: number) => {
-      if (autoRestart) return
-      if (score > 0) {
-        const best = recordHighscore(gameId, score)
-        setHighscores((prev) =>
-          prev[gameId] === best ? prev : { ...prev, [gameId]: best },
-        )
-      }
-      setGameOver({ gameId, score })
-    },
-    [autoRestart],
-  )
+  const onDied = useCallback((gameId: string, score: number) => {
+    if (score > 0) {
+      const best = recordHighscore(gameId, score)
+      setHighscores((prev) =>
+        prev[gameId] === best ? prev : { ...prev, [gameId]: best },
+      )
+    }
+    setGameOver({ gameId, score })
+  }, [])
 
   const playAgain = useCallback(() => {
     setGameOver(null)
     setRestartKey((n) => n + 1)
-  }, [])
-
-  const toggleAutoRestart = useCallback(() => {
-    setAutoRestart((prev) => {
-      const next = !prev
-      persistAutoRestart(next)
-      return next
-    })
-    setGameOver(null)
   }, [])
 
   const handlePlay = useCallback(
@@ -206,7 +188,6 @@ export function usePlaySession({
   return {
     playingKey,
     gameOver,
-    autoRestart,
     restartKey,
     highscores,
     railHintVisible,
@@ -219,7 +200,6 @@ export function usePlaySession({
     onScore,
     onDied,
     playAgain,
-    toggleAutoRestart,
     dismissNudge,
     dismissCue,
     applyPendingReload,

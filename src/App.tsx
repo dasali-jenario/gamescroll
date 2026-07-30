@@ -141,8 +141,27 @@ export default function App() {
         </div>
       )}
       <header className="top-bar" ref={topBarRef}>
+        <div className="top-bar-row">
+          <div className="brand-mark" aria-label="Gamescroll">
+            <span className="brand-mark-dot" aria-hidden="true" />
+            Gamescroll
+          </div>
+          {play.playingKey && (
+            <button
+              type="button"
+              className="pause-btn"
+              onClick={play.pausePlay}
+              aria-label="Pause game"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="6" y="5" width="4" height="14" rx="1" />
+                <rect x="14" y="5" width="4" height="14" rx="1" />
+              </svg>
+              Pause
+            </button>
+          )}
+        </div>
         <div className="brand-block">
-          <div className="brand">Gamescroll</div>
           <div className="game-title">{activeGame?.title ?? ''}</div>
           {activeGame?.tip && <p className="game-tip">{activeGame.tip}</p>}
           {play.playingKey && activeHighscore > 0 && (
@@ -161,30 +180,6 @@ export default function App() {
             </div>
           )}
         </div>
-        <div className="stats" aria-label="Session stats">
-          <button
-            type="button"
-            className={`auto-restart-btn${play.autoRestart ? ' is-on' : ' is-off'}`}
-            onClick={play.toggleAutoRestart}
-            aria-pressed={play.autoRestart}
-            aria-label={`Restart ${play.autoRestart ? 'on' : 'off'}. Tap to ${play.autoRestart ? 'disable' : 'enable'} auto-restart.`}
-            title="Toggle auto-restart on fail"
-          >
-            Restart
-          </button>
-          <span className="mode">
-            {feed.introRunning
-              ? 'Browse'
-              : play.playingKey
-                ? 'Playing'
-                : 'Browse'}
-          </span>
-          {play.playingKey && (
-            <button type="button" className="pause-btn" onClick={play.pausePlay}>
-              Pause
-            </button>
-          )}
-        </div>
       </header>
 
       <div
@@ -200,7 +195,6 @@ export default function App() {
             isActive={Math.abs(index - feed.activeIndex) <= 1}
             isPlaying={play.playingKey === item.key}
             controlsEnabled={play.playingKey === item.key && !play.gameOver}
-            autoRestart={play.autoRestart}
             restartKey={play.playingKey === item.key ? play.restartKey : 0}
             onPlay={play.handlePlay}
             onScore={play.onScore}
@@ -260,8 +254,9 @@ export default function App() {
 
       {play.showCue && <SwipeCue />}
 
-      {play.gameOver && play.playingKey && (
+      {play.gameOver && play.playingKey && activeGame && (
         <GameOverOverlay
+          game={activeGame}
           score={play.gameOver.score}
           best={betterScore(
             play.gameOver.gameId,

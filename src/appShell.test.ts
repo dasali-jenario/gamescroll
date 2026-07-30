@@ -49,7 +49,7 @@ describe('App shell hook split', () => {
     expect(playSession).toContain('setRailHintVisible(false)')
     expect(playSession).toContain('watchForDeployUpdate')
     expect(playSession).toContain('recordHighscore')
-    expect(playSession).toContain('resolveAutoRestart')
+    expect(playSession).toContain('setGameOver')
     expect(playSession).toContain('setCueVisible(true)')
   })
 
