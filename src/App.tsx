@@ -162,23 +162,25 @@ export default function App() {
           )}
         </div>
         <div className="brand-block">
-          <div className="game-title">{activeGame?.title ?? ''}</div>
+          <div className="title-row">
+            <div className="game-title">{activeGame?.title ?? ''}</div>
+            {play.playingKey && activeHighscore > 0 && (
+              <div
+                className="highscore"
+                aria-label={
+                  activeGame && isLowerBetterScore(activeGame.id)
+                    ? `My best time ${activeHighscore} milliseconds`
+                    : `My best score ${activeHighscore}`
+                }
+              >
+                My best{' '}
+                {activeGame && isLowerBetterScore(activeGame.id)
+                  ? `${activeHighscore} ms`
+                  : activeHighscore}
+              </div>
+            )}
+          </div>
           {activeGame?.tip && <p className="game-tip">{activeGame.tip}</p>}
-          {play.playingKey && activeHighscore > 0 && (
-            <div
-              className="highscore"
-              aria-label={
-                activeGame && isLowerBetterScore(activeGame.id)
-                  ? `Best time ${activeHighscore} milliseconds`
-                  : `High score ${activeHighscore}`
-              }
-            >
-              Best{' '}
-              {activeGame && isLowerBetterScore(activeGame.id)
-                ? `${activeHighscore} ms`
-                : activeHighscore}
-            </div>
-          )}
         </div>
       </header>
 

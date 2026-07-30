@@ -8,7 +8,7 @@
   /* Fallbacks until useChromeInsets measures real chrome boxes. */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --chrome-top-content: 6.25rem;
+  --chrome-top-content: 5.75rem;
   --chrome-top: calc(var(--safe-top) + var(--chrome-top-content));
   /* Bottom like/share nav — playfield never overlaps this. */
   --bottom-nav: calc(3.85rem + var(--safe-bottom));
