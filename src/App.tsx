@@ -130,17 +130,20 @@ export default function App() {
     playingKey: play.playingKey,
     nudgeVisible: play.nudgeVisible,
     gameOver: play.gameOver,
+    paused: play.paused,
     cancelIntro: feed.cancelIntro,
     goToNextGame,
     goToPrevGame,
     playAgain: play.playAgain,
     pausePlay: play.pausePlay,
+    resumePlay: play.resumePlay,
   })
 
   const [liked, setLiked] = useState<Record<string, boolean>>({})
 
   const activeGame = feed.feed[feed.activeIndex]?.game
   const activeHighscore = activeGame ? play.highscores[activeGame.id] ?? 0 : 0
+  const overlayOpen = !!(play.gameOver || play.paused)
 
   useChromeInsets({
     topBarRef,
@@ -161,8 +164,17 @@ export default function App() {
   const showSilentRail = shouldShowSilentSwipeRail({
     playingKey: play.playingKey,
     gameOver: !!play.gameOver,
+    paused: play.paused,
     introRunning: feed.introRunning,
   })
+
+  const toggleLike = () => {
+    if (!activeGame) return
+    setLiked((prev) => ({
+      ...prev,
+      [activeGame.id]: !prev[activeGame.id],
+    }))
+  }
 
   return (
     <div
@@ -180,20 +192,6 @@ export default function App() {
             <span className="brand-mark-dot" aria-hidden="true" />
             Gamescroll
           </div>
-          {play.playingKey && (
-            <button
-              type="button"
-              className="pause-btn"
-              onClick={play.pausePlay}
-              aria-label="Pause game"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="6" y="5" width="4" height="14" rx="1" />
-                <rect x="14" y="5" width="4" height="14" rx="1" />
-              </svg>
-              Pause
-            </button>
-          )}
         </div>
         <div className="brand-block">
           <div className="title-row">
@@ -230,7 +228,10 @@ export default function App() {
             game={item.game}
             isActive={Math.abs(index - feed.activeIndex) <= 1}
             isPlaying={play.playingKey === item.key}
-            controlsEnabled={play.playingKey === item.key && !play.gameOver}
+            isPaused={play.playingKey === item.key && play.paused}
+            controlsEnabled={
+              play.playingKey === item.key && !play.gameOver && !play.paused
+            }
             restartKey={play.playingKey === item.key ? play.restartKey : 0}
             onPlay={play.handlePlay}
             onScore={play.onScore}
@@ -243,16 +244,15 @@ export default function App() {
       <BottomNav
         navRef={bottomNavRef}
         game={activeGame}
-        liked={!!(activeGame && liked[activeGame.id])}
         isPlaying={!!play.playingKey}
+        overlayOpen={overlayOpen}
         onShuffle={goToRandomGame}
-        onLike={() => {
-          if (!activeGame) return
-          setLiked((prev) => ({
-            ...prev,
-            [activeGame.id]: !prev[activeGame.id],
-          }))
+        onPlay={() => {
+          const item = feed.feed[feed.activeIndex]
+          if (!item) return
+          play.handlePlay(item.key, item.game.id)
         }}
+        onPause={play.pausePlay}
       />
 
       {feed.introRunning && (
@@ -293,6 +293,7 @@ export default function App() {
 
       {play.gameOver && play.playingKey && activeGame && (
         <GameOverOverlay
+          mode="over"
           game={activeGame}
           score={play.gameOver.score}
           best={betterScore(
@@ -303,13 +304,23 @@ export default function App() {
           previousBest={play.gameOver.previousBest}
           lowerIsBetter={isLowerBetterScore(play.gameOver.gameId)}
           liked={!!liked[activeGame.id]}
-          onLike={() => {
-            setLiked((prev) => ({
-              ...prev,
-              [activeGame.id]: !prev[activeGame.id],
-            }))
-          }}
+          onLike={toggleLike}
           onPlayAgain={play.playAgain}
+          onPlayAnother={goToNextGame}
+        />
+      )}
+
+      {play.paused && play.playingKey && activeGame && !play.gameOver && (
+        <GameOverOverlay
+          mode="paused"
+          game={activeGame}
+          score={play.liveScore}
+          best={activeHighscore}
+          previousBest={activeHighscore}
+          lowerIsBetter={isLowerBetterScore(activeGame.id)}
+          liked={!!liked[activeGame.id]}
+          onLike={toggleLike}
+          onPlayAgain={play.resumePlay}
           onPlayAnother={goToNextGame}
         />
       )}

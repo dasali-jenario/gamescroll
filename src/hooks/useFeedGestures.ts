@@ -8,11 +8,13 @@ type Options = {
   playingKey: string | null
   nudgeVisible: boolean
   gameOver: { gameId: string; score: number } | null
+  paused: boolean
   cancelIntro: () => void
   goToNextGame: () => void
   goToPrevGame: () => void
   playAgain: () => void
   pausePlay: () => void
+  resumePlay: () => void
 }
 
 export function useFeedGestures({
@@ -21,11 +23,13 @@ export function useFeedGestures({
   playingKey,
   nudgeVisible,
   gameOver,
+  paused,
   cancelIntro,
   goToNextGame,
   goToPrevGame,
   playAgain,
   pausePlay,
+  resumePlay,
 }: Options) {
   const swipeStart = useRef<{ x: number; y: number } | null>(null)
 
@@ -109,6 +113,13 @@ export function useFeedGestures({
     if (introRunning) return
 
     const onKey = (e: KeyboardEvent) => {
+      if (paused) {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+          e.preventDefault()
+          resumePlay()
+          return
+        }
+      }
       if (gameOver) {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
@@ -139,9 +150,11 @@ export function useFeedGestures({
   }, [
     introRunning,
     gameOver,
+    paused,
     playAgain,
     playingKey,
     pausePlay,
+    resumePlay,
     goToNextGame,
     goToPrevGame,
   ])

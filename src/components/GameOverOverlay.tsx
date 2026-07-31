@@ -4,6 +4,8 @@ import { shareGame } from '../share'
 
 type Props = {
   game: Game
+  /** `paused` keeps the round alive; `over` is a finished round. */
+  mode?: 'over' | 'paused'
   score: number
   /** Best after this round (includes a new record). */
   best: number
@@ -24,6 +26,7 @@ function formatScore(value: number, lowerIsBetter: boolean): string {
 
 export function GameOverOverlay({
   game,
+  mode = 'over',
   score,
   best,
   previousBest,
@@ -34,8 +37,10 @@ export function GameOverOverlay({
   onPlayAnother,
 }: Props) {
   const [shareNote, setShareNote] = useState<string | null>(null)
+  const paused = mode === 'paused'
   const hasPriorBest = previousBest > 0
   const isNewBest =
+    !paused &&
     score > 0 &&
     (hasPriorBest
       ? lowerIsBetter
@@ -49,12 +54,15 @@ export function GameOverOverlay({
     return () => window.clearTimeout(t)
   }, [shareNote])
 
+  const titleId = paused ? 'game-pause-title' : 'game-over-title'
+  const primaryLabel = paused ? 'Resume' : 'Play again'
+
   return (
     <div
-      className="game-over"
+      className={`game-over${paused ? ' is-paused' : ''}`}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="game-over-title"
+      aria-labelledby={titleId}
     >
       <div
         className={`game-over-panel${isNewBest ? ' is-new-best' : ''}`}
@@ -62,8 +70,8 @@ export function GameOverOverlay({
       >
         <div className="game-over-accent" aria-hidden="true" />
         <p className="game-over-kicker">{game.title}</p>
-        <p className="game-over-label">Score</p>
-        <h2 id="game-over-title" className="game-over-score">
+        <p className="game-over-label">{paused ? 'Paused' : 'Score'}</p>
+        <h2 id={titleId} className="game-over-score">
           {formatScore(score, lowerIsBetter)}
         </h2>
 
@@ -72,9 +80,9 @@ export function GameOverOverlay({
             <span className="game-over-best-dot" aria-hidden="true" />
             {hasPriorBest ? 'New best!' : 'First best!'}
           </p>
-        ) : hasPriorBest ? (
+        ) : hasPriorBest || (paused && best > 0) ? (
           <p className="game-over-best">
-            Best {formatScore(best, lowerIsBetter)}
+            Best {formatScore(best > 0 ? best : previousBest, lowerIsBetter)}
           </p>
         ) : null}
 
@@ -119,7 +127,7 @@ export function GameOverOverlay({
 
         <div className="game-over-actions">
           <button type="button" className="game-over-again" onClick={onPlayAgain}>
-            Play again
+            {primaryLabel}
           </button>
           <button
             type="button"

@@ -50,6 +50,8 @@ export function usePlaySession({
   const [railHintVisible, setRailHintVisible] = useState(true)
   const [highscores, setHighscores] = useState(loadHighscores)
   const [gameOver, setGameOver] = useState<GameOverState | null>(null)
+  const [paused, setPaused] = useState(false)
+  const [liveScore, setLiveScore] = useState(0)
   const [restartKey, setRestartKey] = useState(0)
 
   const playingRef = useRef(playingKey)
@@ -123,6 +125,8 @@ export function usePlaySession({
   const enterPlay = useCallback(
     (key: string, gameId: string) => {
       setGameOver(null)
+      setPaused(false)
+      setLiveScore(0)
       setPlayingKey(key)
       setNudgeVisible(false)
       setRailHintVisible(false)
@@ -142,20 +146,28 @@ export function usePlaySession({
   )
 
   const pausePlay = useCallback(() => {
-    clearQualifyTimer()
+    if (!playingRef.current) return
     setGameOver(null)
-    setPlayingKey(null)
-    setNudgeVisible(true)
-  }, [clearQualifyTimer])
+    setPaused(true)
+    setNudgeVisible(false)
+  }, [])
+
+  const resumePlay = useCallback(() => {
+    setPaused(false)
+    setGameOver(null)
+  }, [])
 
   const clearForNavigate = useCallback(() => {
     clearQualifyTimer()
     setGameOver(null)
+    setPaused(false)
+    setLiveScore(0)
     setPlayingKey(null)
     setNudgeVisible(false)
   }, [clearQualifyTimer])
 
   const onScore = useCallback((gameId: string, score: number) => {
+    setLiveScore(score)
     const best = recordHighscore(gameId, score)
     setHighscores((prev) =>
       prev[gameId] === best ? prev : { ...prev, [gameId]: best },
@@ -164,6 +176,8 @@ export function usePlaySession({
 
   const onDied = useCallback((gameId: string, score: number) => {
     const previousBest = baselineBestRef.current
+    setPaused(false)
+    setLiveScore(score)
     if (score > 0) {
       const best = recordHighscore(gameId, score)
       setHighscores((prev) =>
@@ -177,6 +191,8 @@ export function usePlaySession({
     const gameId = playingGameIdRef.current
     if (gameId) baselineBestRef.current = getHighscore(gameId)
     setGameOver(null)
+    setPaused(false)
+    setLiveScore(0)
     setRestartKey((n) => n + 1)
   }, [])
 
@@ -198,12 +214,15 @@ export function usePlaySession({
     bootReady &&
     !resolvingShare &&
     !gameOver &&
+    !paused &&
     !introRunning &&
     !nudgeVisible
 
   return {
     playingKey,
     gameOver,
+    paused,
+    liveScore,
     restartKey,
     highscores,
     railHintVisible,
@@ -211,6 +230,7 @@ export function usePlaySession({
     showCue,
     enterPlay,
     pausePlay,
+    resumePlay,
     clearForNavigate,
     handlePlay,
     onScore,

@@ -70,6 +70,14 @@ describe('rail hint lifecycle', () => {
     ).toBe(false)
     expect(
       shouldShowSilentSwipeRail({
+        playingKey: 'card-0',
+        gameOver: false,
+        paused: true,
+        introRunning: false,
+      }),
+    ).toBe(false)
+    expect(
+      shouldShowSilentSwipeRail({
         playingKey: null,
         gameOver: false,
         introRunning: false,

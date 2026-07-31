@@ -1,34 +1,28 @@
-import { useEffect, useState, type Ref } from 'react'
+import { type Ref } from 'react'
 import type { Game } from '../games'
-import { shareGame } from '../share'
 import { PrivacyDisclosure } from './PrivacyDisclosure'
 
 type Props = {
   game: Game | undefined
-  liked: boolean
   isPlaying: boolean
-  onLike: () => void
+  /** Hide play/pause while an end/pause overlay owns the actions. */
+  overlayOpen?: boolean
   onShuffle: () => void
+  onPlay: () => void
+  onPause: () => void
   navRef?: Ref<HTMLElement | null>
 }
 
-/** Viewport-fixed Like / Share / Info bar for the active feed game. */
+/** Viewport-fixed shuffle / play-pause / info bar. */
 export function BottomNav({
   game,
-  liked,
   isPlaying,
-  onLike,
+  overlayOpen = false,
   onShuffle,
+  onPlay,
+  onPause,
   navRef,
 }: Props) {
-  const [shareNote, setShareNote] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!shareNote) return
-    const t = window.setTimeout(() => setShareNote(null), 1800)
-    return () => window.clearTimeout(t)
-  }, [shareNote])
-
   if (!game) return null
 
   return (
@@ -37,62 +31,53 @@ export function BottomNav({
       className={`bottom-nav${isPlaying ? ' is-playing' : ''}`}
       aria-label="Game actions"
     >
-      <div className="bottom-nav-start">
-        <button
-          type="button"
-          className="nav-btn shuffle-btn"
-          aria-label="Play a random game"
-          onClick={onShuffle}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <polyline points="16 3 21 3 21 8" />
-            <line x1="4" y1="20" x2="21" y2="3" />
-            <polyline points="21 16 21 21 16 21" />
-            <line x1="15" y1="15" x2="21" y2="21" />
-            <line x1="4" y1="4" x2="9" y2="9" />
-          </svg>
-        </button>
-      </div>
-      <div className="bottom-nav-actions">
-        <button
-          type="button"
-          className={`nav-btn like-btn${liked ? ' liked' : ''}`}
-          aria-label={liked ? 'Unlike' : 'Like'}
-          onClick={onLike}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 21s-7.2-4.6-9.4-9.1C1.1 8.6 2.7 5.5 6 4.7c1.8-.4 3.5.3 4.5 1.6C11.5 5 13.2 4.3 15 4.7c3.3.8 4.9 3.9 3.4 7.2C19.2 16.4 12 21 12 21z" />
-          </svg>
-          <span className="nav-label">{liked ? 'Liked' : 'Like'}</span>
-        </button>
-        <div className="share-wrap">
+      <button
+        type="button"
+        className="nav-btn shuffle-btn"
+        aria-label="Play a random game"
+        onClick={onShuffle}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="16 3 21 3 21 8" />
+          <line x1="4" y1="20" x2="21" y2="3" />
+          <polyline points="21 16 21 21 16 21" />
+          <line x1="15" y1="15" x2="21" y2="21" />
+          <line x1="4" y1="4" x2="9" y2="9" />
+        </svg>
+      </button>
+
+      {!overlayOpen ? (
+        isPlaying ? (
           <button
             type="button"
-            className="nav-btn share-btn"
-            aria-label={`Share ${game.title}`}
-            onClick={async () => {
-              const result = await shareGame(game)
-              if (result === 'copied') setShareNote('Link copied')
-              else if (result === 'failed') setShareNote('Couldn’t share')
-            }}
+            className="nav-btn nav-play-btn is-pause"
+            onClick={onPause}
+            aria-label="Pause game"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="18" cy="5" r="2.5" />
-              <circle cx="6" cy="12" r="2.5" />
-              <circle cx="18" cy="19" r="2.5" />
-              <path d="M8.4 13.2 15.6 17.3M15.6 6.7 8.4 10.8" />
+              <rect x="6" y="5" width="4" height="14" rx="1" />
+              <rect x="14" y="5" width="4" height="14" rx="1" />
             </svg>
-            <span className="nav-label">Share</span>
+            <span className="nav-label">Pause</span>
           </button>
-          {shareNote && (
-            <span className="share-note" role="status">
-              {shareNote}
-            </span>
-          )}
-        </div>
-        <PrivacyDisclosure />
-      </div>
-      <div className="bottom-nav-end" aria-hidden="true" />
+        ) : (
+          <button
+            type="button"
+            className="nav-btn nav-play-btn is-play"
+            onClick={onPlay}
+            aria-label={`Play ${game.title}`}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5.5v13l11-6.5L8 5.5z" />
+            </svg>
+            <span className="nav-label">Play</span>
+          </button>
+        )
+      ) : (
+        <span className="nav-play-spacer" aria-hidden="true" />
+      )}
+
+      <PrivacyDisclosure />
     </nav>
   )
 }

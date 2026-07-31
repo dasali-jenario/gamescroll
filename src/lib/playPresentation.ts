@@ -31,9 +31,15 @@ export function shouldShowRailHint(opts: {
 export function shouldShowSilentSwipeRail(opts: {
   playingKey: string | null
   gameOver: boolean
+  paused?: boolean
   introRunning: boolean
 }): boolean {
-  return !!opts.playingKey && !opts.gameOver && !opts.introRunning
+  return (
+    !!opts.playingKey &&
+    !opts.gameOver &&
+    !opts.paused &&
+    !opts.introRunning
+  )
 }
 
 export type PlayfieldChrome = {

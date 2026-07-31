@@ -18,6 +18,7 @@ const OUT = join(__dirname, '../public/games')
 const BRIDGE = `
     const GS = {
       paused: true,
+      started: false,
       reported: false,
       onFail: 'replay',
       post(type, extra) {
@@ -27,8 +28,11 @@ const BRIDGE = `
         const fail = msg && msg.onFail
         if (fail === 'gameover' || fail === 'replay') GS.onFail = fail
         if (!GS.reported) { GS.reported = true; GS.post('gamescroll:playing') }
+        const forceReset = !!(msg && msg.forceReset)
+        const resuming = GS.started && GS.paused && !forceReset
         GS.paused = false
-        if (typeof onHostStart === 'function') onHostStart()
+        GS.started = true
+        if (!resuming && typeof onHostStart === 'function') onHostStart()
       },
       halt() {
         GS.paused = true

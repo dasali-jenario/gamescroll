@@ -8,6 +8,8 @@ type Props = {
   cardKey: string
   isActive: boolean
   isPlaying: boolean
+  /** Session is active but the host pause menu is open. */
+  isPaused?: boolean
   /** When false (e.g. game-over overlay), iframe ignores pointer input. */
   controlsEnabled: boolean
   /** Bumps to re-send start while still playing (play-again after game over). */
@@ -21,10 +23,14 @@ type Props = {
 function postToFrame(
   frame: HTMLIFrameElement | null,
   type: 'gamescroll:start' | 'gamescroll:pause',
+  opts?: { forceReset?: boolean },
 ) {
-  const payload: { type: string; onFail?: string } = { type }
+  const payload: { type: string; onFail?: string; forceReset?: boolean } = {
+    type,
+  }
   if (type === 'gamescroll:start') {
     payload.onFail = 'gameover'
+    if (opts?.forceReset) payload.forceReset = true
   }
   frame?.contentWindow?.postMessage(payload, '*')
 }
@@ -34,6 +40,7 @@ export const GameCard = memo(function GameCard({
   cardKey,
   isActive,
   isPlaying,
+  isPaused = false,
   controlsEnabled,
   restartKey,
   onPlay,
@@ -47,6 +54,9 @@ export const GameCard = memo(function GameCard({
   const frameSrc = usePlayableFrameSrc(game.src, shouldLoad)
   const isPlayingRef = useRef(isPlaying)
   isPlayingRef.current = isPlaying
+  const isPausedRef = useRef(isPaused)
+  isPausedRef.current = isPaused
+  const wasPlayingRef = useRef(false)
   const onScoreRef = useRef(onScore)
   onScoreRef.current = onScore
   const onDiedRef = useRef(onDied)
@@ -60,12 +70,14 @@ export const GameCard = memo(function GameCard({
       getSource: () => frameRef.current?.contentWindow ?? null,
       onMessage: (event) => {
         const type = event.data?.type
-        const playing = isPlayingRef.current
+        const playing = isPlayingRef.current && !isPausedRef.current
 
         if (type === 'gamescroll:ready') {
           readyRef.current = true
           if (playing) {
-            postToFrame(frameRef.current, 'gamescroll:start')
+            postToFrame(frameRef.current, 'gamescroll:start', {
+              forceReset: true,
+            })
           }
         }
         if (type === 'gamescroll:score' && playing) {
@@ -91,20 +103,27 @@ export const GameCard = memo(function GameCard({
   useEffect(() => {
     if (!shouldLoad) {
       readyRef.current = false
+      wasPlayingRef.current = false
       return
     }
-    if (isPlaying && readyRef.current) {
-      postToFrame(frameRef.current, 'gamescroll:start')
-    }
-    if (!isPlaying && readyRef.current) {
+    if (!readyRef.current) return
+    if (isPlaying && !isPaused) {
+      const freshStart = !wasPlayingRef.current
+      wasPlayingRef.current = true
+      postToFrame(frameRef.current, 'gamescroll:start', {
+        forceReset: freshStart,
+      })
+    } else {
+      if (!isPlaying) wasPlayingRef.current = false
       postToFrame(frameRef.current, 'gamescroll:pause')
     }
-  }, [isPlaying, shouldLoad])
+  }, [isPlaying, isPaused, shouldLoad])
 
   useEffect(() => {
-    if (!isPlaying || !readyRef.current || restartKey === 0) return
-    postToFrame(frameRef.current, 'gamescroll:start')
-  }, [restartKey, isPlaying])
+    if (!isPlaying || isPaused || !readyRef.current || restartKey === 0) return
+    wasPlayingRef.current = true
+    postToFrame(frameRef.current, 'gamescroll:start', { forceReset: true })
+  }, [restartKey, isPlaying, isPaused])
 
   return (
     <article
