@@ -54,6 +54,7 @@ describe('App shell hook split', () => {
     expect(feedSession).toContain('fetchApprovedUgcGames')
     expect(feedSession).toContain('buildFeedBatch')
     expect(feedSession).toContain('trackFeedPruned')
+    expect(feedSession).toContain('jumpToGameId')
   })
 
   it('puts play / pause / scores / rail hint / cue / deploy reload in usePlaySession', () => {
@@ -90,11 +91,12 @@ describe('App shell hook split', () => {
 })
 
 describe('feed chrome contracts', () => {
-  it('keeps like/share off the bottom nav and on the end/pause overlay', () => {
+  it('keeps like/share off the bottom nav actions and on the end/pause overlay', () => {
     expect(bottomNav).toContain('shuffle-btn')
+    expect(bottomNav).toContain('likes-btn')
+    expect(bottomNav).toContain('onOpenLikes')
     expect(bottomNav).toContain('nav-play-btn')
     expect(bottomNav).toContain('PrivacyDisclosure')
-    expect(bottomNav).not.toContain('like-btn')
     expect(bottomNav).not.toContain('shareGame')
     expect(bottomNav).not.toContain('onLike')
 
@@ -106,8 +108,12 @@ describe('feed chrome contracts', () => {
     expect(gameOver).toContain('shareGame')
   })
 
-  it('wires shuffle, pause overlay, and soft-resume from App', () => {
+  it('wires shuffle, liked library, pause overlay, and soft-resume from App', () => {
     expect(app).toContain('onShuffle={goToRandomGame}')
+    expect(app).toContain('onOpenLikes=')
+    expect(app).toContain('LikedGamesPanel')
+    expect(app).toContain('goToLikedGame')
+    expect(app).toContain('jumpToGameId')
     expect(app).toContain('onPause={play.pausePlay}')
     expect(app).toContain('mode="paused"')
     expect(app).toContain('mode="over"')

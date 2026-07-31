@@ -241,6 +241,26 @@ export function useFeedSession({
     }
   }, [appendBatch, dismissNudgeRef])
 
+  const jumpToGameId = useCallback(
+    (gameId: string) => {
+      const find = () =>
+        feedRefState.current.findIndex((item) => item.game.id === gameId)
+      let index = find()
+      let tries = 0
+      while (index < 0 && tries < 3) {
+        appendBatch()
+        index = find()
+        tries += 1
+      }
+      if (index < 0) return null
+      const item = feedRefState.current[index]
+      if (!item) return null
+      scrollToIndex(index, 'auto')
+      return item
+    },
+    [appendBatch, scrollToIndex],
+  )
+
   return {
     feedRef: feedRef as RefObject<HTMLDivElement>,
     feed,
@@ -252,6 +272,7 @@ export function useFeedSession({
     introRunning,
     introRunningRef,
     scrollToIndex,
+    jumpToGameId,
     cancelIntro,
   }
 }

@@ -1,5 +1,23 @@
 # New file requests
 
+## 2026-07-31 — Liked games library (nav + sheet)
+
+### Requested files
+- `src/likes.ts` — persist liked game ids in `gs_likes` (newest first)
+- `src/likes.test.ts` — toggle / corrupt-storage coverage
+- `src/components/LikedGamesPanel.tsx` — sheet listing liked games; tap to play
+- Wired from `BottomNav` (heart left of Play/Pause) + `App.tsx`; styles in `feed.css`
+- `useFeedSession.jumpToGameId` — find (append batches if needed) then scroll to a liked id
+
+### Duplicate search
+- Grep `liked|gs_likes|LikedGames|favorites|wishlist` under `src/` → likes were in-memory only in `App.tsx` (`useState<Record<string, boolean>>`), no persisted store or library UI
+- Closest patterns: `highscores.ts` (localStorage map), `PrivacyDisclosure.tsx` (bottom sheet dialog), `GameOverOverlay` like toggle
+- No existing “my games / favorites” host surface
+
+### Rationale
+Like from the end/pause panel, then reopen those games from a nav control without swiping the whole feed.
+
+
 ## 2026-07-31 — Race Start Lights UGC fix (best time + drop F1)
 
 ### Requested files

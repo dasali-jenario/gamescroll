@@ -1,16 +1,19 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { BottomNav } from './components/BottomNav'
 import { GameCard } from './components/GameCard'
 import { GameOverOverlay } from './components/GameOverOverlay'
+import { LikedGamesPanel } from './components/LikedGamesPanel'
 import { SwipeCue } from './components/SwipeCue'
 import { useChromeInsets } from './hooks/useChromeInsets'
 import { useFeedGestures } from './hooks/useFeedGestures'
 import { useFeedSession } from './hooks/useFeedSession'
 import { usePlaySession } from './hooks/usePlaySession'
+import { getGameById } from './games'
 import {
   betterScore,
   isLowerBetterScore,
 } from './highscores'
+import { loadLikedIds, toggleLikedId } from './likes'
 import {
   RAIL_HINT_CLASS,
   shouldShowRailHint,
@@ -139,11 +142,21 @@ export default function App() {
     resumePlay: play.resumePlay,
   })
 
-  const [liked, setLiked] = useState<Record<string, boolean>>({})
+  const [likedIds, setLikedIds] = useState(loadLikedIds)
+  const [likesOpen, setLikesOpen] = useState(false)
 
   const activeGame = feed.feed[feed.activeIndex]?.game
   const activeHighscore = activeGame ? play.highscores[activeGame.id] ?? 0 : 0
   const overlayOpen = !!(play.gameOver || play.paused)
+
+  const likedGames = useMemo(() => {
+    const fromFeed = new Map(
+      feed.feed.map((item) => [item.game.id, item.game] as const),
+    )
+    return likedIds
+      .map((id) => getGameById(id) ?? fromFeed.get(id))
+      .filter((game): game is NonNullable<typeof game> => !!game)
+  }, [likedIds, feed.feed])
 
   useChromeInsets({
     topBarRef,
@@ -170,11 +183,36 @@ export default function App() {
 
   const toggleLike = () => {
     if (!activeGame) return
-    setLiked((prev) => ({
-      ...prev,
-      [activeGame.id]: !prev[activeGame.id],
-    }))
+    setLikedIds(toggleLikedId(activeGame.id))
   }
+
+  const goToLikedGame = useCallback(
+    (gameId: string) => {
+      if (play.applyPendingReload()) return
+      if (feed.introRunning) feed.cancelIntro()
+      play.dismissCue()
+      play.clearForNavigate()
+      setLikesOpen(false)
+      const item = feed.jumpToGameId(gameId)
+      if (!item) return
+      play.handlePlay(item.key, item.game.id)
+      noteFeedSwipe({
+        feedLen: feed.feedRefState.current.length,
+        activeIndex: feed.activeIndexRef.current,
+      })
+    },
+    [
+      play.applyPendingReload,
+      play.dismissCue,
+      play.clearForNavigate,
+      play.handlePlay,
+      feed.introRunning,
+      feed.cancelIntro,
+      feed.jumpToGameId,
+      feed.feedRefState,
+      feed.activeIndexRef,
+    ],
+  )
 
   return (
     <div
@@ -246,13 +284,22 @@ export default function App() {
         game={activeGame}
         isPlaying={!!play.playingKey}
         overlayOpen={overlayOpen}
+        likedCount={likedIds.length}
         onShuffle={goToRandomGame}
+        onOpenLikes={() => setLikesOpen(true)}
         onPlay={() => {
           const item = feed.feed[feed.activeIndex]
           if (!item) return
           play.handlePlay(item.key, item.game.id)
         }}
         onPause={play.pausePlay}
+      />
+
+      <LikedGamesPanel
+        open={likesOpen}
+        games={likedGames}
+        onClose={() => setLikesOpen(false)}
+        onPlay={goToLikedGame}
       />
 
       {feed.introRunning && (
@@ -303,7 +350,7 @@ export default function App() {
           )}
           previousBest={play.gameOver.previousBest}
           lowerIsBetter={isLowerBetterScore(play.gameOver.gameId)}
-          liked={!!liked[activeGame.id]}
+          liked={likedIds.includes(activeGame.id)}
           onLike={toggleLike}
           onPlayAgain={play.playAgain}
           onPlayAnother={goToNextGame}
@@ -318,7 +365,7 @@ export default function App() {
           best={activeHighscore}
           previousBest={activeHighscore}
           lowerIsBetter={isLowerBetterScore(activeGame.id)}
-          liked={!!liked[activeGame.id]}
+          liked={likedIds.includes(activeGame.id)}
           onLike={toggleLike}
           onPlayAgain={play.resumePlay}
           onPlayAnother={goToNextGame}

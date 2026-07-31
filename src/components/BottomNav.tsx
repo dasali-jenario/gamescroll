@@ -7,18 +7,22 @@ type Props = {
   isPlaying: boolean
   /** Hide play/pause while an end/pause overlay owns the actions. */
   overlayOpen?: boolean
+  likedCount?: number
   onShuffle: () => void
+  onOpenLikes: () => void
   onPlay: () => void
   onPause: () => void
   navRef?: Ref<HTMLElement | null>
 }
 
-/** Viewport-fixed shuffle / play-pause / info bar. */
+/** Viewport-fixed shuffle / likes / play-pause / info bar. */
 export function BottomNav({
   game,
   isPlaying,
   overlayOpen = false,
+  likedCount = 0,
   onShuffle,
+  onOpenLikes,
   onPlay,
   onPause,
   navRef,
@@ -44,6 +48,24 @@ export function BottomNav({
           <line x1="15" y1="15" x2="21" y2="21" />
           <line x1="4" y1="4" x2="9" y2="9" />
         </svg>
+      </button>
+
+      <button
+        type="button"
+        className={`nav-btn likes-btn${likedCount > 0 ? ' has-likes' : ''}`}
+        aria-label={
+          likedCount > 0
+            ? `Open liked games, ${likedCount} liked`
+            : 'Open liked games'
+        }
+        onClick={onOpenLikes}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 21s-7.2-4.6-9.4-9.1C1.1 8.6 2.7 5.5 6 4.7c1.8-.4 3.5.3 4.5 1.6C11.5 5 13.2 4.3 15 4.7c3.3.8 4.9 3.9 3.4 7.2C19.2 16.4 12 21 12 21z" />
+        </svg>
+        {likedCount > 0 && (
+          <span className="likes-count">{likedCount > 99 ? '99+' : likedCount}</span>
+        )}
       </button>
 
       {!overlayOpen ? (

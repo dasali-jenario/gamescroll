@@ -94,7 +94,8 @@ flowchart TB
 | `games.ts` | Feed helpers + `Game` type; official list from `generated/officialCatalog.ts` |
 | `generated/officialCatalog.ts` | Emitted `{ id, title, tip, accent }` (from `generate-games.mjs`) |
 | `components/GameCard.tsx` | iframe load + bridge (`forceReset` on fresh start / play-again) |
-| `components/BottomNav.tsx` | fixed bottom bar: shuffle, play/pause, privacy info |
+| `components/BottomNav.tsx` | fixed bottom bar: shuffle, liked library, play/pause, privacy info |
+| `components/LikedGamesPanel.tsx` | sheet of liked games; tap to jump + play |
 | `components/GameOverOverlay.tsx` | End-of-round / pause panel: score, best, like, share, resume or play-again, play another |
 | `components/SwipeCue.tsx` | Brief “Swipe / Next game” chip (5s after intro) |
 | `lib/feedIntro.ts` | Jackpot reel sequence (every cold start) |
@@ -108,6 +109,7 @@ flowchart TB
 | `lib/usePlayableFrameSrc.ts` | Blob-wrap UGC HTML for iframes (feed + creator preview + mod) |
 | `share.ts` | `?g=` deep links + Web Share / clipboard; share text includes personal high score when stored |
 | `highscores.ts` | Per-game best scores (`gs_highscores`); read by share + top-bar Best |
+| `likes.ts` | Persisted liked game ids (`gs_likes`); liked library sheet |
 | `metrics.ts` | Visits + sparse feed telemetry batcher |
 | `updateCheck.ts` | Poll `/version.json` every 12s; cache-bust reload when a new deploy is live |
 | `index.css` | Import barrel for `styles/{base,feed,create,mod}.css` |
@@ -174,11 +176,11 @@ In-iframe swipe thresholds: distance ≥ `max(140, 0.22 × height)`, duration �
 ## Feed, controls, and share
 
 - CSS snap feed (`.feed`); while playing, scroll is locked.
-- Switch games: iframe fling, thin invisible right-edge swipe capture, keys `↓`/`j` and `↑`/`k`, or the bottom-left **shuffle** control (jumps to a random different game in the feed).
+- Switch games: iframe fling, thin invisible right-edge swipe capture, keys `↓`/`j` and `↑`/`k`, the bottom-left **shuffle** control (jumps to a random different game), or the **liked** heart (opens liked games → tap to play).
 - The playfield iframe is always letterboxed away from host chrome (top bar, bottom nav, equal side gutters) so game hit-targets cannot sit under app UI and starting a game does not resize the canvas.
 - `--chrome-top` / `--bottom-nav` are measured from the real chrome boxes (`useChromeInsets`) plus `env(safe-area-inset-*)`, so title/tip and the score HUD stay clear of the status bar and home indicator on notched phones.
 - A dark scroll-rail hint may show before the first game starts; after `enterPlay` it stays gone (only the invisible edge capture remains while actively playing).
-- Bottom nav (viewport-fixed under the playfield): **shuffle**, centered **Play / Pause**, and privacy **info**. Like and Share live on the end-of-round / pause panel only.
+- Bottom nav (viewport-fixed under the playfield): **shuffle**, **liked**, centered **Play / Pause**, and privacy **info**. Like toggles on the end-of-round / pause panel; the heart opens the liked library.
 - **Pause** / Esc opens the pause panel; Esc / Enter / Space resume. The round stays alive under the overlay (soft resume).
 - Every cold start (including shared `?g=` links): a jackpot-style feed reel scrolls through a few cards and lands on index `0`, then autoplay starts. Skipped only for `prefers-reduced-motion`.
 - `SwipeCue` cream chip (“Swipe for the next game”) shows for 5 seconds after the intro (or until the first swipe), then hides.
@@ -213,10 +215,11 @@ Owned by the host (sandboxed games cannot use storage).
 | Key | Purpose |
 |-----|---------|
 | `gs_highscores` | Best score per game id (also included in Share text when present) |
+| `gs_likes` | Liked game ids (newest first); liked library sheet |
 | `gs_uid` | Anonymous visitor id |
 | `gs_visits` / `gs_last_seen` | Daily visit counting |
 
-Likes on the end-of-round / pause panel are in-memory only for the session.
+Likes toggled on the end-of-round / pause panel persist in `gs_likes` and appear in the liked library.
 
 ---
 
@@ -298,7 +301,7 @@ UGC HTML must pass the same host bridge contract and forbid multiplayer / networ
 
 Coverage today:
 
-- Catalog shape, feed keys, share deep links (including personal high score in share text), highscores
+- Catalog shape, feed keys, share deep links (including personal high score in share text), highscores, likes
 - Catalog ids ↔ `public/games/*.html`, bridge message contract, culled games stay gone
 - Generated `officialCatalog.ts` stays in sync with `generate-games.mjs`
 - UGC wrap/validator (forbidden APIs + bridge snippets)

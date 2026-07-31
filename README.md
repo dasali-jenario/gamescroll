@@ -1,13 +1,13 @@
 # Gamescroll
 
-Vertical feed of tiny HTML games. On every launch a short jackpot-style reel shows more games, then the landing game autoplays. Pause opens an end-round-style panel (resume, like, share, play another); shuffle jumps to a random game.
+Vertical feed of tiny HTML games. On every launch a short jackpot-style reel shows more games, then the landing game autoplays. Pause opens an end-round-style panel (resume, like, share, play another); shuffle jumps to a random game; the heart opens games you’ve liked.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the local URL. After the intro reel, the landing game autoplays. Use the centered **Play / Pause** control in the bottom nav (or Esc) to pause; **Resume** continues without resetting. Switch games with a big vertical fling, the right-edge swipe strip, ↓ / J and ↑ / K, or the bottom-left **shuffle** button. Like and Share live on the pause / game-over panel. A brief **Swipe** cue appears after the intro so the feed stays discoverable.
+Open the local URL. After the intro reel, the landing game autoplays. Use the centered **Play / Pause** control in the bottom nav (or Esc) to pause; **Resume** continues without resetting. Switch games with a big vertical fling, the right-edge swipe strip, ↓ / J and ↑ / K, or the **shuffle** button. Open **liked** games from the heart (left of Play). Like and Share also live on the pause / game-over panel. A brief **Swipe** cue appears after the intro so the feed stays discoverable.
 
 Official games are authored in `scripts/generate-games.mjs` (`title`, `tip`, `bg`, `body`). Run `npm run generate:games` to refresh HTML and `src/generated/officialCatalog.ts` — the host catalog imports that file (no hand-duplicated metadata).
 
