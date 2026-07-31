@@ -53,7 +53,7 @@ export function LikedGamesPanel({ open, games, onClose, onPlay }: Props) {
         <div className="liked-games-body">
           {games.length === 0 ? (
             <p className="liked-games-empty">
-              Games you like from the end-of-round screen show up here.
+              Games you like show up here — tap the heart in the top bar or on the end-of-round screen.
             </p>
           ) : (
             <ul className="liked-games-list">

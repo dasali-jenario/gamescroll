@@ -1,5 +1,18 @@
 # New file requests
 
+## 2026-07-31 — Top bar Like / Share actions
+
+### Requested files
+- `src/components/TopBarActions.tsx` — icon Like + Share controls for the feed top-bar (outside playable stage)
+
+### Duplicate search
+- Grep `top-bar-actions|TopBarActions|like-btn|share-btn|shareGame|toggleLike` under `src/` → like/share live only in `GameOverOverlay` (end/pause) and likes *library* open in `BottomNav` (`likes-btn`); no always-visible feed chrome Like/Share
+- Glob `src/components/*{Like,Share,Top,Action}*` → `LikedGamesPanel` only (sheet), no top-bar social control
+- Closest: `GameOverOverlay` social row (labeled chips); reuses same `shareGame` / heart SVG / `like-btn` styles but icon-only for chrome density
+
+### Rationale
+Keep App under the shell size contract while placing Like/Share in the top-right outside the playfield (`--chrome-top` inset).
+
 ## 2026-07-31 — Storybook Moles (10-hit avg ms whack-a-mole)
 
 ### Requested files

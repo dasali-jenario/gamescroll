@@ -94,7 +94,7 @@ describe('App shell hook split', () => {
 })
 
 describe('feed chrome contracts', () => {
-  it('keeps like/share off the bottom nav actions and on the end/pause overlay', () => {
+  it('keeps like/share off the bottom nav; top bar + end/pause overlay own them', () => {
     expect(bottomNav).toContain('shuffle-btn')
     expect(bottomNav).toContain('likes-btn')
     expect(bottomNav).toContain('onOpenLikes')
@@ -102,6 +102,10 @@ describe('feed chrome contracts', () => {
     expect(bottomNav).toContain('PrivacyDisclosure')
     expect(bottomNav).not.toContain('shareGame')
     expect(bottomNav).not.toContain('onLike')
+
+    expect(app).toContain('TopBarActions')
+    expect(app).toContain('liked={activeLiked}')
+    expect(feedCss).toContain('.top-bar-actions')
 
     expect(gameOver).toContain("mode === 'paused'")
     expect(gameOver).toContain('Resume')

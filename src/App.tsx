@@ -4,6 +4,7 @@ import { GameCard } from './components/GameCard'
 import { GameOverOverlay } from './components/GameOverOverlay'
 import { LikedGamesPanel } from './components/LikedGamesPanel'
 import { SwipeCue } from './components/SwipeCue'
+import { TopBarActions } from './components/TopBarActions'
 import { useChromeInsets } from './hooks/useChromeInsets'
 import { useFeedGestures } from './hooks/useFeedGestures'
 import { useFeedSession } from './hooks/useFeedSession'
@@ -150,6 +151,7 @@ export default function App() {
   const activeGame = feed.feed[feed.activeIndex]?.game
   const activeHighscore = activeGame ? play.highscores[activeGame.id] ?? 0 : 0
   const overlayOpen = !!(play.gameOver || play.paused)
+  const activeLiked = !!(activeGame && likedIds.includes(activeGame.id))
 
   const likedGames = useMemo(() => {
     const fromFeed = new Map(
@@ -261,6 +263,13 @@ export default function App() {
             <span className="brand-mark-dot" aria-hidden="true" />
             Gamescroll
           </div>
+          {activeGame && (
+            <TopBarActions
+              game={activeGame}
+              liked={activeLiked}
+              onLike={toggleLike}
+            />
+          )}
         </div>
         <div className="brand-block">
           <div className="title-row">
@@ -381,7 +390,7 @@ export default function App() {
           )}
           previousBest={play.gameOver.previousBest}
           lowerIsBetter={isLowerBetterScore(play.gameOver.gameId)}
-          liked={likedIds.includes(activeGame.id)}
+          liked={activeLiked}
           onLike={toggleLike}
           onPlayAgain={play.playAgain}
           onPlayAnother={goToNextGame}
@@ -396,7 +405,7 @@ export default function App() {
           best={activeHighscore}
           previousBest={activeHighscore}
           lowerIsBetter={isLowerBetterScore(activeGame.id)}
-          liked={likedIds.includes(activeGame.id)}
+          liked={activeLiked}
           onLike={toggleLike}
           onPlayAgain={play.resumePlay}
           onPlayAnother={goToNextGame}
