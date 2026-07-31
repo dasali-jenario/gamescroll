@@ -1,6 +1,6 @@
 # Gamescroll — webapp and integration
 
-Gamescroll is a TikTok-style vertical feed of tiny HTML/canvas minigames. The React host owns browsing, play/pause, scores, and share; each game runs in a sandboxed iframe and talks to the host over `postMessage`.
+Gamescroll is a TikTok-style vertical feed of tiny HTML/canvas minigames. The React host owns browsing, play/pause (with soft resume), scores, shuffle, and share-from-overlay; each game runs in a sandboxed iframe and talks to the host over `postMessage`.
 
 **Live domains**
 
@@ -87,15 +87,15 @@ flowchart TB
 
 | File | Role |
 |------|------|
-| `App.tsx` | Composition shell: wires hooks, nav glue (`goToNext` / `goToPrev`), chrome JSX |
+| `App.tsx` | Composition shell: wires hooks, nav glue (`goToNext` / `goToPrev` / `goToRandom`), chrome JSX |
 | `hooks/useFeedSession.ts` | Boot / UGC community, jackpot intro, append/prune window, activeIndex, scroll |
-| `hooks/usePlaySession.ts` | playingKey, scores, game-over, rail hint, cue/nudge, deploy reload |
+| `hooks/usePlaySession.ts` | playingKey, live score, pause/resume, game-over, rail hint, cue/nudge, deploy reload |
 | `hooks/useFeedGestures.ts` | Keyboard, intro cancel, nudge swipe, silent-rail swipe, play-mode scroll lock |
 | `games.ts` | Feed helpers + `Game` type; official list from `generated/officialCatalog.ts` |
 | `generated/officialCatalog.ts` | Emitted `{ id, title, tip, accent }` (from `generate-games.mjs`) |
-| `components/GameCard.tsx` | iframe load + bridge |
-| `components/BottomNav.tsx` | fixed bottom like/share nav for the active game |
-| `components/GameOverOverlay.tsx` | Fail UI: score, Play again / Play another / Share |
+| `components/GameCard.tsx` | iframe load + bridge (`forceReset` on fresh start / play-again) |
+| `components/BottomNav.tsx` | fixed bottom bar: shuffle, play/pause, privacy info |
+| `components/GameOverOverlay.tsx` | End-of-round / pause panel: score, best, like, share, resume or play-again, play another |
 | `components/SwipeCue.tsx` | Brief “Swipe / Next game” chip (5s after intro) |
 | `lib/feedIntro.ts` | Jackpot reel sequence (every cold start) |
 | `lib/feedWindow.ts` | Sliding-window append/prune + scroll-index remap |
@@ -153,16 +153,19 @@ Messages use the `gamescroll:` prefix. Origin is `'*'` (static same-site iframes
 
 | Type | Payload | When |
 |------|---------|------|
-| `gamescroll:start` | `{ onFail?: 'replay' \| 'gameover' }` | Enter play / play again |
-| `gamescroll:pause` | — | Leave play / pause |
+| `gamescroll:start` | `{ onFail?: 'replay' \| 'gameover', forceReset?: boolean }` | Enter play / resume / play again |
+| `gamescroll:pause` | — | Host pause menu / leave play |
+
+`forceReset: true` (or a first start while `GS.started` is still false) runs `onHostStart()` so the game body resets. A soft resume after pause posts `start` **without** `forceReset` while `GS.started && GS.paused`, which only clears `GS.paused` and does not call `onHostStart`.
 
 **Typical play session**
 
 1. Card becomes playing → iframe loads → game posts `ready`.
-2. Host posts `start` with `onFail: 'gameover'`.
+2. Host posts `start` with `onFail: 'gameover'` (and `forceReset` on fresh start / play-again).
 3. Game unpauses, posts `playing`, reports `score` while running.
-4. On fail: game posts `died`; host shows `GameOverOverlay` (Play again / Play another / Share).
-5. Strong vertical flings inside the iframe forward `swipe-next` / `swipe-prev` so the feed can move even while the iframe captures pointers.
+4. **Pause** (bottom nav or Esc): host posts `pause`, keeps the session, and shows the pause panel (score, best, like, share, Resume, Play another). Resume soft-starts without resetting.
+5. On fail: game posts `died`; host shows the end-of-round panel (score, best, like, share, Play again, Play another).
+6. Strong vertical flings inside the iframe forward `swipe-next` / `swipe-prev` so the feed can move even while the iframe captures pointers.
 
 In-iframe swipe thresholds: distance ≥ `max(140, 0.22 × height)`, duration ≤ 350ms, and vertical dominance `|dy| ≥ dx × 2.2`.
 
@@ -171,12 +174,12 @@ In-iframe swipe thresholds: distance ≥ `max(140, 0.22 × height)`, duration �
 ## Feed, controls, and share
 
 - CSS snap feed (`.feed`); while playing, scroll is locked.
-- Switch games: iframe fling, thin invisible right-edge swipe capture, keys `↓`/`j` and `↑`/`k`.
-- The playfield iframe is always letterboxed away from host chrome (top bar, bottom like/share nav, equal side gutters) so game hit-targets cannot sit under app UI and starting a game does not resize the canvas.
+- Switch games: iframe fling, thin invisible right-edge swipe capture, keys `↓`/`j` and `↑`/`k`, or the bottom-left **shuffle** control (jumps to a random different game in the feed).
+- The playfield iframe is always letterboxed away from host chrome (top bar, bottom nav, equal side gutters) so game hit-targets cannot sit under app UI and starting a game does not resize the canvas.
 - `--chrome-top` / `--bottom-nav` are measured from the real chrome boxes (`useChromeInsets`) plus `env(safe-area-inset-*)`, so title/tip and the score HUD stay clear of the status bar and home indicator on notched phones.
-- A dark scroll-rail hint may show before the first game starts; after `enterPlay` it stays gone (only the invisible edge capture remains).
-- Like and Share sit in a viewport-fixed bottom navigation bar under the playfield (never overlaid on the game, never scrolls with the feed).
-- **Pause** / Esc freezes the current game; after pause, a nudge encourages swiping to the next card.
+- A dark scroll-rail hint may show before the first game starts; after `enterPlay` it stays gone (only the invisible edge capture remains while actively playing).
+- Bottom nav (viewport-fixed under the playfield): **shuffle**, centered **Play / Pause**, and privacy **info**. Like and Share live on the end-of-round / pause panel only.
+- **Pause** / Esc opens the pause panel; Esc / Enter / Space resume. The round stays alive under the overlay (soft resume).
 - Every cold start (including shared `?g=` links): a jackpot-style feed reel scrolls through a few cards and lands on index `0`, then autoplay starts. Skipped only for `prefers-reduced-motion`.
 - `SwipeCue` cream chip (“Swipe for the next game”) shows for 5 seconds after the intro (or until the first swipe), then hides.
 - `prefers-reduced-motion`: skip the reel, jump to the landing card, show the cue, autoplay.
@@ -191,13 +194,15 @@ https://play.thehappylab.com/?g=pong
 
 `readSharedGameParam()` / `getGameById` pin a catalog id when present. If the slug is UGC-only, feed boot fetches that row **in parallel** with the approved community list (`resolveFeedBoot`), then rebuilds the first batch and autoplays after the intro reel.
 
-Share (`shareGame` / `gameShareText`) uses `navigator.share` when available, otherwise clipboard. The share body is `Play {title} — {tip}`; if `gs_highscores` has a best for that game id, it appends `My high score: {n}`. Clipboard fallback copies URL only when there is no score; with a score it copies the share text plus the absolute `?g=` URL. Share is available from the bottom nav and the game-over overlay.
+Share (`shareGame` / `gameShareText`) uses `navigator.share` when available, otherwise clipboard. The share body is `Play {title} — {tip}`; if `gs_highscores` has a best for that game id, it appends `My high score: {n}` (or `My best: {n} ms` for lower-is-better games). Clipboard fallback copies URL only when there is no score; with a score it copies the share text plus the absolute `?g=` URL. Share is available from the end-of-round and pause overlays.
 
 ---
 
-## Fail → game over
+## Fail → game over / pause panel
 
-On die, games always post `gamescroll:died` (`onFail: 'gameover'`). The host shows `GameOverOverlay` with score, Play again, Play another, and Share.
+On die, games always post `gamescroll:died` (`onFail: 'gameover'`). The host shows `GameOverOverlay` in `mode="over"` with this round’s score, best (and a new-best chip when earned), Like, Share, Play again, and Play another.
+
+Pause reuses the same panel in `mode="paused"`: label **Paused**, live score, best when known, Like, Share, **Resume**, and Play another.
 
 ---
 
@@ -211,7 +216,7 @@ Owned by the host (sandboxed games cannot use storage).
 | `gs_uid` | Anonymous visitor id |
 | `gs_visits` / `gs_last_seen` | Daily visit counting |
 
-Likes in the bottom-nav control are in-memory only for the session.
+Likes on the end-of-round / pause panel are in-memory only for the session.
 
 ---
 
@@ -256,7 +261,7 @@ Git remotes in use:
 
 1. Edit or add the game body in `scripts/generate-games.mjs` (`title`, `tip`, `bg`, optional `accent`, `body`).
 2. Run `npm run generate:games` (writes HTML + `src/generated/officialCatalog.ts`).
-3. Smoke-test in the feed (`npm run dev`), including pause, score, fail, and swipe.
+3. Smoke-test in the feed (`npm run dev`), including pause/resume, score, fail, shuffle, and swipe.
 4. Run `npm run quality` so catalog↔HTML integrity, catalog `--check`, and host unit tests still pass.
 
 To remove a game, delete the generator block and add the HTML filename to the generator’s `obsolete` list so regenerating cleans `public/games/` (and drops it from the emitted catalog).
@@ -297,7 +302,7 @@ Coverage today:
 - Catalog ids ↔ `public/games/*.html`, bridge message contract, culled games stay gone
 - Generated `officialCatalog.ts` stays in sync with `generate-games.mjs`
 - UGC wrap/validator (forbidden APIs + bridge snippets)
-- Feed window prune, message hub, blob LRU, play presentation, App hook-shell contract
+- Feed window prune, message hub, blob LRU, play presentation, App hook-shell + bottom-nav / overlay / soft-resume bridge contracts
 - Lazy `/create`+`/mod`, slim UGC selects, parallel share boot
 - Deno `_shared` parity with `src/lib` (via sync check)
 - Layout fidelity harvest/compare + creator baseline metrics (Phase 0)

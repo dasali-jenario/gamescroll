@@ -117,7 +117,7 @@
     if (window.Juice) Juice.init({ accent: "#22ddff" })
 
     let cols = 5, rows = 7, board = [], ox = 0, oy = 0, cell = 0, gap = 4
-    let turn = 1, exploding = false, boomQ = [], boomT = 0
+    let turn = 1, exploding = false, boomQ = [], boomT = 0, moves = 0
     function layout() {
       const pad = 14
       const sideW = W - pad * 2
@@ -153,6 +153,7 @@
       exploding = false
       boomQ = []
       boomT = 0
+      moves = 0
       setScore(0)
     }
     function onHostStart() { reset() }
@@ -163,6 +164,9 @@
       return n
     }
     function checkWin() {
+      // Both sides must have placed once — otherwise the first tap
+      // looks like a wipeout (CPU has no cells yet) and ends the round.
+      if (moves < 2) return false
       const p1 = board.some(c => c.owner === 1)
       const p2 = board.some(c => c.owner === 2)
       if (p1 && !p2) {
@@ -210,6 +214,7 @@
       if (c.owner && c.owner !== owner) return false
       c.owner = owner
       c.orbs++
+      moves++
       exploding = true
       boomQ = []
       enqueueUnstable()

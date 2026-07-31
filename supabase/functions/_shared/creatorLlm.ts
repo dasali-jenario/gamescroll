@@ -118,7 +118,7 @@ CUSTOM FREEFORM FIRST BUILDS (when seed says FREEFORM PATH):
 - Do not offer a reaction substitute for Wordle/puzzle/etc.
 
 PORTRAIT / MOBILE LAYOUT (required):
-- Assume safe playfield inset: top ~8% of H (in-game score HUD), bottom ~8% of H, sides ~4% of W. The host letterboxes the iframe away from app chrome (top bar, bottom like/share nav, swipe rail) — do not draw interactive hit targets into the extreme corners.
+- Assume safe playfield inset: top ~8% of H (in-game score HUD), bottom ~8% of H, sides ~4% of W. The host letterboxes the iframe away from app chrome (top bar, bottom nav, swipe rail) — do not draw interactive hit targets into the extreme corners.
 - Primary action buttons: lower third (about y = H*0.68 to H*0.82), centered, width ~70% of W (min 200, max 320), height >= 56px (prefer 64–72 on large phones).
 - Main focal content (lights, player, targets): center band y ≈ H*0.28 to H*0.58 — not tiny at the top.
 - Use relative layout from W/H via GS.layoutFromPlan(LAYOUT_PLAN, W, H) when editing scaffold bodies. Never hard-code 1920x1080 or desktop positions.

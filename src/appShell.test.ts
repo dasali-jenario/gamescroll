@@ -11,6 +11,17 @@ const feedGestures = readFileSync(
   join(root, 'src/hooks/useFeedGestures.ts'),
   'utf8',
 )
+const bottomNav = readFileSync(
+  join(root, 'src/components/BottomNav.tsx'),
+  'utf8',
+)
+const gameOver = readFileSync(
+  join(root, 'src/components/GameOverOverlay.tsx'),
+  'utf8',
+)
+const gameCard = readFileSync(join(root, 'src/components/GameCard.tsx'), 'utf8')
+const gameWrap = readFileSync(join(root, 'src/lib/gameWrap.ts'), 'utf8')
+const feedCss = readFileSync(join(root, 'src/styles/feed.css'), 'utf8')
 
 describe('App shell hook split', () => {
   it('keeps App as a composition shell that wires the three session hooks', () => {
@@ -45,12 +56,15 @@ describe('App shell hook split', () => {
     expect(feedSession).toContain('trackFeedPruned')
   })
 
-  it('puts play / scores / rail hint / cue / deploy reload in usePlaySession', () => {
+  it('puts play / pause / scores / rail hint / cue / deploy reload in usePlaySession', () => {
     expect(playSession).toContain('export function usePlaySession')
     expect(playSession).toContain('setRailHintVisible(false)')
     expect(playSession).toContain('watchForDeployUpdate')
     expect(playSession).toContain('recordHighscore')
     expect(playSession).toContain('setGameOver')
+    expect(playSession).toContain('setPaused')
+    expect(playSession).toContain('resumePlay')
+    expect(playSession).toContain('liveScore')
     expect(playSession).toContain('setCueVisible(true)')
   })
 
@@ -60,6 +74,8 @@ describe('App shell hook split', () => {
     expect(feedGestures).toContain('endSwipe')
     expect(feedGestures).toContain('touchmove')
     expect(feedGestures).toContain('wheel')
+    expect(feedGestures).toContain('resumePlay')
+    expect(feedGestures).toContain('paused')
   })
 
   it('ships the hook modules on disk', () => {
@@ -70,5 +86,52 @@ describe('App shell hook split', () => {
     ]) {
       expect(existsSync(join(root, rel)), `missing ${rel}`).toBe(true)
     }
+  })
+})
+
+describe('feed chrome contracts', () => {
+  it('keeps like/share off the bottom nav and on the end/pause overlay', () => {
+    expect(bottomNav).toContain('shuffle-btn')
+    expect(bottomNav).toContain('nav-play-btn')
+    expect(bottomNav).toContain('PrivacyDisclosure')
+    expect(bottomNav).not.toContain('like-btn')
+    expect(bottomNav).not.toContain('shareGame')
+    expect(bottomNav).not.toContain('onLike')
+
+    expect(gameOver).toContain("mode === 'paused'")
+    expect(gameOver).toContain('Resume')
+    expect(gameOver).toContain('Play again')
+    expect(gameOver).toContain('Play another')
+    expect(gameOver).toContain('like-btn')
+    expect(gameOver).toContain('shareGame')
+  })
+
+  it('wires shuffle, pause overlay, and soft-resume from App', () => {
+    expect(app).toContain('onShuffle={goToRandomGame}')
+    expect(app).toContain('onPause={play.pausePlay}')
+    expect(app).toContain('mode="paused"')
+    expect(app).toContain('mode="over"')
+    expect(app).toContain('onPlayAgain={play.resumePlay}')
+    expect(app).toContain('onPlayAgain={play.playAgain}')
+    expect(app).toContain('isPaused={play.playingKey === item.key && play.paused}')
+    expect(app).not.toContain('className="pause-btn"')
+  })
+
+  it('soft-resumes paused games without resetting unless forceReset', () => {
+    expect(gameWrap).toContain('started: false')
+    expect(gameWrap).toContain('forceReset')
+    expect(gameWrap).toContain('const resuming = GS.started && GS.paused && !forceReset')
+    expect(gameWrap).toContain('if (!resuming && typeof onHostStart === \'function\') onHostStart()')
+
+    expect(gameCard).toContain('forceReset: freshStart')
+    expect(gameCard).toContain('forceReset: true')
+    expect(gameCard).toContain('isPaused')
+  })
+
+  it('centers play/pause in the fixed bottom nav styles', () => {
+    expect(feedCss).toContain('.nav-play-btn')
+    expect(feedCss).toContain('.shuffle-btn')
+    expect(feedCss).toContain('.game-over-panel')
+    expect(feedCss).toMatch(/\.bottom-nav \{[\s\S]*?justify-content:\s*space-between/)
   })
 })

@@ -146,7 +146,15 @@ describe('host CSS / App presentation contract', () => {
     expect(block?.[1]).toMatch(/min-height:\s*var\(--bottom-nav\)/)
     expect(block?.[1]).toMatch(/max-height:\s*var\(--bottom-nav\)/)
     expect(block?.[1]).toMatch(/overflow:\s*hidden/)
+    expect(block?.[1]).toMatch(/justify-content:\s*space-between/)
     expect(baseCss).toMatch(/touch-action:\s*manipulation/)
+  })
+
+  it('styles the shared end-of-round / pause panel as a paper card', () => {
+    expect(feedCss).toContain('.game-over-panel')
+    expect(feedCss).toContain('.game-over-social')
+    expect(feedCss).toContain('.game-over-again')
+    expect(feedCss).toMatch(/\.game-over-panel \{[\s\S]*?background:\s*var\(--paper\)/)
   })
 
   it('keeps the dark rail as a hint class, not a play-mode letterbox reserve', () => {

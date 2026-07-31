@@ -19,6 +19,8 @@ const REQUIRED_BRIDGE_SNIPPETS = [
   'gamescroll:swipe-next',
   'gamescroll:swipe-prev',
   'onFail',
+  'forceReset',
+  'started: false',
 ]
 
 describe('catalog integrity', () => {
@@ -46,6 +48,15 @@ describe('catalog integrity', () => {
         true,
       )
     }
+  })
+
+  it('generator bridge soft-resumes without always calling onHostStart', () => {
+    const generator = readFileSync(generatorPath, 'utf8')
+    expect(generator).toContain('started: false')
+    expect(generator).toContain('forceReset')
+    expect(generator).toContain(
+      'const resuming = GS.started && GS.paused && !forceReset',
+    )
   })
 
   it('culled games are not shipped', () => {
