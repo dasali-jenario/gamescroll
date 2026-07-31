@@ -32,6 +32,9 @@ describe('highscores', () => {
     expect(recordHighscore('race-start-reaction-3be720bf', 240)).toBe(240)
     expect(recordHighscore('race-start-reaction-3be720bf', 300)).toBe(240)
     expect(recordHighscore('race-start-reaction-3be720bf', 180)).toBe(180)
+    expect(recordHighscore('storymole', 520)).toBe(520)
+    expect(recordHighscore('storymole', 610)).toBe(520)
+    expect(recordHighscore('storymole', 410)).toBe(410)
   })
 
   it('betterScore respects lower-is-better games', () => {
@@ -39,6 +42,7 @@ describe('highscores', () => {
     expect(betterScore('reactflash', 10, 20)).toBe(10)
     expect(betterScore('reactflash', 0, 20)).toBe(20)
     expect(betterScore('race-start-reaction-3be720bf', 250, 180)).toBe(180)
+    expect(betterScore('storymole', 500, 420)).toBe(420)
   })
 
   it('rejects non-positive and non-finite scores', () => {

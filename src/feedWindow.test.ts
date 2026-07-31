@@ -96,7 +96,7 @@ describe('appendFeedWindow', () => {
   })
 
   it('uses roadmap defaults that bound ~2–3 catalog batches', () => {
-    expect(games.length).toBe(54)
+    expect(games.length).toBe(55)
     expect(FEED_WINDOW_MAX).toBe(games.length * 3)
     expect(FEED_KEEP_BEHIND).toBe(12)
     const batch = games.length

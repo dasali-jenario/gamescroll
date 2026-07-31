@@ -332,4 +332,10 @@ export const officialCatalog: OfficialCatalogEntry[] = [
     tip: "Place Pencil, Marker, or Ink Blot. Stop the scribbles!",
     accent: "#2c2416",
   },
+  {
+    id: "storymole",
+    title: "Storybook Moles",
+    tip: "Whack 10 moles. Average ms is your score!",
+    accent: "#e76f51",
+  },
 ]

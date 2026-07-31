@@ -1,5 +1,20 @@
 # New file requests
 
+## 2026-07-31 — Storybook Moles (10-hit avg ms whack-a-mole)
+
+### Requested files
+- Body added in `scripts/wave3-games.mjs` as `storymole` (generated → `public/games/storymole.html` + catalog)
+- `supabase/migrations/20260731190000_official_storymole_seed.sql` — upsert official row
+- Updates: `scripts/seed-official-games.mjs`, `FEED_WINDOW_MAX` (55×3), `src/feedWindow.test.ts`, `src/highscores.ts` (+ test) for lower-is-better ms
+
+### Duplicate search
+- Grep `storymole|bookmole|tenmole|meadowmole|average.?ms|whack.?a.?mole` under `scripts/` / `public/games/` / `src/` → only existing `molewhack` (30s score race, higher-is-better)
+- Glob `public/games/*mole*` → only `molewhack.html`
+- Closest: `molewhack` (tap moles, miss penalty); `reactflash` (lower-is-better ms). New game: fixed 10 hits → average ms result + storybook look
+
+### Rationale
+Separate from Mole Whack: race to 10 successful hits scored as average milliseconds (lower better), children’s-book meadow visuals.
+
 ## 2026-07-31 — Doodle Defense (paper sketch tower defense)
 
 ### Requested files

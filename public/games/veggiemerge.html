@@ -301,11 +301,15 @@
       }
     }
     function checkDanger(dt) {
+      // 2× orbs jitter harder in the stack than Orb Merge — requiring near-zero |vy|
+      // meant overflow never stayed "settled" long enough to trip game over.
+      // Count anything whose top is past the line and not still plunging downward.
       let over = false
       for (const o of orbs) {
         if (o.merging) continue
         if (performance.now() - o.born < 600) continue
-        if (o.y - tierR(o.tier) < dangerY && Math.abs(o.vy) < 50 * S) { over = true; break }
+        const top = o.y - tierR(o.tier)
+        if (top < dangerY && o.vy < 120 * S) { over = true; break }
       }
       if (over) {
         dangerSince += dt

@@ -1038,11 +1038,15 @@ export const wave3Games = {
       }
     }
     function checkDanger(dt) {
+      // 2× orbs jitter harder in the stack than Orb Merge — requiring near-zero |vy|
+      // meant overflow never stayed "settled" long enough to trip game over.
+      // Count anything whose top is past the line and not still plunging downward.
       let over = false
       for (const o of orbs) {
         if (o.merging) continue
         if (performance.now() - o.born < 600) continue
-        if (o.y - tierR(o.tier) < dangerY && Math.abs(o.vy) < 50 * S) { over = true; break }
+        const top = o.y - tierR(o.tier)
+        if (top < dangerY && o.vy < 120 * S) { over = true; break }
       }
       if (over) {
         dangerSince += dt
@@ -1824,6 +1828,266 @@ export const wave3Games = {
       addPuff(t.x, t.y, k.color, 8)
     }
     addEventListener('pointerdown', pointer)
+    reset()
+`,
+  },
+
+  storymole: {
+    title: 'Storybook Moles',
+    tip: 'Whack 10 moles. Average ms is your score!',
+    bg: '#8ecae6',
+    accent: '#e76f51',
+    body: `
+    const NEED = 10
+    let holes = [], active = -1, hideT = 0, gapT = 0, hits = 0
+    let running = false, done = false, startAt = 0, avgMs = 0
+    let ox = 0, oy = 0, cell = 0, gap = 14, cols = 3, rows = 3
+    let pop = 0, sparkles = []
+    function layout() {
+      const pad = 20
+      const side = Math.min(W - pad * 2, H * 0.56)
+      gap = Math.max(10, side * 0.04)
+      cell = (side - gap * (cols - 1)) / cols
+      ox = (W - side) * 0.5
+      oy = H * 0.26
+      holes = []
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        holes.push({
+          x: ox + c * (cell + gap),
+          y: oy + r * (cell + gap),
+          w: cell, h: cell,
+        })
+      }
+    }
+    function onResize() { layout() }
+    function diePos() {
+      if (active >= 0) {
+        const h = holes[active]
+        return [h.x + h.w * 0.5, h.y + h.h * 0.45]
+      }
+      return [W * 0.5, oy + cell * 1.5]
+    }
+    function scorePos() { return diePos() }
+    function spawn() {
+      let next = (Math.random() * holes.length) | 0
+      if (holes.length > 1 && next === active) next = (next + 1 + ((Math.random() * (holes.length - 1)) | 0)) % holes.length
+      active = next
+      // Stay long enough to be fair; slightly snappier as you near 10
+      hideT = Math.max(0.55, 1.15 - hits * 0.04)
+      gapT = 0
+      pop = 1
+      if (!startAt) startAt = performance.now()
+    }
+    function reset() {
+      layout()
+      active = -1
+      hideT = 0
+      gapT = 0.35
+      hits = 0
+      running = true
+      done = false
+      startAt = 0
+      avgMs = 0
+      sparkles = []
+      pop = 0
+      setScore(0)
+    }
+    function onHostStart() { reset() }
+    function die() { reset() }
+    function finish() {
+      if (done || !running) return
+      done = true
+      running = false
+      active = -1
+      avgMs = Math.max(1, Math.round((performance.now() - startAt) / NEED))
+      setScore(avgMs)
+      try { parent.postMessage({ type: 'gamescroll:score', score: avgMs }, '*') } catch (e) {}
+      die()
+    }
+    function tick(dt) {
+      if (!running || GS.paused || done) return
+      if (pop > 0) pop = Math.max(0, pop - dt * 4)
+      for (const s of sparkles) s.life -= dt
+      sparkles = sparkles.filter(s => s.life > 0)
+      if (gapT > 0) {
+        gapT -= dt
+        if (gapT <= 0) spawn()
+        return
+      }
+      hideT -= dt
+      if (hideT <= 0 && active >= 0) {
+        active = -1
+        gapT = 0.18 + Math.random() * 0.12
+      }
+    }
+    function flower(x, y, r, petal, center) {
+      ctx.save()
+      ctx.translate(x, y)
+      for (let i = 0; i < 5; i++) {
+        const a = i * (Math.PI * 2 / 5) - 0.4
+        ctx.fillStyle = petal
+        ctx.beginPath()
+        ctx.ellipse(Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55, r * 0.42, r * 0.28, a, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.fillStyle = center
+      ctx.beginPath()
+      ctx.arc(0, 0, r * 0.28, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+    }
+    function drawMole(cx, cy, r, squash) {
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.scale(1 + (1 - squash) * 0.15, squash)
+      // soft shadow in hole
+      ctx.fillStyle = 'rgba(60, 40, 30, 0.2)'
+      ctx.beginPath()
+      ctx.ellipse(0, r * 0.85, r * 0.7, r * 0.22, 0, 0, Math.PI * 2)
+      ctx.fill()
+      PF.buddy(ctx, 0, 0, r, '#c4a484', '#8d6e4c', {
+        lookY: -0.25, blush: true, stretch: 1.05,
+      })
+      // little snout
+      ctx.fillStyle = '#f1d6c0'
+      ctx.beginPath()
+      ctx.ellipse(0, r * 0.22, r * 0.28, r * 0.18, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#5c4030'
+      ctx.beginPath()
+      ctx.arc(0, r * 0.18, r * 0.08, 0, Math.PI * 2)
+      ctx.fill()
+      // whiskers
+      ctx.strokeStyle = 'rgba(60,40,30,0.45)'
+      ctx.lineWidth = Math.max(1, r * 0.06)
+      ctx.beginPath()
+      ctx.moveTo(-r * 0.15, r * 0.22); ctx.lineTo(-r * 0.55, r * 0.12)
+      ctx.moveTo(-r * 0.15, r * 0.28); ctx.lineTo(-r * 0.55, r * 0.32)
+      ctx.moveTo(r * 0.15, r * 0.22); ctx.lineTo(r * 0.55, r * 0.12)
+      ctx.moveTo(r * 0.15, r * 0.28); ctx.lineTo(r * 0.55, r * 0.32)
+      ctx.stroke()
+      ctx.restore()
+    }
+    function draw() {
+      // storybook sky wash
+      PF.sky(ctx, W, H, '#bde0fe', '#8ecae6', '#fef6e4')
+      // soft cloud blobs
+      ctx.fillStyle = 'rgba(255,255,255,0.55)'
+      for (let i = 0; i < 4; i++) {
+        const cx = ((i * 0.28 + 0.08) * W + Math.sin(PF.t * 0.15 + i) * 8)
+        const cy = H * (0.08 + (i % 2) * 0.05)
+        ctx.beginPath()
+        ctx.ellipse(cx, cy, 36 + i * 6, 16 + (i % 2) * 4, 0, 0, Math.PI * 2)
+        ctx.ellipse(cx - 22, cy + 4, 22, 12, 0, 0, Math.PI * 2)
+        ctx.ellipse(cx + 24, cy + 2, 20, 11, 0, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      // rolling hills
+      ctx.fillStyle = '#95d5b2'
+      ctx.beginPath()
+      ctx.moveTo(0, H * 0.42)
+      ctx.quadraticCurveTo(W * 0.25, H * 0.34, W * 0.5, H * 0.4)
+      ctx.quadraticCurveTo(W * 0.75, H * 0.46, W, H * 0.38)
+      ctx.lineTo(W, H)
+      ctx.lineTo(0, H)
+      ctx.fill()
+      ctx.fillStyle = '#74c69d'
+      ctx.beginPath()
+      ctx.moveTo(0, H * 0.55)
+      ctx.quadraticCurveTo(W * 0.3, H * 0.48, W * 0.55, H * 0.56)
+      ctx.quadraticCurveTo(W * 0.8, H * 0.62, W, H * 0.52)
+      ctx.lineTo(W, H)
+      ctx.lineTo(0, H)
+      ctx.fill()
+      // meadow flowers
+      flower(W * 0.12, H * 0.48, 10, '#f4a261', '#ffe66d')
+      flower(W * 0.88, H * 0.5, 9, '#ef476f', '#ffe66d')
+      flower(W * 0.22, H * 0.72, 8, '#ffd6a5', '#e76f51')
+      flower(W * 0.78, H * 0.7, 11, '#90be6d', '#ffe66d')
+      // title banner
+      ctx.fillStyle = 'rgba(254, 246, 228, 0.85)'
+      PF.rr(ctx, W * 0.14, H * 0.06, W * 0.72, Math.max(36, H * 0.07), 14)
+      ctx.fill()
+      ctx.strokeStyle = 'rgba(231, 111, 81, 0.45)'
+      ctx.lineWidth = 2
+      ctx.stroke()
+      ctx.fillStyle = '#3d405b'
+      ctx.font = '700 ' + Math.floor(Math.min(22, W * 0.045)) + 'px "Georgia", "Palatino Linotype", serif'
+      ctx.textAlign = 'center'
+      ctx.fillText('Ten little moles!', W * 0.5, H * 0.06 + Math.max(24, H * 0.045))
+      for (let i = 0; i < holes.length; i++) {
+        const h = holes[i]
+        const cx = h.x + h.w * 0.5
+        const cy = h.y + h.h * 0.62
+        // grassy mound
+        ctx.fillStyle = '#40916c'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy + h.h * 0.08, h.w * 0.42, h.h * 0.18, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#2d6a4f'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy + h.h * 0.05, h.w * 0.28, h.h * 0.1, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // hole
+        ctx.fillStyle = '#1b4332'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy, h.w * 0.26, h.h * 0.12, 0, 0, Math.PI * 2)
+        ctx.fill()
+        if (i === active) {
+          const sq = 0.75 + (1 - pop) * 0.25
+          drawMole(cx, cy - h.h * 0.12, h.w * 0.22, sq)
+        }
+      }
+      for (const s of sparkles) {
+        ctx.globalAlpha = Math.max(0, s.life / s.max)
+        ctx.fillStyle = s.c
+        ctx.beginPath()
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.globalAlpha = 1
+      // progress + live average
+      ctx.textAlign = 'left'
+      ctx.fillStyle = '#3d405b'
+      ctx.font = '700 15px "Georgia", "Palatino Linotype", serif'
+      const live = hits > 0 && startAt
+        ? Math.round((performance.now() - startAt) / Math.max(1, hits))
+        : 0
+      ctx.fillText(hits + ' / ' + NEED, 14, 28)
+      if (live > 0) {
+        ctx.fillStyle = 'rgba(61,64,91,0.75)'
+        ctx.fillText('avg ' + live + ' ms', 14, 48)
+      }
+      ctx.textAlign = 'left'
+    }
+    addEventListener('pointerdown', e => {
+      if (GS.paused || !running || done || active < 0) return
+      const r = canvas.getBoundingClientRect()
+      const x = e.clientX - r.left
+      const y = e.clientY - r.top
+      const h = holes[active]
+      const cx = h.x + h.w * 0.5
+      const cy = h.y + h.h * 0.5
+      if (Math.hypot(x - cx, y - cy) > h.w * 0.48) return
+      hits++
+      if (window.Juice) Juice.burst(cx, cy - h.h * 0.1)
+      for (let i = 0; i < 8; i++) {
+        sparkles.push({
+          x: cx + (Math.random() - 0.5) * 30,
+          y: cy + (Math.random() - 0.5) * 24,
+          r: 2 + Math.random() * 3,
+          life: 0.35 + Math.random() * 0.2,
+          max: 0.5,
+          c: i % 2 ? '#ffe66d' : '#ef476f',
+        })
+      }
+      active = -1
+      if (hits >= NEED) {
+        finish()
+        return
+      }
+      gapT = 0.12
+    })
     reset()
 `,
   },

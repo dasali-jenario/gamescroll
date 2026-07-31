@@ -4,6 +4,7 @@ const STORAGE_KEY = 'gs_highscores'
 const LOWER_IS_BETTER = new Set([
   'reactflash',
   'race-start-reaction-3be720bf',
+  'storymole',
 ])
 
 export type Highscores = Record<string, number>
