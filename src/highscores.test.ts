@@ -29,12 +29,16 @@ describe('highscores', () => {
     expect(recordHighscore('reactflash', 310)).toBe(280)
     expect(recordHighscore('reactflash', 190)).toBe(190)
     expect(getHighscore('reactflash')).toBe(190)
+    expect(recordHighscore('race-start-reaction-3be720bf', 240)).toBe(240)
+    expect(recordHighscore('race-start-reaction-3be720bf', 300)).toBe(240)
+    expect(recordHighscore('race-start-reaction-3be720bf', 180)).toBe(180)
   })
 
   it('betterScore respects lower-is-better games', () => {
     expect(betterScore('pong', 10, 20)).toBe(20)
     expect(betterScore('reactflash', 10, 20)).toBe(10)
     expect(betterScore('reactflash', 0, 20)).toBe(20)
+    expect(betterScore('race-start-reaction-3be720bf', 250, 180)).toBe(180)
   })
 
   it('rejects non-positive and non-finite scores', () => {

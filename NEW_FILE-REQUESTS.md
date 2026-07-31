@@ -1,5 +1,20 @@
 # New file requests
 
+## 2026-07-31 — Race Start Lights UGC fix (best time + drop F1)
+
+### Requested files
+- `scripts/fix-race-start-lights.mjs` — re-upload UGC slug `race-start-reaction-3be720bf` with personal best (lowest ms), title/tip “Race Start Lights” (no F1)
+- Host tweak (existing): `src/highscores.ts` + test — add slug to `LOWER_IS_BETTER`
+
+### Duplicate search
+- Grep `race-start-reaction|Race Light|F1 start|fix-race` under `scripts/` / `src/` → prior live UGC only; `scripts/fix-wordle-mini.mjs` is the closest hot-fix pattern
+- `reactflash` already has lower-is-better + in-game Best; this UGC needed the same for its slug
+- Tip previously: `F1 start lights: wait for the greens, then tap fast!`
+
+### Rationale
+Rights-safe naming + show “My best” (host bar + in-game) using lowest reaction time.
+
+
 ## 2026-07-30 — Privacy disclosure (info button)
 
 ### Requested files

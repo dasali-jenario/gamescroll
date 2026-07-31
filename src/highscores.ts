@@ -1,7 +1,10 @@
 const STORAGE_KEY = 'gs_highscores'
 
 /** Games where a lower score is better (e.g. reaction time in ms). */
-const LOWER_IS_BETTER = new Set(['reactflash'])
+const LOWER_IS_BETTER = new Set([
+  'reactflash',
+  'race-start-reaction-3be720bf',
+])
 
 export type Highscores = Record<string, number>
 
