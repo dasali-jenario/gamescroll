@@ -55,6 +55,7 @@ describe('App shell hook split', () => {
     expect(feedSession).toContain('buildFeedBatch')
     expect(feedSession).toContain('trackFeedPruned')
     expect(feedSession).toContain('jumpToGameId')
+    expect(feedSession).toContain('ensureInFeed')
   })
 
   it('puts play / pause / scores / rail hint / cue / deploy reload in usePlaySession', () => {
@@ -113,6 +114,7 @@ describe('feed chrome contracts', () => {
     expect(app).toContain('onOpenLikes=')
     expect(app).toContain('LikedGamesPanel')
     expect(app).toContain('goToLikedGame')
+    expect(app).toContain('pendingLikedJumpId')
     expect(app).toContain('jumpToGameId')
     expect(app).toContain('onPause={play.pausePlay}')
     expect(app).toContain('mode="paused"')

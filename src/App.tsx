@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { BottomNav } from './components/BottomNav'
 import { GameCard } from './components/GameCard'
 import { GameOverOverlay } from './components/GameOverOverlay'
@@ -144,6 +144,9 @@ export default function App() {
 
   const [likedIds, setLikedIds] = useState(loadLikedIds)
   const [likesOpen, setLikesOpen] = useState(false)
+  const [pendingLikedJumpId, setPendingLikedJumpId] = useState<string | null>(
+    null,
+  )
 
   const activeGame = feed.feed[feed.activeIndex]?.game
   const activeHighscore = activeGame ? play.highscores[activeGame.id] ?? 0 : 0
@@ -192,27 +195,39 @@ export default function App() {
       if (feed.introRunning) feed.cancelIntro()
       play.dismissCue()
       play.clearForNavigate()
+      // Close the sheet first, then jump after layout so feed clientHeight
+      // matches the settled chrome (avoids landing on the wrong card).
       setLikesOpen(false)
-      const item = feed.jumpToGameId(gameId)
-      if (!item) return
-      play.handlePlay(item.key, item.game.id)
-      noteFeedSwipe({
-        feedLen: feed.feedRefState.current.length,
-        activeIndex: feed.activeIndexRef.current,
-      })
+      setPendingLikedJumpId(gameId)
     },
     [
       play.applyPendingReload,
       play.dismissCue,
       play.clearForNavigate,
-      play.handlePlay,
       feed.introRunning,
       feed.cancelIntro,
-      feed.jumpToGameId,
-      feed.feedRefState,
-      feed.activeIndexRef,
     ],
   )
+
+  useLayoutEffect(() => {
+    if (!pendingLikedJumpId || likesOpen) return
+    const gameId = pendingLikedJumpId
+    setPendingLikedJumpId(null)
+    const item = feed.jumpToGameId(gameId)
+    if (!item) return
+    play.handlePlay(item.key, item.game.id)
+    noteFeedSwipe({
+      feedLen: feed.feedRefState.current.length,
+      activeIndex: feed.activeIndexRef.current,
+    })
+  }, [
+    pendingLikedJumpId,
+    likesOpen,
+    feed.jumpToGameId,
+    feed.feedRefState,
+    feed.activeIndexRef,
+    play.handlePlay,
+  ])
 
   return (
     <div

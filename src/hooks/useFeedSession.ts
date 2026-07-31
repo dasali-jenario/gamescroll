@@ -245,17 +245,39 @@ export function useFeedSession({
     (gameId: string) => {
       const find = () =>
         feedRefState.current.findIndex((item) => item.game.id === gameId)
-      let index = find()
-      let tries = 0
-      while (index < 0 && tries < 3) {
-        appendBatch()
-        index = find()
-        tries += 1
+
+      const ensureInFeed = () => {
+        let index = find()
+        let tries = 0
+        while (index < 0 && tries < 6) {
+          appendBatch()
+          index = find()
+          tries += 1
+        }
+        return index
       }
+
+      let index = ensureInFeed()
       if (index < 0) return null
-      const item = feedRefState.current[index]
-      if (!item) return null
+
       scrollToIndex(index, 'auto')
+
+      // scrollToIndex may append/prune and remapped indices; the card we
+      // captured before that can disappear or move. Always re-resolve by id.
+      index = ensureInFeed()
+      if (index < 0) return null
+
+      const item = feedRefState.current[index]
+      if (!item || item.game.id !== gameId) return null
+
+      if (activeIndexRef.current !== index) {
+        activeIndexRef.current = index
+        setActiveIndex(index)
+      }
+      const el = feedRef.current
+      if (el && !pendingPruneRef.current) {
+        el.scrollTo({ top: index * el.clientHeight, behavior: 'auto' })
+      }
       return item
     },
     [appendBatch, scrollToIndex],
