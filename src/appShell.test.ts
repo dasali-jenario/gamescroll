@@ -23,6 +23,7 @@ describe('App shell hook split', () => {
     // Navigation glue stays in App between feed + play.
     expect(app).toContain('goToNextGame')
     expect(app).toContain('goToPrevGame')
+    expect(app).toContain('goToRandomGame')
     expect(app).toContain('clearForNavigate')
     expect(app).toContain('scrollToIndex')
   })

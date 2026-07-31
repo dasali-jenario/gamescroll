@@ -90,6 +90,40 @@ export default function App() {
     feed.activeIndexRef,
   ])
 
+  const goToRandomGame = useCallback(() => {
+    if (play.applyPendingReload()) return
+    if (feed.introRunning) {
+      feed.cancelIntro()
+      return
+    }
+    play.dismissCue()
+    play.clearForNavigate()
+    const items = feed.feedRefState.current
+    const currentId = items[feed.activeIndex]?.game.id
+    const candidates = items
+      .map((item, i) => ({ i, id: item.game.id }))
+      .filter((c) => c.id !== currentId)
+    const target =
+      candidates.length > 0
+        ? candidates[Math.floor(Math.random() * candidates.length)].i
+        : feed.activeIndex + 1
+    feed.scrollToIndex(target)
+    noteFeedSwipe({
+      feedLen: feed.feedRefState.current.length,
+      activeIndex: feed.activeIndexRef.current,
+    })
+  }, [
+    play.applyPendingReload,
+    play.dismissCue,
+    play.clearForNavigate,
+    feed.introRunning,
+    feed.cancelIntro,
+    feed.scrollToIndex,
+    feed.activeIndex,
+    feed.feedRefState,
+    feed.activeIndexRef,
+  ])
+
   const gestures = useFeedGestures({
     feedRef: feed.feedRef,
     introRunning: feed.introRunning,
@@ -211,6 +245,7 @@ export default function App() {
         game={activeGame}
         liked={!!(activeGame && liked[activeGame.id])}
         isPlaying={!!play.playingKey}
+        onShuffle={goToRandomGame}
         onLike={() => {
           if (!activeGame) return
           setLiked((prev) => ({
@@ -265,7 +300,15 @@ export default function App() {
             activeHighscore,
             play.gameOver.score,
           )}
+          previousBest={play.gameOver.previousBest}
           lowerIsBetter={isLowerBetterScore(play.gameOver.gameId)}
+          liked={!!liked[activeGame.id]}
+          onLike={() => {
+            setLiked((prev) => ({
+              ...prev,
+              [activeGame.id]: !prev[activeGame.id],
+            }))
+          }}
           onPlayAgain={play.playAgain}
           onPlayAnother={goToNextGame}
         />

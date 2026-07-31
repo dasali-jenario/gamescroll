@@ -5,7 +5,11 @@ import {
   useState,
   type MutableRefObject,
 } from 'react'
-import { loadHighscores, recordHighscore } from '../highscores'
+import {
+  getHighscore,
+  loadHighscores,
+  recordHighscore,
+} from '../highscores'
 import {
   QUALIFIED_PLAY_MS,
   recordQualifiedPlay,
@@ -16,7 +20,12 @@ import {
   watchForDeployUpdate,
 } from '../updateCheck'
 
-export type GameOverState = { gameId: string; score: number }
+export type GameOverState = {
+  gameId: string
+  score: number
+  /** Best score before this round was recorded (0 = first play). */
+  previousBest: number
+}
 
 type Options = {
   cancelIntro: () => void
@@ -47,6 +56,8 @@ export function usePlaySession({
   const reloadWhenIdleRef = useRef(false)
   const pendingReloadIdRef = useRef<string | null>(null)
   const qualifyTimerRef = useRef<number | null>(null)
+  const baselineBestRef = useRef(0)
+  const playingGameIdRef = useRef<string | null>(null)
   playingRef.current = playingKey
 
   const clearQualifyTimer = useCallback(() => {
@@ -115,6 +126,8 @@ export function usePlaySession({
       setPlayingKey(key)
       setNudgeVisible(false)
       setRailHintVisible(false)
+      playingGameIdRef.current = gameId
+      baselineBestRef.current = getHighscore(gameId)
       clearQualifyTimer()
       const engagementKey = key
       const slug = gameId
@@ -150,16 +163,19 @@ export function usePlaySession({
   }, [])
 
   const onDied = useCallback((gameId: string, score: number) => {
+    const previousBest = baselineBestRef.current
     if (score > 0) {
       const best = recordHighscore(gameId, score)
       setHighscores((prev) =>
         prev[gameId] === best ? prev : { ...prev, [gameId]: best },
       )
     }
-    setGameOver({ gameId, score })
+    setGameOver({ gameId, score, previousBest })
   }, [])
 
   const playAgain = useCallback(() => {
+    const gameId = playingGameIdRef.current
+    if (gameId) baselineBestRef.current = getHighscore(gameId)
     setGameOver(null)
     setRestartKey((n) => n + 1)
   }, [])
