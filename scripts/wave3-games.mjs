@@ -1069,139 +1069,189 @@ export const wave3Games = {
       ctx.save()
       ctx.translate(x, y)
       ctx.rotate(rot || 0)
-      ctx.fillStyle = '#22c55e'
+      ctx.fillStyle = '#4ade80'
       ctx.beginPath()
-      ctx.ellipse(0, 0, s * 0.55, s * 0.28, 0, 0, Math.PI * 2)
+      ctx.moveTo(0, 0)
+      ctx.quadraticCurveTo(s * 0.55, -s * 0.35, s * 0.9, 0)
+      ctx.quadraticCurveTo(s * 0.55, s * 0.35, 0, 0)
       ctx.fill()
       ctx.strokeStyle = '#166534'
-      ctx.lineWidth = Math.max(1, s * 0.08)
-      ctx.beginPath(); ctx.moveTo(-s * 0.4, 0); ctx.lineTo(s * 0.4, 0); ctx.stroke()
+      ctx.lineWidth = Math.max(1, s * 0.1)
+      ctx.beginPath(); ctx.moveTo(s * 0.1, 0); ctx.lineTo(s * 0.7, 0); ctx.stroke()
       ctx.restore()
     }
     function bodyGrad(t, r) {
-      const g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.08, 0, 0, r)
+      const g = ctx.createRadialGradient(-r * 0.32, -r * 0.38, r * 0.06, 0, 0, r)
       g.addColorStop(0, t.accent)
-      g.addColorStop(0.5, t.color)
+      g.addColorStop(0.42, t.color)
       g.addColorStop(1, t.shade)
       return g
+    }
+    function roundBody(r, t) {
+      // Soft squircle-ish circle (slightly rounded square feel via slight flatten)
+      ctx.fillStyle = bodyGrad(t, r)
+      ctx.beginPath()
+      ctx.arc(0, 0, r, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = 'rgba(0,0,0,0.22)'
+      ctx.lineWidth = Math.max(1.5, r * 0.06)
+      ctx.stroke()
+      // Gloss
+      ctx.fillStyle = 'rgba(255,255,255,0.42)'
+      ctx.beginPath()
+      ctx.ellipse(-r * 0.28, -r * 0.32, r * 0.32, r * 0.2, -0.45, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = 'rgba(255,255,255,0.18)'
+      ctx.beginPath()
+      ctx.ellipse(r * 0.22, r * 0.2, r * 0.18, r * 0.12, 0.3, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    function cheek(r, color) {
+      ctx.fillStyle = color || 'rgba(255,120,140,0.35)'
+      ctx.beginPath(); ctx.ellipse(-r * 0.38, r * 0.12, r * 0.14, r * 0.1, 0, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.ellipse(r * 0.38, r * 0.12, r * 0.14, r * 0.1, 0, 0, Math.PI * 2); ctx.fill()
+    }
+    function cuteFace(r) {
+      ctx.fillStyle = '#1a1025'
+      const er = Math.max(1.5, r * 0.09)
+      ctx.beginPath(); ctx.arc(-r * 0.22, -r * 0.05, er, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.arc(r * 0.22, -r * 0.05, er, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#fff'
+      ctx.beginPath(); ctx.arc(-r * 0.19, -r * 0.08, er * 0.35, 0, Math.PI * 2); ctx.fill()
+      ctx.beginPath(); ctx.arc(r * 0.25, -r * 0.08, er * 0.35, 0, Math.PI * 2); ctx.fill()
+      ctx.strokeStyle = '#1a1025'
+      ctx.lineWidth = Math.max(1.2, r * 0.05)
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.arc(0, r * 0.12, r * 0.18, 0.15, Math.PI - 0.15)
+      ctx.stroke()
     }
     function drawVeggie(x, y, tier, ang) {
       const t = TIERS[tier], r = tierR(tier), kind = t.kind
       ctx.save()
       ctx.translate(x, y)
       if (ang) ctx.rotate(ang)
-      ctx.fillStyle = 'rgba(0,0,0,0.22)'
+      ctx.fillStyle = 'rgba(0,0,0,0.2)'
       ctx.beginPath()
-      ctx.ellipse(0, r * 0.88, r * 0.82, r * 0.16, 0, 0, Math.PI * 2)
+      ctx.ellipse(0, r * 0.92, r * 0.78, r * 0.16, 0, 0, Math.PI * 2)
       ctx.fill()
-      if (kind === 'carrot') {
-        ctx.fillStyle = bodyGrad(t, r)
+      roundBody(r, t)
+      if (kind === 'tomato') {
+        ctx.fillStyle = '#166534'
         ctx.beginPath()
-        ctx.moveTo(0, -r * 0.95)
-        ctx.lineTo(r * 0.55, -r * 0.2)
-        ctx.lineTo(r * 0.28, r * 0.95)
-        ctx.lineTo(-r * 0.28, r * 0.95)
-        ctx.lineTo(-r * 0.55, -r * 0.2)
-        ctx.closePath()
+        ctx.ellipse(0, -r * 0.72, r * 0.32, r * 0.16, 0, 0, Math.PI * 2)
         ctx.fill()
-        leaf(0, -r * 0.95, r * 0.7, -0.5)
-        leaf(0, -r * 1.05, r * 0.55, 0.2)
-        leaf(0, -r * 0.9, r * 0.5, 0.7)
+        leaf(-r * 0.2, -r * 0.78, r * 0.45, -0.9)
+        leaf(r * 0.12, -r * 0.8, r * 0.4, -0.2)
+        leaf(r * 0.28, -r * 0.72, r * 0.35, 0.7)
+        cheek(r)
+        cuteFace(r)
+      } else if (kind === 'radish') {
+        ctx.fillStyle = 'rgba(255,255,255,0.55)'
+        ctx.beginPath()
+        ctx.ellipse(0, r * 0.42, r * 0.62, r * 0.38, 0, 0, Math.PI * 2)
+        ctx.fill()
+        leaf(-r * 0.18, -r * 0.78, r * 0.48, -1.0)
+        leaf(r * 0.2, -r * 0.76, r * 0.42, 0.35)
+        cheek(r, 'rgba(255,90,120,0.4)')
+        cuteFace(r)
+      } else if (kind === 'carrot') {
+        // Round carrot orb with concentric rings + leaf tuft
+        ctx.strokeStyle = 'rgba(194,65,12,0.35)'
+        ctx.lineWidth = Math.max(1.2, r * 0.05)
+        for (let i = 1; i <= 3; i++) {
+          ctx.beginPath()
+          ctx.arc(0, r * 0.05, r * (0.35 + i * 0.18), 0.2, Math.PI - 0.2)
+          ctx.stroke()
+        }
+        leaf(-r * 0.15, -r * 0.78, r * 0.5, -1.1)
+        leaf(0.05 * r, -r * 0.88, r * 0.42, -0.4)
+        leaf(r * 0.22, -r * 0.74, r * 0.4, 0.55)
+        cheek(r, 'rgba(255,160,80,0.35)')
+        cuteFace(r)
+      } else if (kind === 'onion') {
+        ctx.strokeStyle = 'rgba(126,34,206,0.28)'
+        ctx.lineWidth = Math.max(1.5, r * 0.055)
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.62, 0, Math.PI * 2); ctx.stroke()
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.38, 0, Math.PI * 2); ctx.stroke()
+        ctx.fillStyle = '#86efac'
+        ctx.beginPath()
+        ctx.moveTo(-r * 0.12, -r * 0.7)
+        ctx.quadraticCurveTo(0, -r * 1.05, r * 0.12, -r * 0.7)
+        ctx.quadraticCurveTo(0, -r * 0.78, -r * 0.12, -r * 0.7)
+        ctx.fill()
+        cheek(r, 'rgba(200,140,255,0.35)')
+        cuteFace(r)
+      } else if (kind === 'potato') {
+        ctx.fillStyle = 'rgba(139,94,52,0.45)'
+        for (const spot of [[-0.35, -0.2], [0.28, 0.05], [0.08, -0.38], [-0.12, 0.32], [0.4, -0.28]]) {
+          ctx.beginPath()
+          ctx.arc(spot[0] * r, spot[1] * r, r * (0.06 + Math.abs(spot[0]) * 0.04), 0, Math.PI * 2)
+          ctx.fill()
+        }
+        cheek(r, 'rgba(210,150,100,0.4)')
+        cuteFace(r)
+      } else if (kind === 'cabbage') {
+        ctx.strokeStyle = 'rgba(21,128,61,0.35)'
+        ctx.lineWidth = Math.max(1.5, r * 0.05)
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2
+          ctx.beginPath()
+          ctx.ellipse(Math.cos(a) * r * 0.18, Math.sin(a) * r * 0.18, r * 0.55, r * 0.42, a, 0, Math.PI * 2)
+          ctx.stroke()
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.2)'
+        ctx.beginPath(); ctx.arc(-r * 0.15, -r * 0.2, r * 0.35, 0, Math.PI * 2); ctx.fill()
+        cheek(r, 'rgba(120,220,150,0.35)')
+        cuteFace(r)
       } else if (kind === 'corn') {
-        ctx.fillStyle = bodyGrad(t, r)
-        ctx.beginPath()
-        ctx.ellipse(0, 0, r * 0.55, r, 0, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.fillStyle = 'rgba(0,0,0,0.12)'
-        for (let row = -3; row <= 3; row++) {
-          for (let col = -1; col <= 1; col++) {
+        // Round corn cob face with kernel grid
+        ctx.fillStyle = 'rgba(161,98,7,0.28)'
+        const step = r * 0.28
+        for (let row = -2; row <= 2; row++) {
+          for (let col = -2; col <= 2; col++) {
+            if (row * row + col * col > 5.5) continue
             ctx.beginPath()
-            ctx.arc(col * r * 0.28, row * r * 0.22, r * 0.1, 0, Math.PI * 2)
+            ctx.arc(col * step * 0.85, row * step * 0.75, r * 0.1, 0, Math.PI * 2)
             ctx.fill()
           }
         }
-        leaf(-r * 0.45, -r * 0.2, r * 0.7, -1.1)
-        leaf(r * 0.45, -r * 0.15, r * 0.65, 1.1)
+        leaf(-r * 0.55, -r * 0.35, r * 0.55, -2.2)
+        leaf(r * 0.55, -r * 0.3, r * 0.5, -0.9)
+        cheek(r, 'rgba(255,200,80,0.4)')
+        cuteFace(r)
       } else if (kind === 'eggplant') {
-        ctx.fillStyle = bodyGrad(t, r)
-        ctx.beginPath()
-        ctx.ellipse(0, r * 0.1, r * 0.72, r * 0.92, 0, 0, Math.PI * 2)
-        ctx.fill()
         ctx.fillStyle = '#166534'
         ctx.beginPath()
-        ctx.ellipse(0, -r * 0.75, r * 0.35, r * 0.22, 0, 0, Math.PI * 2)
+        ctx.ellipse(0, -r * 0.72, r * 0.38, r * 0.2, 0, 0, Math.PI * 2)
         ctx.fill()
-        leaf(0, -r * 0.95, r * 0.45, 0.3)
-      } else if (kind === 'pumpkin') {
-        ctx.fillStyle = bodyGrad(t, r)
-        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill()
-        ctx.strokeStyle = t.shade
-        ctx.lineWidth = Math.max(2, r * 0.06)
+        leaf(-r * 0.25, -r * 0.82, r * 0.4, -1.0)
+        leaf(r * 0.22, -r * 0.78, r * 0.35, 0.4)
+        // Soft highlight crescent
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)'
+        ctx.lineWidth = Math.max(2, r * 0.08)
+        ctx.beginPath()
+        ctx.arc(0, 0, r * 0.7, -0.4, 0.9)
+        ctx.stroke()
+        cheek(r, 'rgba(200,120,255,0.35)')
+        cuteFace(r)
+      } else {
+        // pumpkin — round with ribs + stem
+        ctx.strokeStyle = 'rgba(194,65,12,0.4)'
+        ctx.lineWidth = Math.max(2, r * 0.055)
         for (let i = -2; i <= 2; i++) {
           ctx.beginPath()
-          ctx.moveTo(i * r * 0.28, -r * 0.85)
-          ctx.quadraticCurveTo(i * r * 0.35, 0, i * r * 0.28, r * 0.85)
+          ctx.moveTo(i * r * 0.32, -r * 0.82)
+          ctx.quadraticCurveTo(i * r * 0.4, 0, i * r * 0.32, r * 0.82)
           ctx.stroke()
         }
         ctx.fillStyle = '#166534'
-        PF.rr(ctx, -r * 0.12, -r * 1.05, r * 0.24, r * 0.28, 4)
+        PF.rr(ctx, -r * 0.12, -r * 0.98, r * 0.24, r * 0.28, Math.max(3, r * 0.08))
         ctx.fill()
-        leaf(-r * 0.35, -r * 0.9, r * 0.4, -0.8)
-      } else if (kind === 'cabbage') {
-        ctx.fillStyle = t.shade
-        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill()
-        ctx.fillStyle = bodyGrad(t, r)
-        ctx.beginPath(); ctx.arc(-r * 0.15, -r * 0.1, r * 0.78, 0, Math.PI * 2); ctx.fill()
-        ctx.fillStyle = 'rgba(255,255,255,0.25)'
-        ctx.beginPath(); ctx.arc(-r * 0.25, -r * 0.3, r * 0.35, 0, Math.PI * 2); ctx.fill()
-      } else if (kind === 'onion') {
-        ctx.fillStyle = bodyGrad(t, r)
-        ctx.beginPath()
-        ctx.ellipse(0, r * 0.08, r * 0.85, r * 0.9, 0, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.strokeStyle = 'rgba(126,34,206,0.35)'
-        ctx.lineWidth = Math.max(1.5, r * 0.05)
-        ctx.beginPath(); ctx.ellipse(0, r * 0.08, r * 0.55, r * 0.6, 0, 0, Math.PI * 2); ctx.stroke()
-        ctx.fillStyle = '#86efac'
-        ctx.beginPath()
-        ctx.moveTo(-r * 0.15, -r * 0.75)
-        ctx.lineTo(0, -r * 1.15)
-        ctx.lineTo(r * 0.15, -r * 0.75)
-        ctx.fill()
-      } else if (kind === 'potato') {
-        ctx.fillStyle = bodyGrad(t, r)
-        ctx.beginPath()
-        ctx.ellipse(0, 0, r * 1.05, r * 0.78, 0.35, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.fillStyle = t.shade
-        for (const spot of [[-0.35, -0.15], [0.25, 0.1], [0.05, -0.35], [-0.1, 0.3]]) {
-          ctx.beginPath()
-          ctx.arc(spot[0] * r, spot[1] * r, r * 0.08, 0, Math.PI * 2)
-          ctx.fill()
-        }
-      } else if (kind === 'radish') {
-        ctx.fillStyle = bodyGrad(t, r)
-        ctx.beginPath()
-        ctx.ellipse(0, r * 0.15, r * 0.75, r * 0.85, 0, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.fillStyle = 'rgba(255,255,255,0.55)'
-        ctx.beginPath()
-        ctx.ellipse(0, r * 0.55, r * 0.55, r * 0.35, 0, 0, Math.PI * 2)
-        ctx.fill()
-        leaf(-r * 0.2, -r * 0.85, r * 0.55, -0.6)
-        leaf(r * 0.15, -r * 0.9, r * 0.5, 0.5)
-      } else {
-        // tomato (default)
-        ctx.fillStyle = bodyGrad(t, r)
-        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill()
-        ctx.fillStyle = '#166534'
-        ctx.beginPath()
-        ctx.ellipse(0, -r * 0.7, r * 0.28, r * 0.16, 0, 0, Math.PI * 2)
-        ctx.fill()
-        leaf(-r * 0.25, -r * 0.85, r * 0.4, -0.7)
-        leaf(r * 0.2, -r * 0.8, r * 0.35, 0.6)
-        ctx.fillStyle = 'rgba(255,255,255,0.35)'
-        ctx.beginPath(); ctx.ellipse(-r * 0.28, -r * 0.25, r * 0.22, r * 0.14, -0.4, 0, Math.PI * 2); ctx.fill()
+        leaf(-r * 0.32, -r * 0.82, r * 0.42, -1.0)
+        leaf(r * 0.28, -r * 0.78, r * 0.36, 0.5)
+        cheek(r, 'rgba(255,150,80,0.35)')
+        cuteFace(r)
       }
       ctx.restore()
     }
