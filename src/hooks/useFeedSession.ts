@@ -55,6 +55,8 @@ export function useFeedSession({
   const pendingPruneRef = useRef(false)
   const activeIndexRef = useRef(0)
   const introRunningRef = useRef(false)
+  /** When set, prune/layout scrolls must land on this game id (not a stale index). */
+  const pinGameIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     trackVisit()
@@ -131,10 +133,30 @@ export function useFeedSession({
   }, [])
 
   useLayoutEffect(() => {
-    if (!pendingPruneRef.current) return
+    if (!pendingPruneRef.current && !pinGameIdRef.current) return
     pendingPruneRef.current = false
     const el = feedRef.current
     if (!el) return
+    const pinId = pinGameIdRef.current
+    if (pinId) {
+      let index = -1
+      let best = Infinity
+      const cur = activeIndexRef.current
+      for (let i = 0; i < feedRefState.current.length; i++) {
+        if (feedRefState.current[i]?.game.id !== pinId) continue
+        const d = Math.abs(i - cur)
+        if (d < best) {
+          best = d
+          index = i
+        }
+      }
+      if (index >= 0) {
+        activeIndexRef.current = index
+        setActiveIndex(index)
+        el.scrollTop = index * el.clientHeight
+        return
+      }
+    }
     el.scrollTop = activeIndexRef.current * el.clientHeight
   }, [feed])
 
@@ -243,45 +265,112 @@ export function useFeedSession({
 
   const jumpToGameId = useCallback(
     (gameId: string) => {
-      const find = () =>
-        feedRefState.current.findIndex((item) => item.game.id === gameId)
+      const findNearest = () => {
+        const cur = activeIndexRef.current
+        let best = -1
+        let bestDist = Infinity
+        for (let i = 0; i < feedRefState.current.length; i++) {
+          if (feedRefState.current[i]?.game.id !== gameId) continue
+          const d = Math.abs(i - cur)
+          if (d < bestDist) {
+            bestDist = d
+            best = i
+          }
+        }
+        return best
+      }
 
       const ensureInFeed = () => {
-        let index = find()
+        let index = findNearest()
         let tries = 0
         while (index < 0 && tries < 6) {
           appendBatch()
-          index = find()
+          index = findNearest()
           tries += 1
         }
         return index
       }
 
+      pinGameIdRef.current = gameId
+
       let index = ensureInFeed()
-      if (index < 0) return null
-
-      scrollToIndex(index, 'auto')
-
-      // scrollToIndex may append/prune and remapped indices; the card we
-      // captured before that can disappear or move. Always re-resolve by id.
-      index = ensureInFeed()
-      if (index < 0) return null
-
-      const item = feedRefState.current[index]
-      if (!item || item.game.id !== gameId) return null
-
-      if (activeIndexRef.current !== index) {
-        activeIndexRef.current = index
-        setActiveIndex(index)
+      if (index < 0) {
+        // Official games always appear in a batch; UGC may need a soft insert.
+        const known = getGameById(gameId)
+        if (known) {
+          const insertAt = Math.min(
+            activeIndexRef.current + 1,
+            feedRefState.current.length,
+          )
+          const item: FeedItem = {
+            key: `${known.id}-liked-${Date.now()}`,
+            game: known,
+          }
+          const next = feedRefState.current.slice()
+          next.splice(insertAt, 0, item)
+          feedRefState.current = next
+          setFeed(next)
+          index = insertAt
+        }
       }
+      if (index < 0) {
+        pinGameIdRef.current = null
+        return null
+      }
+
+      // Prefetch near the end, then re-resolve by id (prune remaps indices).
+      if (index >= feedRefState.current.length - PREFETCH_WITHIN) {
+        appendBatch()
+        index = ensureInFeed()
+        if (index < 0) {
+          pinGameIdRef.current = null
+          return null
+        }
+      }
+
+      activeIndexRef.current = index
+      setActiveIndex(index)
+
       const el = feedRef.current
       if (el && !pendingPruneRef.current) {
         el.scrollTo({ top: index * el.clientHeight, behavior: 'auto' })
       }
+
+      const item = feedRefState.current[index]
+      if (!item || item.game.id !== gameId) {
+        pinGameIdRef.current = null
+        return null
+      }
       return item
     },
-    [appendBatch, scrollToIndex],
+    [appendBatch],
   )
+
+  /** Re-align scroll to a game after chrome/inset height changes. */
+  const pinScrollToGameId = useCallback((gameId: string) => {
+    const el = feedRef.current
+    if (!el) return
+    pinGameIdRef.current = gameId
+    let index = -1
+    let best = Infinity
+    const cur = activeIndexRef.current
+    for (let i = 0; i < feedRefState.current.length; i++) {
+      if (feedRefState.current[i]?.game.id !== gameId) continue
+      const d = Math.abs(i - cur)
+      if (d < best) {
+        best = d
+        index = i
+      }
+    }
+    if (index < 0) return
+    activeIndexRef.current = index
+    setActiveIndex(index)
+    el.scrollTo({ top: index * el.clientHeight, behavior: 'auto' })
+  }, [])
+
+  const clearGamePin = useCallback(() => {
+    pinGameIdRef.current = null
+  }, [])
 
   return {
     feedRef: feedRef as RefObject<HTMLDivElement>,
@@ -295,6 +384,8 @@ export function useFeedSession({
     introRunningRef,
     scrollToIndex,
     jumpToGameId,
+    pinScrollToGameId,
+    clearGamePin,
     cancelIntro,
   }
 }

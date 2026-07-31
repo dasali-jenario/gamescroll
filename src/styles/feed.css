@@ -514,6 +514,8 @@
   place-items: center;
   padding: calc(var(--chrome-top) + 1rem) 1.25rem
     calc(var(--bottom-nav) + 1rem);
+  /* Let bottom-nav likes/shuffle receive taps through the dimmed frame. */
+  pointer-events: none;
   background: linear-gradient(
     180deg,
     rgba(15, 20, 25, 0.28) 0%,
@@ -526,6 +528,7 @@
 .game-over-panel {
   --game-accent: var(--accent);
   position: relative;
+  pointer-events: auto;
   width: min(100%, 21rem);
   text-align: center;
   display: flex;

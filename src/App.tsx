@@ -144,9 +144,8 @@ export default function App() {
 
   const [likedIds, setLikedIds] = useState(loadLikedIds)
   const [likesOpen, setLikesOpen] = useState(false)
-  const [pendingLikedJumpId, setPendingLikedJumpId] = useState<string | null>(
-    null,
-  )
+  const pendingLikedJumpIdRef = useRef<string | null>(null)
+  const [likedJumpNonce, setLikedJumpNonce] = useState(0)
 
   const activeGame = feed.feed[feed.activeIndex]?.game
   const activeHighscore = activeGame ? play.highscores[activeGame.id] ?? 0 : 0
@@ -197,8 +196,9 @@ export default function App() {
       play.clearForNavigate()
       // Close the sheet first, then jump after layout so feed clientHeight
       // matches the settled chrome (avoids landing on the wrong card).
+      pendingLikedJumpIdRef.current = gameId
       setLikesOpen(false)
-      setPendingLikedJumpId(gameId)
+      setLikedJumpNonce((n) => n + 1)
     },
     [
       play.applyPendingReload,
@@ -210,20 +210,36 @@ export default function App() {
   )
 
   useLayoutEffect(() => {
-    if (!pendingLikedJumpId || likesOpen) return
-    const gameId = pendingLikedJumpId
-    setPendingLikedJumpId(null)
+    const gameId = pendingLikedJumpIdRef.current
+    if (!gameId || likesOpen) return
+    pendingLikedJumpIdRef.current = null
     const item = feed.jumpToGameId(gameId)
-    if (!item) return
+    if (!item) {
+      feed.clearGamePin()
+      return
+    }
     play.handlePlay(item.key, item.game.id)
     noteFeedSwipe({
       feedLen: feed.feedRefState.current.length,
       activeIndex: feed.activeIndexRef.current,
     })
+    // Playing toggles chrome insets and feed clientHeight after this layout
+    // pass — re-pin by id so the visible card stays the one we started.
+    // Use a ref-based pending id so clearing state cannot cancel these rAFs.
+    queueMicrotask(() => feed.pinScrollToGameId(gameId))
+    window.requestAnimationFrame(() => {
+      feed.pinScrollToGameId(gameId)
+      window.requestAnimationFrame(() => {
+        feed.pinScrollToGameId(gameId)
+        feed.clearGamePin()
+      })
+    })
   }, [
-    pendingLikedJumpId,
+    likedJumpNonce,
     likesOpen,
     feed.jumpToGameId,
+    feed.pinScrollToGameId,
+    feed.clearGamePin,
     feed.feedRefState,
     feed.activeIndexRef,
     play.handlePlay,

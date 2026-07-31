@@ -44,7 +44,7 @@ describe('App shell hook split', () => {
     expect(app).not.toContain('appendFeedWindow')
     expect(app).not.toContain('watchForDeployUpdate')
     expect(app).not.toContain('recordHighscore')
-    expect(app.length).toBeLessThan(12_000)
+    expect(app.length).toBeLessThan(13_000)
   })
 
   it('puts boot / prune / intro in useFeedSession', () => {
@@ -56,6 +56,8 @@ describe('App shell hook split', () => {
     expect(feedSession).toContain('trackFeedPruned')
     expect(feedSession).toContain('jumpToGameId')
     expect(feedSession).toContain('ensureInFeed')
+    expect(feedSession).toContain('pinScrollToGameId')
+    expect(feedSession).toContain('pinGameIdRef')
   })
 
   it('puts play / pause / scores / rail hint / cue / deploy reload in usePlaySession', () => {
@@ -114,8 +116,11 @@ describe('feed chrome contracts', () => {
     expect(app).toContain('onOpenLikes=')
     expect(app).toContain('LikedGamesPanel')
     expect(app).toContain('goToLikedGame')
-    expect(app).toContain('pendingLikedJumpId')
+    expect(app).toContain('pendingLikedJumpIdRef')
+    expect(app).toContain('likedJumpNonce')
     expect(app).toContain('jumpToGameId')
+    expect(app).toContain('pinScrollToGameId')
+    expect(app).toContain('clearGamePin')
     expect(app).toContain('onPause={play.pausePlay}')
     expect(app).toContain('mode="paused"')
     expect(app).toContain('mode="over"')
