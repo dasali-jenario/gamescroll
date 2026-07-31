@@ -736,49 +736,87 @@ export const wave2Games = {
 
   colorflow: {
     title: 'Color Pour',
-    tip: 'Tap a tube, then another to pour.',
-    bg: '#102a43',
-    accent: '#f0b429',
+    tip: 'Sort mixed tubes — pour in the right order.',
+    bg: '#1a0f2e',
+    accent: '#ffd23f',
     body: `
     let tubes = [], ox = 0, oy = 0, tw = 0, th = 0, gap = 12, rowGap = 24, cap = 4
-    let sel = -1, level = 1, moves = 0
-    const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22']
+    let sel = -1, level = 1, moves = 0, bounce = 0, pourFlash = 0
+    const COLORS = ['#ff4d6d', '#3a86ff', '#06d6a0', '#ffd23f', '#c77dff', '#ff9f1c']
+    const INK = '#1a1025'
     function layout() {
       const n = tubes.length || 6
       const cols = Math.min(5, n)
       const rows = Math.ceil(n / cols)
-      const topSafe = Math.max(64, H * 0.12)
+      const topSafe = Math.max(72, H * 0.13)
       const bottomSafe = Math.max(28, H * 0.06)
       const availH = Math.max(120, H - topSafe - bottomSafe)
-      gap = Math.max(10, Math.min(18, W * 0.035))
-      rowGap = Math.max(18, Math.min(28, availH * 0.04))
+      gap = Math.max(12, Math.min(20, W * 0.04))
+      rowGap = Math.max(22, Math.min(34, availH * 0.05))
       const rowBudget = (availH - (rows - 1) * rowGap) / rows
-      tw = Math.min(78, (W - 36 - gap * (cols - 1)) / cols)
-      th = Math.min(rowBudget, tw * 4.6)
+      tw = Math.min(82, (W - 36 - gap * (cols - 1)) / cols)
+      th = Math.min(rowBudget - 8, tw * (3.2 + cap * 0.35))
       const totalW = cols * tw + (cols - 1) * gap
       const totalH = rows * th + (rows - 1) * rowGap
       ox = (W - totalW) * 0.5
-      oy = topSafe + Math.max(0, (availH - totalH) * 0.5)
+      oy = topSafe + Math.max(0, (availH - totalH) * 0.45)
     }
     function onResize() { layout() }
     function diePos() { return [W * 0.5, oy + th * 0.5] }
     function scorePos() { return diePos() }
+    function isMixed(t) {
+      if (t.length < 2) return false
+      for (let i = 1; i < t.length; i++) if (t[i] !== t[0]) return true
+      return false
+    }
+    function mixedCount() {
+      let n = 0
+      for (let i = 0; i < tubes.length; i++) if (isMixed(tubes[i])) n++
+      return n
+    }
+    function moveUnit(from, to) {
+      if (from === to || !tubes[from].length || tubes[to].length >= cap) return false
+      // Prefer breaking mono tubes into occupied tubes so layers sandwich.
+      tubes[to].push(tubes[from].pop())
+      return true
+    }
+    function forceSandwiches(n, need) {
+      let guard = 80
+      while (mixedCount() < need && guard-- > 0) {
+        // Pull a unit from a mono stack onto a different-color top.
+        let moved = false
+        for (let a = 0; a < n && !moved; a++) {
+          if (tubes[a].length < 2) continue
+          if (!tubes[a].every(c => c === tubes[a][0])) continue
+          for (let b = 0; b < n; b++) {
+            if (a === b || tubes[b].length >= cap || !tubes[b].length) continue
+            if (tubes[b][tubes[b].length - 1] === tubes[a][tubes[a].length - 1]) continue
+            moveUnit(a, b)
+            moved = true
+            break
+          }
+        }
+        if (!moved) {
+          const from = (Math.random() * n) | 0
+          const to = (Math.random() * n) | 0
+          moveUnit(from, to)
+        }
+      }
+    }
     function makeLevel(lv) {
-      const colors = Math.min(6, 3 + ((lv - 1) / 2 | 0))
-      const empties = 2
+      cap = lv <= 2 ? 4 : lv <= 5 ? 5 : 6
+      const colors = Math.min(6, lv <= 1 ? 4 : lv <= 3 ? 5 : 6)
+      const empties = lv <= 2 ? 2 : lv <= 6 ? 2 : 1
       const n = colors + empties
       const solved = []
       for (let i = 0; i < colors; i++) solved.push(Array(cap).fill(i))
       for (let i = 0; i < empties; i++) solved.push([])
-      // Scramble with reverse pours that ignore color match so tubes mix
-      // different colors (still solvable: every state is reachable from solved).
       tubes = solved.map(t => t.slice())
-      const scramble = 60 + lv * 14
+      const scramble = 90 + lv * 22
       for (let s = 0; s < scramble; s++) {
         const from = (Math.random() * n) | 0
         const to = (Math.random() * n) | 0
         if (from === to || !tubes[from].length || tubes[to].length >= cap) continue
-        // Avoid trivially undoing a completed mono tube into an empty one.
         if (
           tubes[to].length === 0 &&
           tubes[from].length === cap &&
@@ -786,18 +824,10 @@ export const wave2Games = {
         ) continue
         tubes[to].push(tubes[from].pop())
       }
+      const needMixed = Math.min(colors, 2 + ((lv + 1) / 2 | 0))
+      forceSandwiches(n, needMixed)
       if (tubes.every(t => !t.length || (t.length === cap && t.every(c => c === t[0])))) {
-        // Rare: still sorted — force one mixed pour.
-        for (let a = 0; a < n; a++) {
-          if (!tubes[a].length) continue
-          for (let b = 0; b < n; b++) {
-            if (a === b || tubes[b].length >= cap) continue
-            if (!tubes[b].length || tubes[b][tubes[b].length - 1] !== tubes[a][tubes[a].length - 1]) {
-              tubes[b].push(tubes[a].pop())
-              return
-            }
-          }
-        }
+        forceSandwiches(n, Math.max(2, needMixed))
       }
     }
     function canPour(a, b) {
@@ -829,11 +859,16 @@ export const wave2Games = {
       layout()
       sel = -1
       moves = 0
+      bounce = 0
+      pourFlash = 0
       setScore(Math.max(0, (level - 1) * 100))
     }
     function onHostStart() { level = 1; reset() }
     function die() { level = 1; reset() }
-    function tick() {}
+    function tick(dt) {
+      if (bounce > 0) bounce = Math.max(0, bounce - dt * 4)
+      if (pourFlash > 0) pourFlash = Math.max(0, pourFlash - dt * 3)
+    }
     function tubeAt(e) {
       const rect = canvas.getBoundingClientRect()
       const x = e.clientX - rect.left
@@ -842,48 +877,170 @@ export const wave2Games = {
       for (let i = 0; i < tubes.length; i++) {
         const r = (i / cols) | 0, c = i % cols
         const tx = ox + c * (tw + gap)
-        const ty = oy + r * (th + rowGap)
-        if (x >= tx && x <= tx + tw && y >= ty && y <= ty + th) return i
+        const ty = oy + r * (th + rowGap) - (sel === i ? 10 : 0)
+        if (x >= tx - 4 && x <= tx + tw + 4 && y >= ty - 8 && y <= ty + th + 12) return i
       }
       return -1
     }
+    function tubePath(x, y, w, h) {
+      const r = Math.min(18, w * 0.42)
+      ctx.beginPath()
+      ctx.moveTo(x, y)
+      ctx.lineTo(x, y + h - r)
+      ctx.quadraticCurveTo(x, y + h + 4, x + w * 0.5, y + h + 6)
+      ctx.quadraticCurveTo(x + w, y + h + 4, x + w, y + h - r)
+      ctx.lineTo(x + w, y)
+    }
+    function drawLiquid(x, y, w, h, colorIdx, top) {
+      const c0 = COLORS[colorIdx]
+      const g = ctx.createLinearGradient(x, y, x + w, y)
+      g.addColorStop(0, c0)
+      g.addColorStop(0.45, 'rgba(255,255,255,0.4)')
+      g.addColorStop(0.55, c0)
+      g.addColorStop(1, c0)
+      ctx.fillStyle = g
+      ctx.beginPath()
+      if (top) {
+        ctx.moveTo(x, y + 4)
+        ctx.quadraticCurveTo(x + w * 0.25, y - 3, x + w * 0.5, y + 2)
+        ctx.quadraticCurveTo(x + w * 0.75, y + 7, x + w, y + 2)
+        ctx.lineTo(x + w, y + h)
+        ctx.lineTo(x, y + h)
+      } else {
+        ctx.rect(x, y, w, h)
+      }
+      ctx.closePath()
+      ctx.fill()
+      ctx.strokeStyle = INK
+      ctx.lineWidth = 2.5
+      ctx.stroke()
+      ctx.fillStyle = 'rgba(255,255,255,0.55)'
+      ctx.beginPath()
+      ctx.ellipse(x + w * 0.28, y + h * 0.35, w * 0.1, h * 0.12, -0.4, 0, Math.PI * 2)
+      ctx.fill()
+      if (top) {
+        ctx.fillStyle = 'rgba(255,255,255,0.35)'
+        ctx.beginPath()
+        ctx.arc(x + w * 0.65, y + h * 0.4, Math.max(2, w * 0.07), 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(x + w * 0.78, y + h * 0.55, Math.max(1.5, w * 0.045), 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+    function drawTube(i, x, y) {
+      const lift = sel === i ? 12 + Math.sin(bounce * Math.PI) * 4 : 0
+      const yy = y - lift
+      // Drop shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.22)'
+      ctx.beginPath()
+      ctx.ellipse(x + tw * 0.5, y + th + 10, tw * 0.42, 7, 0, 0, Math.PI * 2)
+      ctx.fill()
+      // Glass fill
+      tubePath(x, yy, tw, th)
+      ctx.fillStyle = sel === i ? 'rgba(255,210,63,0.18)' : 'rgba(255,255,255,0.14)'
+      ctx.fill()
+      const pad = 5
+      const unit = (th - 14) / cap
+      const topK = tubes[i].length - 1
+      for (let k = 0; k < tubes[i].length; k++) {
+        const by = yy + th - 8 - (k + 1) * unit
+        drawLiquid(x + pad, by, tw - pad * 2, unit + 1, tubes[i][k], k === topK)
+      }
+      // Thick comic outline
+      tubePath(x, yy, tw, th)
+      ctx.strokeStyle = INK
+      ctx.lineWidth = sel === i ? 5 : 4
+      ctx.lineJoin = 'round'
+      ctx.stroke()
+      if (sel === i) {
+        tubePath(x - 1, yy - 1, tw + 2, th + 2)
+        ctx.strokeStyle = '#ffd23f'
+        ctx.lineWidth = 3
+        ctx.stroke()
+      }
+      // Comic rim / lip
+      ctx.fillStyle = INK
+      PF.rr(ctx, x - 4, yy - 6, tw + 8, 10, 4)
+      ctx.fill()
+      ctx.fillStyle = sel === i ? '#ffd23f' : '#ffe8a3'
+      PF.rr(ctx, x - 2, yy - 4, tw + 4, 6, 3)
+      ctx.fill()
+      // Shine streak on glass
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)'
+      ctx.lineWidth = 3
+      ctx.lineCap = 'round'
+      ctx.beginPath()
+      ctx.moveTo(x + tw * 0.18, yy + 16)
+      ctx.lineTo(x + tw * 0.18, yy + th * 0.55)
+      ctx.stroke()
+    }
+    function drawBadge() {
+      const label = 'LV ' + level
+      ctx.font = '800 16px "Segoe UI", sans-serif'
+      const w = ctx.measureText(label).width + 28
+      const x = 12, y = 12
+      ctx.fillStyle = INK
+      PF.rr(ctx, x + 3, y + 3, w, 32, 12)
+      ctx.fill()
+      ctx.fillStyle = '#ffd23f'
+      PF.rr(ctx, x, y, w, 32, 12)
+      ctx.fill()
+      ctx.strokeStyle = INK
+      ctx.lineWidth = 3
+      PF.rr(ctx, x, y, w, 32, 12)
+      ctx.stroke()
+      ctx.fillStyle = INK
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(label, x + w * 0.5, y + 17)
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'alphabetic'
+    }
     function draw() {
-      PF.sky(ctx, W, H, '#0a1929', '#102a43', '#243b53')
-      PF.dots(ctx, W, H, '#f0b429', 12, 0.35)
+      PF.sky(ctx, W, H, '#2b1b4e', '#1a0f2e', '#3d1f5c')
+      // Comic halftone
+      ctx.fillStyle = '#ffd23f'
+      for (let i = 0; i < 28; i++) {
+        const px = ((i * 97 + PF.t * 12) % (W + 30)) - 15
+        const py = ((i * 61) % H)
+        ctx.globalAlpha = 0.08 + (i % 4) * 0.02
+        ctx.beginPath()
+        ctx.arc(px, py, 3 + (i % 3), 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.globalAlpha = 1
+      // Soft comic blobs
+      PF.blobs(ctx, W, H, '#ff4d6d', 4)
       const cols = Math.min(5, tubes.length)
       for (let i = 0; i < tubes.length; i++) {
         const r = (i / cols) | 0, c = i % cols
         const x = ox + c * (tw + gap)
         const y = oy + r * (th + rowGap)
-        ctx.strokeStyle = sel === i ? '#f0b429' : 'rgba(255,255,255,0.55)'
-        ctx.lineWidth = sel === i ? 3 : 2
-        ctx.beginPath()
-        ctx.moveTo(x, y)
-        ctx.lineTo(x, y + th)
-        ctx.quadraticCurveTo(x + tw * 0.5, y + th + 8, x + tw, y + th)
-        ctx.lineTo(x + tw, y)
-        ctx.stroke()
-        const unit = (th - 10) / cap
-        for (let k = 0; k < tubes[i].length; k++) {
-          const color = COLORS[tubes[i][k]]
-          const by = y + th - 6 - (k + 1) * unit
-          PF.block(ctx, x + 4, by, tw - 8, unit - 2, color, '#111', 4)
-        }
+        drawTube(i, x, y)
       }
-      ctx.fillStyle = 'rgba(255,255,255,0.75)'
-      ctx.font = '700 13px "Segoe UI", sans-serif'
-      ctx.fillText('Level ' + level, 14, 28)
+      if (pourFlash > 0) {
+        ctx.fillStyle = 'rgba(255,210,63,' + (pourFlash * 0.25) + ')'
+        ctx.fillRect(0, 0, W, H)
+      }
+      drawBadge()
     }
     addEventListener('pointerdown', e => {
       if (GS.paused) return
       const i = tubeAt(e)
       if (i < 0) { sel = -1; return }
-      if (sel < 0) { sel = i; return }
+      if (sel < 0) { sel = i; bounce = 1; return }
       if (sel === i) { sel = -1; return }
-      if (!canPour(sel, i)) { sel = i; return }
+      if (!canPour(sel, i)) { sel = i; bounce = 1; return }
       pour(sel, i)
       moves++
       bump(1)
+      pourFlash = 1
+      if (window.Juice) {
+        const cols = Math.min(5, tubes.length)
+        const r = (i / cols) | 0, c = i % cols
+        Juice.burst(ox + c * (tw + gap) + tw * 0.5, oy + r * (th + rowGap) + th * 0.3)
+      }
       sel = -1
       if (isWon()) {
         bump(Math.max(20, 100 - moves * 2))

@@ -263,8 +263,8 @@ export const officialCatalog: OfficialCatalogEntry[] = [
   {
     id: "colorflow",
     title: "Color Pour",
-    tip: "Tap a tube, then another to pour.",
-    accent: "#f0b429",
+    tip: "Sort mixed tubes — pour in the right order.",
+    accent: "#ffd23f",
   },
   {
     id: "blockfit",
@@ -313,5 +313,17 @@ export const officialCatalog: OfficialCatalogEntry[] = [
     title: "Skew Keep",
     tip: "Tap left/right to keep the bar level.",
     accent: "#fb923c",
+  },
+  {
+    id: "mathrush",
+    title: "Math Rush",
+    tip: "Tap the right answer. 20 seconds!",
+    accent: "#5eead4",
+  },
+  {
+    id: "veggiemerge",
+    title: "Veggie Merge",
+    tip: "Drop veggies. Merge matches into bigger ones!",
+    accent: "#a3e635",
   },
 ]

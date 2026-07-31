@@ -1,5 +1,35 @@
 # New file requests
 
+## 2026-07-31 — Veggie Merge (Orb Merge vegetable variant)
+
+### Requested files
+- Body added in `scripts/wave3-games.mjs` as `veggiemerge` (generated → `public/games/veggiemerge.html` + catalog)
+- `supabase/migrations/20260731170000_official_veggiemerge_seed.sql` — upsert official row
+- Updates: `scripts/seed-official-games.mjs`, `FEED_WINDOW_MAX` (53×3), `src/feedWindow.test.ts`, `THIRD_PARTY_NOTICES`
+
+### Duplicate search
+- Grep `veggiemerge|veggie.?merge|vegetable|suika|fruit.?merge` under `scripts/` / `public/games/` / `src/` → none
+- Glob `public/games/*veg*` / `*merge*` → only `orbmerge.html`
+- Closest: `orbmerge` in `scripts/generate-games.mjs` (kept as-is; this is a separate themed fork)
+
+### Rationale
+Same drop/merge loop as Orb Merge with vegetable sprites at 2× orb radius; Orb Merge remains in the catalog.
+
+## 2026-07-31 — Math Rush (20s timed arithmetic)
+
+### Requested files
+- Body added in `scripts/wave3-games.mjs` as `mathrush` (generated → `public/games/mathrush.html` + catalog)
+- `supabase/migrations/20260731160000_official_mathrush_seed.sql` — upsert official row
+- Updates: `scripts/seed-official-games.mjs` (migration path), `FEED_WINDOW_MAX` (52×3), `src/feedWindow.test.ts`
+
+### Duplicate search
+- Grep `mathrush|math.?quiz|arithmetic|quick.?math|timed.?math|equation` under `scripts/` / `public/games/` / `src/` → none (only JS `Math.*` / canvas math)
+- Glob `public/games/*math*` / `*quiz*` / `*arith*` → none
+- Closest: `mashmeter` / `molewhack` / `gemcascade` (timed rounds); `simonseq` (tap pads); no arithmetic quiz
+
+### Rationale
+Simple + − × questions with four tap answers and a hard 20s round clock for the feed.
+
 ## 2026-07-31 — Liked games library (nav + sheet)
 
 ### Requested files
