@@ -326,4 +326,10 @@ export const officialCatalog: OfficialCatalogEntry[] = [
     tip: "Drop veggies. Merge matches into bigger ones!",
     accent: "#a3e635",
   },
+  {
+    id: "doodletd",
+    title: "Doodle Defense",
+    tip: "Place Pencil, Marker, or Ink Blot. Stop the scribbles!",
+    accent: "#2c2416",
+  },
 ]

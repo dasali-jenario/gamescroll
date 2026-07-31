@@ -109,6 +109,7 @@ const migrationPaths = [
   join(root, 'supabase/migrations/20260728180000_official_wave3_seed.sql'),
   join(root, 'supabase/migrations/20260731160000_official_mathrush_seed.sql'),
   join(root, 'supabase/migrations/20260731170000_official_veggiemerge_seed.sql'),
+  join(root, 'supabase/migrations/20260731180000_official_doodletd_seed.sql'),
 ]
 log('Applying official seed migrations…')
 for (const migrationPath of migrationPaths) {

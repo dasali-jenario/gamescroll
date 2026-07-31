@@ -1,5 +1,20 @@
 # New file requests
 
+## 2026-07-31 — Doodle Defense (paper sketch tower defense)
+
+### Requested files
+- Body added in `scripts/wave3-games.mjs` as `doodletd` (generated → `public/games/doodletd.html` + catalog)
+- `supabase/migrations/20260731180000_official_doodletd_seed.sql` — upsert official row
+- Updates: `scripts/seed-official-games.mjs`, `FEED_WINDOW_MAX` (54×3), `src/feedWindow.test.ts` (via games.length)
+
+### Duplicate search
+- Grep `doodletd|tower.?defense|paper.?td|sketch.?td|defense` under `scripts/` / `public/games/` / `src/` → no TD game (only `stack` “tower” blocks, `doodle` jump)
+- Glob `public/games/*doodle*` / `*tower*` / `*defense*` / `*td*` → only `doodle.html`
+- Closest: `doodle` (platform jump), `wall` / `breakout` (place/block); no path + place-towers loop
+
+### Rationale
+Simple 3-tower paper-doodle TD for the feed: Pencil / Marker / Ink Blot, place on pads, stop scribbles leaking.
+
 ## 2026-07-31 — Veggie Merge (Orb Merge vegetable variant)
 
 ### Requested files

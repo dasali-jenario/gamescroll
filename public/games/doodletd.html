@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Doodle Defense</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #c9b896; touch-action: none; }
+    #stage { position: fixed; inset: 0; will-change: transform; }
+    #stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+    #fx { pointer-events: none; z-index: 2; }
+    .hud {
+      position: fixed; top: 1rem; left: 0; right: 0; text-align: center; z-index: 3;
+      font: 800 2rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 10px rgba(0,0,0,.45); pointer-events: none;
+      transform-origin: 50% 50%;
+    }
+    .float-score {
+      position: fixed; z-index: 4; pointer-events: none;
+      font: 800 1.15rem "Segoe UI", sans-serif; color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,.5);
+      transform: translate(-50%, 0);
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <canvas id="fx"></canvas>
+  </div>
+  <div class="hud" id="score">0</div>
+  <script src="/lib/gsap.min.js"></script>
+  <script src="/lib/proton.min.js"></script>
+  <script src="/lib/juice.js"></script>
+  <script src="/lib/playful.js"></script>
+  <script>
+
+    const GS = {
+      paused: true,
+      started: false,
+      reported: false,
+      onFail: 'replay',
+      post(type, extra) {
+        try { parent.postMessage(Object.assign({ type }, extra || {}), '*') } catch (e) {}
+      },
+      begin(msg) {
+        const fail = msg && msg.onFail
+        if (fail === 'gameover' || fail === 'replay') GS.onFail = fail
+        if (!GS.reported) { GS.reported = true; GS.post('gamescroll:playing') }
+        const forceReset = !!(msg && msg.forceReset)
+        const resuming = GS.started && GS.paused && !forceReset
+        GS.paused = false
+        GS.started = true
+        if (!resuming && typeof onHostStart === 'function') onHostStart()
+      },
+      halt() {
+        GS.paused = true
+        if (typeof onHostPause === 'function') onHostPause()
+      }
+    }
+    addEventListener('message', (e) => {
+      const t = e.data && e.data.type
+      if (t === 'gamescroll:start') GS.begin(e.data)
+      if (t === 'gamescroll:pause') GS.halt()
+    })
+    // Forward committed vertical flings to the host so swiping between games
+    // works even though this iframe captures all pointer events. Thresholds are
+    // high (long + fast + steep) so in-game taps, drags and short swipes never
+    // trigger navigation.
+    ;(function () {
+      let sx = 0, sy = 0, st = 0, tracking = false
+      addEventListener('pointerdown', (e) => {
+        sx = e.clientX; sy = e.clientY; st = performance.now(); tracking = true
+      }, true)
+      addEventListener('pointerup', (e) => {
+        if (!tracking) return
+        tracking = false
+        const dx = Math.abs(e.clientX - sx)
+        const dy = e.clientY - sy
+        const dt = performance.now() - st
+        const minDist = Math.max(140, innerHeight * 0.22)
+        if (dt > 350 || Math.abs(dy) < minDist || Math.abs(dy) < dx * 2.2) return
+        GS.post(dy < 0 ? 'gamescroll:swipe-next' : 'gamescroll:swipe-prev')
+      }, true)
+      addEventListener('pointercancel', () => { tracking = false }, true)
+    })()
+    GS.post('gamescroll:ready')
+
+    const canvas = document.getElementById('c')
+    const ctx = canvas.getContext('2d')
+    const scoreEl = document.getElementById('score')
+    const dpr = Math.min(devicePixelRatio || 1, 2)
+    let W = 0, H = 0, score = 0, last = performance.now()
+    function setScore(n) { score = Math.max(0, n|0); scoreEl.textContent = String(score) }
+    function reportScore() {
+      if (score > 0) {
+        try { parent.postMessage({ type: 'gamescroll:score', score }, '*') } catch (e) {}
+      }
+    }
+    function bump(n) {
+      const amount = n || 1
+      setScore(score + amount)
+      if (window.Juice) {
+        const pos = typeof scorePos === 'function' ? scorePos() : null
+        if (pos) Juice.onScore(amount, pos[0], pos[1])
+        else Juice.onScore(amount)
+      }
+    }
+    function resize() {
+      W = innerWidth; H = innerHeight
+      canvas.width = W * dpr; canvas.height = H * dpr
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      if (window.Juice) Juice.resize()
+    }
+    addEventListener('resize', () => { resize(); if (typeof onResize === 'function') onResize() })
+    resize()
+    if (window.Juice) Juice.init({ accent: "#2c2416" })
+
+    const KINDS = [
+      { id: 'pencil', name: 'Pencil', cost: 40, range: 118, dmg: 9, rate: 0.32, splash: 0, color: '#3d5a80' },
+      { id: 'marker', name: 'Marker', cost: 75, range: 140, dmg: 26, rate: 0.72, splash: 0, color: '#c1121f' },
+      { id: 'blot', name: 'Blot', cost: 110, range: 105, dmg: 16, rate: 1.05, splash: 58, color: '#6a4c93' },
+    ]
+    let path = [], pads = [], towers = [], enemies = [], shots = [], puffs = []
+    let gold = 0, lives = 0, wave = 0, sel = 0, spawnLeft = 0, spawnCd = 0, between = 0
+    let barH = 0, ink = '#2c2416'
+    function wob(i, amp) { return Math.sin(i * 2.17) * amp + Math.cos(i * 1.31) * amp * 0.4 }
+    function layout() {
+      barH = Math.max(72, Math.min(H * 0.14, 110))
+      const top = H * 0.11
+      const bot = H - barH - 18
+      const mid = W * 0.5
+      path = [
+        { x: mid * 0.35, y: top },
+        { x: mid * 0.75 + wob(1, 8), y: top + (bot - top) * 0.18 },
+        { x: mid * 0.28 + wob(2, 10), y: top + (bot - top) * 0.36 },
+        { x: mid * 0.78 + wob(3, 8), y: top + (bot - top) * 0.54 },
+        { x: mid * 0.32 + wob(4, 10), y: top + (bot - top) * 0.72 },
+        { x: mid * 0.55, y: bot },
+      ]
+      const padNorm = [
+        [0.14, 0.24], [0.86, 0.24], [0.16, 0.38], [0.84, 0.38],
+        [0.14, 0.52], [0.86, 0.52], [0.18, 0.66], [0.82, 0.66],
+        [0.50, 0.32], [0.50, 0.48], [0.50, 0.62],
+      ]
+      pads = padNorm.map((p, i) => ({
+        x: W * p[0] + wob(i + 9, 4),
+        y: Math.min(bot - 10, Math.max(top + 10, H * p[1])) + wob(i + 3, 3),
+        r: Math.min(W, H) * 0.038,
+        tower: null,
+      }))
+      // Keep pads off the path
+      for (const pad of pads) {
+        for (let i = 0; i < path.length - 1; i++) {
+          const a = path[i], b = path[i + 1]
+          const dx = b.x - a.x, dy = b.y - a.y
+          const len2 = dx * dx + dy * dy || 1
+          let t = ((pad.x - a.x) * dx + (pad.y - a.y) * dy) / len2
+          t = Math.max(0, Math.min(1, t))
+          const px = a.x + dx * t, py = a.y + dy * t
+          const d = Math.hypot(pad.x - px, pad.y - py)
+          if (d < 36) {
+            const nx = (pad.x - px) / (d || 1), ny = (pad.y - py) / (d || 1)
+            pad.x += nx * (40 - d)
+            pad.y += ny * (40 - d)
+          }
+        }
+      }
+    }
+    function onResize() {
+      const old = towers.slice()
+      layout()
+      towers = []
+      for (const t of old) {
+        let best = null, bd = 1e9
+        for (const p of pads) {
+          if (p.tower) continue
+          const d = Math.hypot(p.x - t.x, p.y - t.y)
+          if (d < bd) { bd = d; best = p }
+        }
+        if (best && bd < 80) {
+          best.tower = t
+          t.x = best.x; t.y = best.y
+          towers.push(t)
+        }
+      }
+    }
+    function reset() {
+      layout()
+      towers = []; enemies = []; shots = []; puffs = []
+      for (const p of pads) p.tower = null
+      gold = 100; lives = 8; wave = 0; sel = 0
+      spawnLeft = 0; spawnCd = 0; between = 1.2
+      setScore(0)
+    }
+    function onHostStart() { reset() }
+    function die() { reset() }
+    function diePos() { return [path[path.length - 1].x, path[path.length - 1].y] }
+    function scorePos() { return [W * 0.5, H * 0.2] }
+    function pathLen() {
+      let L = 0
+      for (let i = 0; i < path.length - 1; i++) L += Math.hypot(path[i + 1].x - path[i].x, path[i + 1].y - path[i].y)
+      return L
+    }
+    function posOnPath(dist) {
+      let left = dist
+      for (let i = 0; i < path.length - 1; i++) {
+        const a = path[i], b = path[i + 1]
+        const seg = Math.hypot(b.x - a.x, b.y - a.y)
+        if (left <= seg) {
+          const t = left / (seg || 1)
+          return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
+        }
+        left -= seg
+      }
+      const last = path[path.length - 1]
+      return { x: last.x, y: last.y }
+    }
+    function startWave() {
+      wave++
+      spawnLeft = 5 + wave * 2
+      spawnCd = 0.35
+      between = 0
+    }
+    function spawnEnemy() {
+      const roll = Math.random()
+      let kind = 'scribble', hp = 28 + wave * 10, spd = 52 + wave * 2.5, r = 11, col = '#2c2416'
+      if (wave >= 3 && roll < 0.28) { kind = 'squiggle'; hp = 18 + wave * 7; spd = 88 + wave * 3; r = 9; col = '#1d3557' }
+      if (wave >= 5 && roll < 0.18) { kind = 'blob'; hp = 70 + wave * 18; spd = 34 + wave; r = 16; col = '#6d4c41' }
+      enemies.push({ kind, hp, max: hp, spd, r, col, dist: 0, hit: 0 })
+    }
+    function addPuff(x, y, c, n) {
+      for (let i = 0; i < (n || 6); i++) {
+        puffs.push({
+          x, y,
+          vx: (Math.random() - 0.5) * 90,
+          vy: (Math.random() - 0.5) * 90,
+          life: 0.35 + Math.random() * 0.25,
+          max: 0.5,
+          c,
+          s: 2 + Math.random() * 4,
+        })
+      }
+    }
+    function hurt(e, dmg) {
+      e.hp -= dmg
+      e.hit = 0.12
+      if (e.hp <= 0) {
+        const i = enemies.indexOf(e)
+        if (i >= 0) enemies.splice(i, 1)
+        gold += 8 + Math.floor(wave * 0.6)
+        bump()
+        addPuff(e.x, e.y, e.col, 10)
+      }
+    }
+    function tick(dt) {
+      if (lives <= 0) return
+      if (spawnLeft > 0) {
+        spawnCd -= dt
+        if (spawnCd <= 0) {
+          spawnEnemy()
+          spawnLeft--
+          spawnCd = Math.max(0.28, 0.85 - wave * 0.03)
+        }
+      } else if (enemies.length === 0) {
+        between += dt
+        if (between >= 1.6) startWave()
+      }
+      const total = pathLen()
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i]
+        e.dist += e.spd * dt
+        if (e.hit > 0) e.hit -= dt
+        const p = posOnPath(e.dist)
+        e.x = p.x; e.y = p.y
+        if (e.dist >= total) {
+          enemies.splice(i, 1)
+          lives--
+          addPuff(p.x, p.y, '#c1121f', 8)
+          if (lives <= 0) { die(); return }
+        }
+      }
+      for (const t of towers) {
+        t.cd -= dt
+        if (t.cd > 0) continue
+        const k = KINDS[t.kind]
+        let best = null, bd = k.range
+        for (const e of enemies) {
+          const d = Math.hypot(e.x - t.x, e.y - t.y)
+          if (d < bd) { bd = d; best = e }
+        }
+        if (!best) continue
+        t.cd = k.rate
+        t.angle = Math.atan2(best.y - t.y, best.x - t.x)
+        shots.push({
+          x: t.x, y: t.y, tx: best.x, ty: best.y,
+          target: best, kind: t.kind, speed: 420,
+          splash: k.splash, dmg: k.dmg, color: k.color, life: 1.2,
+        })
+      }
+      for (let i = shots.length - 1; i >= 0; i--) {
+        const s = shots[i]
+        const aim = s.target && enemies.indexOf(s.target) >= 0
+          ? s.target
+          : { x: s.tx, y: s.ty }
+        const dx = aim.x - s.x, dy = aim.y - s.y
+        const d = Math.hypot(dx, dy) || 1
+        const step = s.speed * dt
+        if (d <= step + 6) {
+          if (s.splash > 0) {
+            for (const e of enemies.slice()) {
+              if (Math.hypot(e.x - aim.x, e.y - aim.y) <= s.splash) hurt(e, s.dmg)
+            }
+            addPuff(aim.x, aim.y, s.color, 14)
+          } else if (s.target && enemies.indexOf(s.target) >= 0) {
+            hurt(s.target, s.dmg)
+            addPuff(aim.x, aim.y, s.color, 5)
+          }
+          shots.splice(i, 1)
+        } else {
+          s.x += (dx / d) * step
+          s.y += (dy / d) * step
+          s.life -= dt
+          if (s.life <= 0) shots.splice(i, 1)
+        }
+      }
+      for (let i = puffs.length - 1; i >= 0; i--) {
+        const p = puffs[i]
+        p.life -= dt
+        p.x += p.vx * dt
+        p.y += p.vy * dt
+        if (p.life <= 0) puffs.splice(i, 1)
+      }
+    }
+    function sketchLine(a, b, w) {
+      ctx.beginPath()
+      ctx.moveTo(a.x + wob(a.x * 0.05, 1.2), a.y + wob(a.y * 0.05, 1.2))
+      const mx = (a.x + b.x) * 0.5 + wob((a.x + b.x) * 0.02, 6)
+      const my = (a.y + b.y) * 0.5 + wob((a.y + b.y) * 0.02, 5)
+      ctx.quadraticCurveTo(mx, my, b.x + wob(b.x * 0.05, 1.2), b.y + wob(b.y * 0.05, 1.2))
+      ctx.strokeStyle = ink
+      ctx.lineWidth = w
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.stroke()
+      // pencil ghost double-stroke
+      ctx.globalAlpha = 0.25
+      ctx.lineWidth = w * 0.55
+      ctx.stroke()
+      ctx.globalAlpha = 1
+    }
+    function sketchCircle(x, y, r, fill) {
+      ctx.beginPath()
+      const n = 14
+      for (let i = 0; i <= n; i++) {
+        const a = (i / n) * Math.PI * 2
+        const rr = r * (0.92 + 0.08 * Math.sin(i * 2.3 + x * 0.01))
+        const px = x + Math.cos(a) * rr + wob(i + x, 0.8)
+        const py = y + Math.sin(a) * rr + wob(i + y, 0.8)
+        if (i === 0) ctx.moveTo(px, py)
+        else ctx.lineTo(px, py)
+      }
+      ctx.closePath()
+      if (fill) { ctx.fillStyle = fill; ctx.fill() }
+      ctx.strokeStyle = ink
+      ctx.lineWidth = 2.2
+      ctx.stroke()
+    }
+    function drawTower(t) {
+      const k = KINDS[t.kind]
+      sketchCircle(t.x, t.y, 16, 'rgba(255,255,255,0.55)')
+      ctx.save()
+      ctx.translate(t.x, t.y)
+      ctx.rotate(t.angle || -0.4)
+      if (t.kind === 0) {
+        // pencil
+        ctx.strokeStyle = k.color
+        ctx.fillStyle = '#f4d35e'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(-4, 14); ctx.lineTo(-4, -10); ctx.lineTo(0, -18); ctx.lineTo(4, -10); ctx.lineTo(4, 14)
+        ctx.closePath(); ctx.fill(); ctx.stroke()
+        ctx.fillStyle = '#e9c46a'
+        ctx.fillRect(-4, 6, 8, 6)
+        ctx.fillStyle = ink
+        ctx.beginPath(); ctx.moveTo(-3, -10); ctx.lineTo(0, -17); ctx.lineTo(3, -10); ctx.fill()
+      } else if (t.kind === 1) {
+        // marker
+        ctx.fillStyle = k.color
+        ctx.strokeStyle = ink
+        ctx.lineWidth = 2
+        PF.rr(ctx, -6, -16, 12, 28, 3)
+        ctx.fill(); ctx.stroke()
+        ctx.fillStyle = '#222'
+        ctx.fillRect(-4, -18, 8, 5)
+      } else {
+        // ink blot
+        ctx.fillStyle = k.color
+        ctx.globalAlpha = 0.85
+        ctx.beginPath()
+        for (let i = 0; i < 10; i++) {
+          const a = (i / 10) * Math.PI * 2
+          const rr = 11 + 4 * Math.sin(i * 2.7)
+          const px = Math.cos(a) * rr, py = Math.sin(a) * rr
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py)
+        }
+        ctx.closePath(); ctx.fill()
+        ctx.globalAlpha = 1
+        ctx.strokeStyle = ink
+        ctx.lineWidth = 2
+        ctx.stroke()
+      }
+      ctx.restore()
+    }
+    function drawEnemy(e) {
+      ctx.save()
+      ctx.translate(e.x, e.y)
+      if (e.hit > 0) ctx.globalAlpha = 0.55
+      ctx.strokeStyle = e.col
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'
+      ctx.lineWidth = 2.4
+      ctx.beginPath()
+      if (e.kind === 'squiggle') {
+        ctx.moveTo(-e.r, 0)
+        for (let i = 0; i <= 8; i++) {
+          const x = -e.r + (i / 8) * e.r * 2
+          const y = Math.sin(i * 1.6 + PF.t * 8) * e.r * 0.55
+          ctx.lineTo(x, y)
+        }
+        ctx.stroke()
+      } else if (e.kind === 'blob') {
+        sketchCircle(0, 0, e.r, 'rgba(109,76,65,0.35)')
+      } else {
+        // scribble ball of loops
+        ctx.beginPath()
+        for (let i = 0; i < 18; i++) {
+          const a = i * 0.9 + PF.t * 3
+          const rr = e.r * (0.4 + (i % 3) * 0.25)
+          const px = Math.cos(a) * rr, py = Math.sin(a * 1.3) * rr
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py)
+        }
+        ctx.stroke()
+      }
+      // hp tick
+      const hw = e.r * 1.6, ratio = Math.max(0, e.hp / e.max)
+      ctx.globalAlpha = 1
+      ctx.strokeStyle = ink
+      ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.moveTo(-hw, -e.r - 8); ctx.lineTo(hw, -e.r - 8); ctx.stroke()
+      ctx.strokeStyle = '#c1121f'
+      ctx.lineWidth = 2.5
+      ctx.beginPath(); ctx.moveTo(-hw, -e.r - 8); ctx.lineTo(-hw + hw * 2 * ratio, -e.r - 8); ctx.stroke()
+      ctx.restore()
+    }
+    function draw() {
+      // paper
+      PF.sky(ctx, W, H, '#efe6d4', '#e8dcc4', '#d9cbb0')
+      // ruled lines
+      ctx.strokeStyle = 'rgba(90, 140, 200, 0.22)'
+      ctx.lineWidth = 1
+      const lineGap = 22
+      for (let y = 40; y < H - barH; y += lineGap) {
+        ctx.beginPath()
+        ctx.moveTo(16, y + wob(y, 0.6))
+        ctx.lineTo(W - 16, y + wob(y + 3, 0.6))
+        ctx.stroke()
+      }
+      // margin
+      ctx.strokeStyle = 'rgba(200, 80, 80, 0.28)'
+      ctx.beginPath()
+      ctx.moveTo(W * 0.08, 20)
+      ctx.lineTo(W * 0.08 + wob(2, 3), H - barH - 8)
+      ctx.stroke()
+      // coffee ring doodle
+      ctx.strokeStyle = 'rgba(120, 80, 40, 0.12)'
+      ctx.lineWidth = 6
+      ctx.beginPath()
+      ctx.arc(W * 0.82, H * 0.16, 28, 0.2, Math.PI * 1.7)
+      ctx.stroke()
+      // path
+      ctx.setLineDash([7, 6])
+      for (let i = 0; i < path.length - 1; i++) sketchLine(path[i], path[i + 1], 3.2)
+      ctx.setLineDash([])
+      // start / end labels
+      ctx.fillStyle = ink
+      ctx.font = '700 12px "Comic Sans MS", "Segoe UI", sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText('IN', path[0].x, path[0].y - 14)
+      ctx.fillText('OUT', path[path.length - 1].x, path[path.length - 1].y + 18)
+      // pads
+      for (const p of pads) {
+        if (p.tower) continue
+        ctx.globalAlpha = 0.55
+        sketchCircle(p.x, p.y, p.r, 'rgba(255,255,255,0.4)')
+        ctx.globalAlpha = 1
+        ctx.fillStyle = 'rgba(44,36,22,0.35)'
+        ctx.font = '700 11px "Segoe UI", sans-serif'
+        ctx.fillText('+', p.x, p.y + 4)
+      }
+      // range ghost for selected kind over empty pads when affordable
+      const kSel = KINDS[sel]
+      if (gold >= kSel.cost) {
+        ctx.strokeStyle = kSel.color
+        ctx.globalAlpha = 0.12
+        ctx.lineWidth = 2
+        for (const p of pads) {
+          if (p.tower) continue
+          ctx.beginPath(); ctx.arc(p.x, p.y, kSel.range, 0, Math.PI * 2); ctx.stroke()
+        }
+        ctx.globalAlpha = 1
+      }
+      for (const t of towers) drawTower(t)
+      for (const e of enemies) drawEnemy(e)
+      for (const s of shots) {
+        ctx.fillStyle = s.color
+        ctx.strokeStyle = ink
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        if (s.kind === 2) {
+          ctx.arc(s.x, s.y, 6, 0, Math.PI * 2)
+        } else {
+          ctx.arc(s.x, s.y, 3.5, 0, Math.PI * 2)
+        }
+        ctx.fill(); ctx.stroke()
+      }
+      for (const p of puffs) {
+        ctx.globalAlpha = Math.max(0, p.life / p.max)
+        ctx.fillStyle = p.c
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2); ctx.fill()
+      }
+      ctx.globalAlpha = 1
+      // HUD ink strip
+      ctx.fillStyle = ink
+      ctx.font = '700 15px "Comic Sans MS", "Segoe UI", sans-serif'
+      ctx.textAlign = 'left'
+      ctx.fillText('♥ ' + lives + '   ✎ ' + gold + 'g   wave ' + Math.max(1, wave), 14, 28)
+      // toolbar
+      ctx.fillStyle = 'rgba(44,36,22,0.08)'
+      ctx.fillRect(0, H - barH, W, barH)
+      ctx.strokeStyle = ink
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(8, H - barH + 2)
+      ctx.lineTo(W - 8, H - barH + wob(5, 2))
+      ctx.stroke()
+      const slotW = W / 3
+      for (let i = 0; i < 3; i++) {
+        const k = KINDS[i]
+        const cx = slotW * (i + 0.5)
+        const cy = H - barH * 0.52
+        const on = sel === i
+        if (on) {
+          ctx.strokeStyle = k.color
+          ctx.lineWidth = 3
+          sketchCircle(cx, cy - 6, 28, 'rgba(255,255,255,0.5)')
+        }
+        // mini icon
+        const fake = { x: cx, y: cy - 8, kind: i, angle: -0.5 }
+        drawTower(fake)
+        ctx.fillStyle = gold >= k.cost ? ink : 'rgba(44,36,22,0.35)'
+        ctx.font = '700 12px "Segoe UI", sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText(k.name + ' ' + k.cost + 'g', cx, H - 12)
+      }
+      ctx.textAlign = 'left'
+    }
+    function pointer(e) {
+      if (GS.paused || lives <= 0) return
+      const r = canvas.getBoundingClientRect()
+      const x = e.clientX - r.left
+      const y = e.clientY - r.top
+      if (y >= H - barH) {
+        sel = Math.min(2, Math.max(0, (x / W * 3) | 0))
+        return
+      }
+      let best = null, bd = 36
+      for (const p of pads) {
+        const d = Math.hypot(p.x - x, p.y - y)
+        if (d < bd) { bd = d; best = p }
+      }
+      if (!best || best.tower) return
+      const k = KINDS[sel]
+      if (gold < k.cost) return
+      gold -= k.cost
+      const t = { x: best.x, y: best.y, kind: sel, cd: 0.15, angle: -0.5 }
+      best.tower = t
+      towers.push(t)
+      addPuff(t.x, t.y, k.color, 8)
+    }
+    addEventListener('pointerdown', pointer)
+    reset()
+
+    if (typeof layout === 'function') {
+      try { layout() } catch (e) { console.error('[gamescroll] layout()', e) }
+    }
+    ;(function () {
+      const __halt = GS.halt
+      GS.halt = function () {
+        reportScore()
+        __halt()
+      }
+    })()
+    if (typeof die === 'function') {
+      const __die = die
+      die = function () {
+        if (GS.paused) return
+        reportScore()
+        if (window.Juice) {
+          const pos = typeof diePos === 'function' ? diePos() : null
+          if (pos) Juice.onDie(pos[0], pos[1])
+          else Juice.onDie()
+        }
+        if (GS.onFail === 'gameover') {
+          GS.post('gamescroll:died', { score })
+          GS.halt()
+          return
+        }
+        __die()
+      }
+    }
+    function loop(now) {
+      const dt = Math.min(0.033, (now - last) / 1000)
+      last = now
+      try {
+        if (window.PF) PF.t += dt
+        if (!GS.paused && typeof tick === 'function') tick(dt)
+        if (typeof draw === 'function') draw(now)
+        if (window.Juice) Juice.update()
+      } catch (err) {
+        console.error('[gamescroll]', err)
+      }
+      requestAnimationFrame(loop)
+    }
+    requestAnimationFrame(loop)
+  </script>
+</body>
+</html>

@@ -96,15 +96,16 @@ describe('appendFeedWindow', () => {
   })
 
   it('uses roadmap defaults that bound ~2–3 catalog batches', () => {
-    expect(games.length).toBe(53)
+    expect(games.length).toBe(54)
     expect(FEED_WINDOW_MAX).toBe(games.length * 3)
     expect(FEED_KEEP_BEHIND).toBe(12)
-    const result = appendFeedWindow(items(159), items(53, 159), {
+    const batch = games.length
+    const result = appendFeedWindow(items(FEED_WINDOW_MAX), items(batch, FEED_WINDOW_MAX), {
       activeIndex: 90,
     })
     expect(result.feed.length).toBe(FEED_WINDOW_MAX)
-    expect(result.removedCount).toBe(53)
-    expect(result.activeIndex).toBe(90 - 53)
+    expect(result.removedCount).toBe(batch)
+    expect(result.activeIndex).toBe(90 - batch)
   })
 
   it('clamps a stale activeIndex to the previous feed', () => {
