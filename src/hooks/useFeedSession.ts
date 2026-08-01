@@ -23,6 +23,20 @@ import { readSharedGameParam } from '../share'
 
 const PREFETCH_WITHIN = 3
 
+/** Scroll offset for a feed card — prefer real layout over index * height. */
+function scrollTopForIndex(el: HTMLElement, index: number): number {
+  const child = el.children[index] as HTMLElement | undefined
+  if (child) return child.offsetTop
+  return index * el.clientHeight
+}
+
+/** Resolve which card is centered from scroll position. */
+function indexFromScrollTop(el: HTMLElement): number {
+  const child = el.firstElementChild as HTMLElement | undefined
+  const h = child?.offsetHeight || el.clientHeight
+  return Math.round(el.scrollTop / Math.max(h, 1))
+}
+
 function createInitialSession() {
   const sharedParam = readSharedGameParam()
   const preferGame = sharedParam ? getGameById(sharedParam) ?? null : null
@@ -153,11 +167,11 @@ export function useFeedSession({
       if (index >= 0) {
         activeIndexRef.current = index
         setActiveIndex(index)
-        el.scrollTop = index * el.clientHeight
+        el.scrollTop = scrollTopForIndex(el, index)
         return
       }
     }
-    el.scrollTop = activeIndexRef.current * el.clientHeight
+    el.scrollTop = scrollTopForIndex(el, activeIndexRef.current)
   }, [feed])
 
   const scrollToIndex = useCallback(
@@ -177,7 +191,7 @@ export function useFeedSession({
       if (pendingPruneRef.current) {
         return
       }
-      el.scrollTo({ top: clamped * el.clientHeight, behavior })
+      el.scrollTo({ top: scrollTopForIndex(el, clamped), behavior })
     },
     [appendBatch],
   )
@@ -241,10 +255,13 @@ export function useFeedSession({
     let raf = 0
     const onScroll = () => {
       if (introRunningRef.current) return
+      // Liked / programmatic pins own activeIndex until clearGamePin.
+      if (pinGameIdRef.current) return
       if (raf) return
       raf = window.requestAnimationFrame(() => {
         raf = 0
-        const index = Math.round(el.scrollTop / Math.max(el.clientHeight, 1))
+        if (pinGameIdRef.current) return
+        const index = indexFromScrollTop(el)
         if (index !== activeIndexRef.current) {
           activeIndexRef.current = index
           setActiveIndex(index)
@@ -333,7 +350,7 @@ export function useFeedSession({
 
       const el = feedRef.current
       if (el && !pendingPruneRef.current) {
-        el.scrollTo({ top: index * el.clientHeight, behavior: 'auto' })
+        el.scrollTo({ top: scrollTopForIndex(el, index), behavior: 'auto' })
       }
 
       const item = feedRefState.current[index]
@@ -365,7 +382,7 @@ export function useFeedSession({
     if (index < 0) return
     activeIndexRef.current = index
     setActiveIndex(index)
-    el.scrollTo({ top: index * el.clientHeight, behavior: 'auto' })
+    el.scrollTop = scrollTopForIndex(el, index)
   }, [])
 
   const clearGamePin = useCallback(() => {

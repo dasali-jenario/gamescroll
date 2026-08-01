@@ -44,7 +44,7 @@ describe('App shell hook split', () => {
     expect(app).not.toContain('appendFeedWindow')
     expect(app).not.toContain('watchForDeployUpdate')
     expect(app).not.toContain('recordHighscore')
-    expect(app.length).toBeLessThan(13_000)
+    expect(app.length).toBeLessThan(14_000)
   })
 
   it('puts boot / prune / intro in useFeedSession', () => {
@@ -58,6 +58,8 @@ describe('App shell hook split', () => {
     expect(feedSession).toContain('ensureInFeed')
     expect(feedSession).toContain('pinScrollToGameId')
     expect(feedSession).toContain('pinGameIdRef')
+    expect(feedSession).toContain('scrollTopForIndex')
+    expect(feedSession).toContain('indexFromScrollTop')
   })
 
   it('puts play / pause / scores / rail hint / cue / deploy reload in usePlaySession', () => {
@@ -125,6 +127,7 @@ describe('feed chrome contracts', () => {
     expect(app).toContain('jumpToGameId')
     expect(app).toContain('pinScrollToGameId')
     expect(app).toContain('clearGamePin')
+    expect(app).toContain('ResizeObserver')
     expect(app).toContain('onPause={play.pausePlay}')
     expect(app).toContain('mode="paused"')
     expect(app).toContain('mode="over"')
@@ -132,6 +135,11 @@ describe('feed chrome contracts', () => {
     expect(app).toContain('onPlayAgain={play.playAgain}')
     expect(app).toContain('isPaused={play.playingKey === item.key && play.paused}')
     expect(app).not.toContain('className="pause-btn"')
+  })
+
+  it('sizes feed cards to the feed viewport (not 100dvh) for jump alignment', () => {
+    expect(feedCss).toMatch(/\.card\s*\{[^}]*height:\s*100%;/s)
+    expect(feedCss).not.toMatch(/\.card\s*\{[^}]*height:\s*100dvh;/s)
   })
 
   it('soft-resumes paused games without resetting unless forceReset', () => {

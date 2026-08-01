@@ -226,7 +226,9 @@
 }
 
 .card {
-  height: 100dvh;
+  /* Must match the feed viewport (not 100dvh) so index * clientHeight /
+     scroll-snap land on the same card the JS scroll helpers target. */
+  height: 100%;
   scroll-snap-align: start;
   scroll-snap-stop: always;
   position: relative;

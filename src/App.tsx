@@ -225,23 +225,40 @@ export default function App() {
       feedLen: feed.feedRefState.current.length,
       activeIndex: feed.activeIndexRef.current,
     })
-    // Playing toggles chrome insets and feed clientHeight after this layout
-    // pass — re-pin by id so the visible card stays the one we started.
-    // Use a ref-based pending id so clearing state cannot cancel these rAFs.
-    queueMicrotask(() => feed.pinScrollToGameId(gameId))
-    window.requestAnimationFrame(() => {
-      feed.pinScrollToGameId(gameId)
-      window.requestAnimationFrame(() => {
-        feed.pinScrollToGameId(gameId)
-        feed.clearGamePin()
-      })
-    })
+    // Re-pin by id while chrome / feed viewport settles after play starts.
+    const el = feed.feedRef.current
+    const repin = () => feed.pinScrollToGameId(gameId)
+    repin()
+    queueMicrotask(repin)
+    const ro =
+      typeof ResizeObserver !== 'undefined' && el
+        ? new ResizeObserver(repin)
+        : null
+    if (ro && el) ro.observe(el)
+    let frames = 0
+    let raf = 0
+    const tick = () => {
+      repin()
+      frames += 1
+      if (frames < 8) {
+        raf = window.requestAnimationFrame(tick)
+        return
+      }
+      ro?.disconnect()
+      feed.clearGamePin()
+    }
+    raf = window.requestAnimationFrame(tick)
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf)
+      ro?.disconnect()
+    }
   }, [
     likedJumpNonce,
     likesOpen,
     feed.jumpToGameId,
     feed.pinScrollToGameId,
     feed.clearGamePin,
+    feed.feedRef,
     feed.feedRefState,
     feed.activeIndexRef,
     play.handlePlay,
