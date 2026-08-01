@@ -281,102 +281,67 @@ export function useFeedSession({
   }, [appendBatch, dismissNudgeRef])
 
   const jumpToGameId = useCallback(
-    (gameId: string) => {
-      const findNearest = () => {
-        const cur = activeIndexRef.current
-        let best = -1
-        let bestDist = Infinity
-        for (let i = 0; i < feedRefState.current.length; i++) {
-          if (feedRefState.current[i]?.game.id !== gameId) continue
-          const d = Math.abs(i - cur)
-          if (d < bestDist) {
-            bestDist = d
-            best = i
-          }
-        }
-        return best
-      }
+    (gameId: string, knownGame?: Game | null) => {
+      const known =
+        knownGame ??
+        getGameById(gameId) ??
+        feedRefState.current.find((item) => item.game.id === gameId)?.game ??
+        communityRef.current.find((game) => game.id === gameId) ??
+        null
 
-      const ensureInFeed = () => {
-        let index = findNearest()
-        let tries = 0
-        while (index < 0 && tries < 6) {
-          appendBatch()
-          index = findNearest()
-          tries += 1
-        }
-        return index
-      }
-
-      pinGameIdRef.current = gameId
-
-      let index = ensureInFeed()
-      if (index < 0) {
-        // Official games always appear in a batch; UGC may need a soft insert.
-        const known = getGameById(gameId)
-        if (known) {
-          const insertAt = Math.min(
-            activeIndexRef.current + 1,
-            feedRefState.current.length,
-          )
-          const item: FeedItem = {
-            key: `${known.id}-liked-${Date.now()}`,
-            game: known,
-          }
-          const next = feedRefState.current.slice()
-          next.splice(insertAt, 0, item)
-          feedRefState.current = next
-          setFeed(next)
-          index = insertAt
-        }
-      }
-      if (index < 0) {
+      if (!known) {
         pinGameIdRef.current = null
         return null
       }
 
-      // Prefetch near the end, then re-resolve by id (prune remaps indices).
-      if (index >= feedRefState.current.length - PREFETCH_WITHIN) {
-        appendBatch()
-        index = ensureInFeed()
-        if (index < 0) {
-          pinGameIdRef.current = null
-          return null
-        }
-      }
-
-      activeIndexRef.current = index
-      setActiveIndex(index)
-
+      // Use the card currently on screen (scroll), not possibly-stale activeIndex.
       const el = feedRef.current
-      if (el && !pendingPruneRef.current) {
-        el.scrollTo({ top: scrollTopForIndex(el, index), behavior: 'auto' })
+      const fromScroll = el ? indexFromScrollTop(el) : activeIndexRef.current
+      const at = Math.max(
+        0,
+        Math.min(
+          fromScroll,
+          Math.max(feedRefState.current.length - 1, 0),
+        ),
+      )
+      const item: FeedItem = {
+        key: `${known.id}-liked-${Date.now()}`,
+        game: known,
       }
-
-      const item = feedRefState.current[index]
-      if (!item || item.game.id !== gameId) {
-        pinGameIdRef.current = null
-        return null
-      }
+      const next = feedRefState.current.slice()
+      if (next.length === 0) next.push(item)
+      else next[at] = item // replace in place — no scroll shift
+      feedRefState.current = next
+      setFeed(next)
+      activeIndexRef.current = at
+      setActiveIndex(at)
+      pinGameIdRef.current = gameId
+      // Scroll only to re-assert the visible slot (replace keeps offset stable).
+      if (el) el.scrollTop = scrollTopForIndex(el, at)
       return item
     },
-    [appendBatch],
+    [],
   )
 
   /** Re-align scroll to a game after chrome/inset height changes. */
-  const pinScrollToGameId = useCallback((gameId: string) => {
+  const pinScrollToGameId = useCallback((gameId: string, preferKey?: string | null) => {
     const el = feedRef.current
     if (!el) return
     pinGameIdRef.current = gameId
     let index = -1
-    let best = Infinity
-    const cur = activeIndexRef.current
-    for (let i = 0; i < feedRefState.current.length; i++) {
-      if (feedRefState.current[i]?.game.id !== gameId) continue
-      const d = Math.abs(i - cur)
-      if (d < best) {
-        best = d
-        index = i
+    if (preferKey) {
+      index = feedRefState.current.findIndex((item) => item.key === preferKey)
+    }
+    if (index < 0) {
+      let best = Infinity
+      const cur = activeIndexRef.current
+      for (let i = 0; i < feedRefState.current.length; i++) {
+        if (feedRefState.current[i]?.game.id !== gameId) continue
+        const d = Math.abs(i - cur)
+        if (d < best) {
+          best = d
+          index = i
+        }
       }
     }
     if (index < 0) return

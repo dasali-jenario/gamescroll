@@ -20,6 +20,10 @@ const gameOver = readFileSync(
   'utf8',
 )
 const gameCard = readFileSync(join(root, 'src/components/GameCard.tsx'), 'utf8')
+const likedPanel = readFileSync(
+  join(root, 'src/components/LikedGamesPanel.tsx'),
+  'utf8',
+)
 const gameWrap = readFileSync(join(root, 'src/lib/gameWrap.ts'), 'utf8')
 const feedCss = readFileSync(join(root, 'src/styles/feed.css'), 'utf8')
 
@@ -55,7 +59,7 @@ describe('App shell hook split', () => {
     expect(feedSession).toContain('buildFeedBatch')
     expect(feedSession).toContain('trackFeedPruned')
     expect(feedSession).toContain('jumpToGameId')
-    expect(feedSession).toContain('ensureInFeed')
+    expect(feedSession).toContain('knownGame')
     expect(feedSession).toContain('pinScrollToGameId')
     expect(feedSession).toContain('pinGameIdRef')
     expect(feedSession).toContain('scrollTopForIndex')
@@ -122,7 +126,8 @@ describe('feed chrome contracts', () => {
     expect(app).toContain('onOpenLikes=')
     expect(app).toContain('LikedGamesPanel')
     expect(app).toContain('goToLikedGame')
-    expect(app).toContain('pendingLikedJumpIdRef')
+    expect(app).toContain('pendingLikedJumpRef')
+    expect(app).toContain('pendingLikedPlayKeyRef')
     expect(app).toContain('likedJumpNonce')
     expect(app).toContain('jumpToGameId')
     expect(app).toContain('pinScrollToGameId')
@@ -135,6 +140,17 @@ describe('feed chrome contracts', () => {
     expect(app).toContain('onPlayAgain={play.playAgain}')
     expect(app).toContain('isPaused={play.playingKey === item.key && play.paused}')
     expect(app).not.toContain('className="pause-btn"')
+  })
+
+  it('liked jumps insert at the visible index and play only after the card commits', () => {
+    expect(feedSession).toContain('liked-${Date.now()}')
+    expect(feedSession).toContain('knownGame')
+    expect(feedSession).toContain('indexFromScrollTop')
+    expect(feedSession).toContain('replace in place')
+    expect(app).toContain('pendingLikedPlayKeyRef.current = item.key')
+    expect(app).toContain('feed.feed.findIndex((item) => item.key === key)')
+    expect(likedPanel).toContain('onPlay(game)')
+    expect(likedPanel).not.toContain('onPlay(game.id)')
   })
 
   it('sizes feed cards to the feed viewport (not 100dvh) for jump alignment', () => {

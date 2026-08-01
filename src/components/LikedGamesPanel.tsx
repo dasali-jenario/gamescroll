@@ -6,7 +6,7 @@ type Props = {
   open: boolean
   games: Game[]
   onClose: () => void
-  onPlay: (gameId: string) => void
+  onPlay: (game: Game) => void
 }
 
 /** Sheet listing liked games; tap a row to jump into that game and play. */
@@ -63,7 +63,7 @@ export function LikedGamesPanel({ open, games, onClose, onPlay }: Props) {
                     type="button"
                     className="liked-games-row"
                     style={{ ['--game-accent' as string]: game.accent }}
-                    onClick={() => onPlay(game.id)}
+                    onClick={() => onPlay(game)}
                   >
                     <span className="liked-games-swatch" aria-hidden="true" />
                     <span className="liked-games-copy">

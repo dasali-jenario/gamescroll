@@ -9,7 +9,7 @@ import { useChromeInsets } from './hooks/useChromeInsets'
 import { useFeedGestures } from './hooks/useFeedGestures'
 import { useFeedSession } from './hooks/useFeedSession'
 import { usePlaySession } from './hooks/usePlaySession'
-import { getGameById } from './games'
+import { getGameById, type Game } from './games'
 import {
   betterScore,
   isLowerBetterScore,
@@ -145,7 +145,8 @@ export default function App() {
 
   const [likedIds, setLikedIds] = useState(loadLikedIds)
   const [likesOpen, setLikesOpen] = useState(false)
-  const pendingLikedJumpIdRef = useRef<string | null>(null)
+  const pendingLikedJumpRef = useRef<Game | null>(null)
+  const pendingLikedPlayKeyRef = useRef<string | null>(null)
   const [likedJumpNonce, setLikedJumpNonce] = useState(0)
 
   const activeGame = feed.feed[feed.activeIndex]?.game
@@ -191,14 +192,15 @@ export default function App() {
   }
 
   const goToLikedGame = useCallback(
-    (gameId: string) => {
+    (game: Game) => {
       if (play.applyPendingReload()) return
       if (feed.introRunning) feed.cancelIntro()
       play.dismissCue()
       play.clearForNavigate()
-      // Close the sheet first, then jump after layout so feed clientHeight
-      // matches the settled chrome (avoids landing on the wrong card).
-      pendingLikedJumpIdRef.current = gameId
+      // Close the sheet first, then insert+play after layout so the new card
+      // exists in the DOM before we scroll / start it.
+      pendingLikedJumpRef.current = game
+      pendingLikedPlayKeyRef.current = null
       setLikesOpen(false)
       setLikedJumpNonce((n) => n + 1)
     },
@@ -211,25 +213,38 @@ export default function App() {
     ],
   )
 
+  // Pass 1: insert a fresh liked card at the visible index (no scroll yet).
   useLayoutEffect(() => {
-    const gameId = pendingLikedJumpIdRef.current
-    if (!gameId || likesOpen) return
-    pendingLikedJumpIdRef.current = null
-    const item = feed.jumpToGameId(gameId)
+    const game = pendingLikedJumpRef.current
+    if (!game || likesOpen) return
+    pendingLikedJumpRef.current = null
+    const item = feed.jumpToGameId(game.id, game)
     if (!item) {
       feed.clearGamePin()
       return
     }
+    pendingLikedPlayKeyRef.current = item.key
+  }, [likedJumpNonce, likesOpen, feed.jumpToGameId, feed.clearGamePin])
+
+  // Pass 2: after React commits the inserted card, pin scroll and start it.
+  useLayoutEffect(() => {
+    const key = pendingLikedPlayKeyRef.current
+    if (!key || likesOpen) return
+    const index = feed.feed.findIndex((item) => item.key === key)
+    if (index < 0) return
+    const item = feed.feed[index]
+    if (!item) return
+    pendingLikedPlayKeyRef.current = null
+
+    feed.pinScrollToGameId(item.game.id, key)
     play.handlePlay(item.key, item.game.id)
     noteFeedSwipe({
       feedLen: feed.feedRefState.current.length,
       activeIndex: feed.activeIndexRef.current,
     })
-    // Re-pin by id while chrome / feed viewport settles after play starts.
+
     const el = feed.feedRef.current
-    const repin = () => feed.pinScrollToGameId(gameId)
-    repin()
-    queueMicrotask(repin)
+    const repin = () => feed.pinScrollToGameId(item.game.id, key)
     const ro =
       typeof ResizeObserver !== 'undefined' && el
         ? new ResizeObserver(repin)
@@ -240,7 +255,7 @@ export default function App() {
     const tick = () => {
       repin()
       frames += 1
-      if (frames < 8) {
+      if (frames < 6) {
         raf = window.requestAnimationFrame(tick)
         return
       }
@@ -255,7 +270,7 @@ export default function App() {
   }, [
     likedJumpNonce,
     likesOpen,
-    feed.jumpToGameId,
+    feed.feed,
     feed.pinScrollToGameId,
     feed.clearGamePin,
     feed.feedRef,
