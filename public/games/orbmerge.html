@@ -147,7 +147,7 @@
       holdX = W * 0.5
     }
     function onResize() { layout() }
-    function tierR(t) { return TIERS[t].r * S * 1.5 }
+    function tierR(t) { return TIERS[t].r * S * 1.65 }
     function randDropTier() {
       const r = Math.random()
       if (r < 0.42) return 0
@@ -338,18 +338,14 @@
       ctx.save()
       ctx.translate(x, y)
       if (ang) ctx.rotate(ang)
-      ctx.fillStyle = 'rgba(0,0,0,0.22)'
-      ctx.beginPath()
-      ctx.ellipse(0, r * 0.88, r * 0.82, r * 0.16, 0, 0, Math.PI * 2)
-      ctx.fill()
-      const g = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.08, 0, 0, r)
+      const g = ctx.createRadialGradient(-r * 0.22, -r * 0.26, r * 0.35, 0, 0, r)
       g.addColorStop(0, t.accent)
-      g.addColorStop(0.45, t.color)
+      g.addColorStop(0.62, t.color)
       g.addColorStop(1, t.shade)
       ctx.fillStyle = g
       ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill()
-      ctx.fillStyle = 'rgba(255,255,255,0.35)'
-      ctx.beginPath(); ctx.ellipse(-r * 0.28, -r * 0.32, r * 0.28, r * 0.18, -0.4, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = 'rgba(255,255,255,0.1)'
+      ctx.beginPath(); ctx.ellipse(-r * 0.22, -r * 0.26, r * 0.38, r * 0.26, -0.35, 0, Math.PI * 2); ctx.fill()
       ctx.restore()
     }
     function draw() {
@@ -378,7 +374,7 @@
       ctx.textAlign = 'center'
       ctx.fillText('NEXT', jarR - 18 * S - nr, dangerY * 0.45 - nr - 8 * S)
       ctx.textAlign = 'left'
-      for (const o of orbs) drawOrb(o.x, o.y, o.tier, o.vx * 0.01)
+      for (const o of orbs) drawOrb(o.x, o.y, o.tier, o.vx * 0.003)
       if (!GS.paused && canDrop) {
         clampHoldX()
         ctx.globalAlpha = 0.9
