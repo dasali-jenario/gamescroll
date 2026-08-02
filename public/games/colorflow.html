@@ -286,12 +286,7 @@
     }
     function drawLiquid(x, y, w, h, colorIdx, top) {
       const c0 = COLORS[colorIdx]
-      const g = ctx.createLinearGradient(x, y, x + w, y)
-      g.addColorStop(0, c0)
-      g.addColorStop(0.45, 'rgba(255,255,255,0.4)')
-      g.addColorStop(0.55, c0)
-      g.addColorStop(1, c0)
-      ctx.fillStyle = g
+      ctx.fillStyle = c0
       ctx.beginPath()
       if (top) {
         ctx.moveTo(x, y + 4)
@@ -307,26 +302,13 @@
       ctx.strokeStyle = INK
       ctx.lineWidth = 2.5
       ctx.stroke()
-      ctx.fillStyle = 'rgba(255,255,255,0.55)'
-      ctx.beginPath()
-      ctx.ellipse(x + w * 0.28, y + h * 0.35, w * 0.1, h * 0.12, -0.4, 0, Math.PI * 2)
-      ctx.fill()
-      if (top) {
-        ctx.fillStyle = 'rgba(255,255,255,0.35)'
-        ctx.beginPath()
-        ctx.arc(x + w * 0.65, y + h * 0.4, Math.max(2, w * 0.07), 0, Math.PI * 2)
-        ctx.fill()
-        ctx.beginPath()
-        ctx.arc(x + w * 0.78, y + h * 0.55, Math.max(1.5, w * 0.045), 0, Math.PI * 2)
-        ctx.fill()
-      }
     }
     function drawTube(i, x, y) {
       const lift = sel === i ? 12 + Math.sin(bounce * Math.PI) * 4 : 0
       const yy = y - lift
       // Glass fill
       tubePath(x, yy, tw, th)
-      ctx.fillStyle = sel === i ? 'rgba(255,210,63,0.18)' : 'rgba(255,255,255,0.14)'
+      ctx.fillStyle = sel === i ? 'rgba(255,210,63,0.12)' : 'rgba(255,255,255,0.06)'
       ctx.fill()
       const pad = 5
       const unit = (th - 14) / cap
@@ -354,14 +336,6 @@
       ctx.fillStyle = sel === i ? '#ffd23f' : '#ffe8a3'
       PF.rr(ctx, x - 2, yy - 4, tw + 4, 6, 3)
       ctx.fill()
-      // Shine streak on glass
-      ctx.strokeStyle = 'rgba(255,255,255,0.45)'
-      ctx.lineWidth = 3
-      ctx.lineCap = 'round'
-      ctx.beginPath()
-      ctx.moveTo(x + tw * 0.18, yy + 16)
-      ctx.lineTo(x + tw * 0.18, yy + th * 0.55)
-      ctx.stroke()
     }
     function drawBadge() {
       const label = 'LV ' + level
