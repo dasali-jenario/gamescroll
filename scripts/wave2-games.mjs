@@ -741,7 +741,8 @@ export const wave2Games = {
     accent: '#ffd23f',
     body: `
     let tubes = [], ox = 0, oy = 0, tw = 0, th = 0, gap = 12, rowGap = 24, cap = 4
-    let sel = -1, level = 1, moves = 0, bounce = 0, pourFlash = 0
+    let sel = -1, level = 1, bounce = 0, pourFlash = 0
+    let giveBtn = { x: 0, y: 0, w: 0, h: 0 }
     const COLORS = ['#ff4d6d', '#3a86ff', '#06d6a0', '#ffd23f', '#c77dff', '#ff9f1c']
     const INK = '#1a1025'
     function layout() {
@@ -749,7 +750,8 @@ export const wave2Games = {
       const cols = Math.min(5, n)
       const rows = Math.ceil(n / cols)
       const topSafe = Math.max(72, H * 0.13)
-      const bottomSafe = Math.max(28, H * 0.06)
+      const btnH = 44
+      const bottomSafe = Math.max(28, H * 0.06) + btnH + 18
       const availH = Math.max(120, H - topSafe - bottomSafe)
       gap = Math.max(12, Math.min(20, W * 0.04))
       rowGap = Math.max(22, Math.min(34, availH * 0.05))
@@ -760,6 +762,10 @@ export const wave2Games = {
       const totalH = rows * th + (rows - 1) * rowGap
       ox = (W - totalW) * 0.5
       oy = topSafe + Math.max(0, (availH - totalH) * 0.45)
+      giveBtn.w = Math.min(168, W * 0.42)
+      giveBtn.h = btnH
+      giveBtn.x = (W - giveBtn.w) * 0.5
+      giveBtn.y = H - Math.max(20, H * 0.04) - giveBtn.h
     }
     function onResize() { layout() }
     function diePos() { return [W * 0.5, oy + th * 0.5] }
@@ -854,17 +860,28 @@ export const wave2Games = {
     function isWon() {
       return tubes.every(t => !t.length || (t.length === cap && t.every(c => c === t[0])))
     }
+    function syncScore() { setScore(level) }
     function reset() {
       makeLevel(level)
       layout()
       sel = -1
-      moves = 0
       bounce = 0
       pourFlash = 0
-      setScore(Math.max(0, (level - 1) * 100))
+      syncScore()
     }
     function onHostStart() { level = 1; reset() }
     function die() { level = 1; reset() }
+    function hitGiveBtn(e) {
+      const rect = canvas.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      return (
+        x >= giveBtn.x &&
+        x <= giveBtn.x + giveBtn.w &&
+        y >= giveBtn.y &&
+        y <= giveBtn.y + giveBtn.h
+      )
+    }
     function tick(dt) {
       if (bounce > 0) bounce = Math.max(0, bounce - dt * 4)
       if (pourFlash > 0) pourFlash = Math.max(0, pourFlash - dt * 3)
@@ -931,11 +948,6 @@ export const wave2Games = {
     function drawTube(i, x, y) {
       const lift = sel === i ? 12 + Math.sin(bounce * Math.PI) * 4 : 0
       const yy = y - lift
-      // Drop shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.22)'
-      ctx.beginPath()
-      ctx.ellipse(x + tw * 0.5, y + th + 10, tw * 0.42, 7, 0, 0, Math.PI * 2)
-      ctx.fill()
       // Glass fill
       tubePath(x, yy, tw, th)
       ctx.fillStyle = sel === i ? 'rgba(255,210,63,0.18)' : 'rgba(255,255,255,0.14)'
@@ -997,6 +1009,26 @@ export const wave2Games = {
       ctx.textAlign = 'left'
       ctx.textBaseline = 'alphabetic'
     }
+    function drawGiveBtn() {
+      const { x, y, w, h } = giveBtn
+      ctx.fillStyle = INK
+      PF.rr(ctx, x + 3, y + 3, w, h, 14)
+      ctx.fill()
+      ctx.fillStyle = '#ff4d6d'
+      PF.rr(ctx, x, y, w, h, 14)
+      ctx.fill()
+      ctx.strokeStyle = INK
+      ctx.lineWidth = 3
+      PF.rr(ctx, x, y, w, h, 14)
+      ctx.stroke()
+      ctx.fillStyle = '#fff'
+      ctx.font = '800 16px "Segoe UI", sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('Give up', x + w * 0.5, y + h * 0.5 + 1)
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'alphabetic'
+    }
     function draw() {
       PF.sky(ctx, W, H, '#2b1b4e', '#1a0f2e', '#3d1f5c')
       // Comic halftone
@@ -1024,17 +1056,20 @@ export const wave2Games = {
         ctx.fillRect(0, 0, W, H)
       }
       drawBadge()
+      drawGiveBtn()
     }
     addEventListener('pointerdown', e => {
       if (GS.paused) return
+      if (hitGiveBtn(e)) {
+        die()
+        return
+      }
       const i = tubeAt(e)
       if (i < 0) { sel = -1; return }
       if (sel < 0) { sel = i; bounce = 1; return }
       if (sel === i) { sel = -1; return }
       if (!canPour(sel, i)) { sel = i; bounce = 1; return }
       pour(sel, i)
-      moves++
-      bump(1)
       pourFlash = 1
       if (window.Juice) {
         const cols = Math.min(5, tubes.length)
@@ -1043,7 +1078,6 @@ export const wave2Games = {
       }
       sel = -1
       if (isWon()) {
-        bump(Math.max(20, 100 - moves * 2))
         if (window.Juice) Juice.burst(W * 0.5, oy + th * 0.5)
         level++
         reset()
