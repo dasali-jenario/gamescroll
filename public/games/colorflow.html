@@ -117,7 +117,7 @@
     if (window.Juice) Juice.init({ accent: "#ffd23f" })
 
     let tubes = [], ox = 0, oy = 0, tw = 0, th = 0, gap = 12, rowGap = 24, cap = 4
-    let sel = -1, level = 1, bounce = 0, pourFlash = 0
+    let sel = -1, level = 1, bounce = 0, pourAnim = null
     let giveBtn = { x: 0, y: 0, w: 0, h: 0 }
     const COLORS = ['#ff4d6d', '#3a86ff', '#06d6a0', '#ffd23f', '#c77dff', '#ff9f1c']
     const INK = '#1a1025'
@@ -220,18 +220,42 @@
       if (B.length && B[B.length - 1] !== color) return false
       return true
     }
-    function pour(a, b) {
-      const color = tubes[a][tubes[a].length - 1]
+    function countPour(a, b) {
+      if (!canPour(a, b)) return 0
+      const A = tubes[a], color = A[A.length - 1]
       let n = 0
-      while (
-        tubes[a].length &&
-        tubes[a][tubes[a].length - 1] === color &&
-        tubes[b].length < cap
-      ) {
-        tubes[b].push(tubes[a].pop())
+      for (let i = A.length - 1; i >= 0 && tubes[b].length + n < cap; i--) {
+        if (A[i] !== color) break
         n++
       }
       return n
+    }
+    function commitPour(anim) {
+      for (let i = 0; i < anim.units; i++) tubes[anim.to].push(tubes[anim.from].pop())
+    }
+    function startPour(a, b) {
+      const units = countPour(a, b)
+      if (!units) return false
+      pourAnim = {
+        from: a,
+        to: b,
+        color: tubes[a][tubes[a].length - 1],
+        units,
+        t: 0,
+        dur: 0.36 + units * 0.1,
+        fromBase: tubes[a].length - units,
+        toBase: tubes[b].length,
+      }
+      return true
+    }
+    function pourEase(p) {
+      const t = Math.max(0, Math.min(1, p))
+      return t * t * (3 - 2 * t)
+    }
+    function tubeXY(i) {
+      const cols = Math.min(5, tubes.length)
+      const r = (i / cols) | 0, c = i % cols
+      return { x: ox + c * (tw + gap), y: oy + r * (th + rowGap) }
     }
     function isWon() {
       return tubes.every(t => !t.length || (t.length === cap && t.every(c => c === t[0])))
@@ -242,7 +266,7 @@
       layout()
       sel = -1
       bounce = 0
-      pourFlash = 0
+      pourAnim = null
       syncScore()
     }
     function onHostStart() { level = 1; reset() }
@@ -260,7 +284,17 @@
     }
     function tick(dt) {
       if (bounce > 0) bounce = Math.max(0, bounce - dt * 4)
-      if (pourFlash > 0) pourFlash = Math.max(0, pourFlash - dt * 3)
+      if (pourAnim) {
+        pourAnim.t += dt
+        if (pourAnim.t >= pourAnim.dur) {
+          commitPour(pourAnim)
+          pourAnim = null
+          if (isWon()) {
+            level++
+            reset()
+          }
+        }
+      }
     }
     function tubeAt(e) {
       const rect = canvas.getBoundingClientRect()
@@ -304,18 +338,77 @@
       ctx.stroke()
     }
     function drawTube(i, x, y) {
-      const lift = sel === i ? 12 + Math.sin(bounce * Math.PI) * 4 : 0
+      const pouringSrc = pourAnim && pourAnim.from === i
+      const pouringDst = pourAnim && pourAnim.to === i
+      const e = pourAnim ? pourEase(pourAnim.t / pourAnim.dur) : 0
+      const lift =
+        sel === i
+          ? 12 + Math.sin(bounce * Math.PI) * 4
+          : pouringSrc
+            ? 8 * (1 - e)
+            : 0
       const yy = y - lift
-      // Glass fill
-      tubePath(x, yy, tw, th)
-      ctx.fillStyle = sel === i ? 'rgba(255,210,63,0.12)' : 'rgba(255,255,255,0.06)'
-      ctx.fill()
       const pad = 5
       const unit = (th - 14) / cap
-      const topK = tubes[i].length - 1
-      for (let k = 0; k < tubes[i].length; k++) {
-        const by = yy + th - 8 - (k + 1) * unit
-        drawLiquid(x + pad, by, tw - pad * 2, unit + 1, tubes[i][k], k === topK)
+      const lw = tw - pad * 2
+      const floor = yy + th - 8
+      // No glass wash — outline only (keeps empty tubes clear, not grey)
+      if (pouringSrc) {
+        const base = pourAnim.fromBase
+        const drained = Math.min(pourAnim.units, e * pourAnim.units)
+        const gone = Math.floor(drained + 1e-9)
+        const frac = drained - gone
+        for (let k = 0; k < base; k++) {
+          const by = floor - (k + 1) * unit
+          drawLiquid(x + pad, by, lw, unit + 1, tubes[i][k], false)
+        }
+        const remainFull = Math.max(0, pourAnim.units - gone - (frac > 1e-6 ? 1 : 0))
+        for (let u = 0; u < remainFull; u++) {
+          const by = floor - (base + u + 1) * unit
+          drawLiquid(x + pad, by, lw, unit + 1, pourAnim.color, u === remainFull - 1 && frac <= 1e-6)
+        }
+        if (frac > 1e-6) {
+          const h = (1 - frac) * unit
+          if (h > 1.2) {
+            const by = floor - (base + remainFull) * unit - h
+            drawLiquid(x + pad, by, lw, h + 1, pourAnim.color, true)
+          } else if (remainFull > 0) {
+            const by = floor - (base + remainFull) * unit
+            drawLiquid(x + pad, by, lw, unit + 1, pourAnim.color, true)
+          } else if (base > 0) {
+            const by = floor - base * unit
+            drawLiquid(x + pad, by, lw, unit + 1, tubes[i][base - 1], true)
+          }
+        } else if (remainFull === 0 && base > 0) {
+          const by = floor - base * unit
+          drawLiquid(x + pad, by, lw, unit + 1, tubes[i][base - 1], true)
+        }
+      } else if (pouringDst) {
+        const base = pourAnim.toBase
+        const filled = Math.min(pourAnim.units, e * pourAnim.units)
+        const full = Math.floor(filled + 1e-9)
+        const frac = filled - full
+        for (let k = 0; k < base; k++) {
+          const by = floor - (k + 1) * unit
+          drawLiquid(x + pad, by, lw, unit + 1, tubes[i][k], k === base - 1 && full === 0 && frac <= 1e-6)
+        }
+        for (let u = 0; u < full; u++) {
+          const by = floor - (base + u + 1) * unit
+          drawLiquid(x + pad, by, lw, unit + 1, pourAnim.color, u === full - 1 && frac <= 1e-6)
+        }
+        if (frac > 1e-6) {
+          const h = frac * unit
+          if (h > 1.2) {
+            const by = floor - (base + full) * unit - h
+            drawLiquid(x + pad, by, lw, h + 1, pourAnim.color, true)
+          }
+        }
+      } else {
+        const topK = tubes[i].length - 1
+        for (let k = 0; k < tubes[i].length; k++) {
+          const by = floor - (k + 1) * unit
+          drawLiquid(x + pad, by, lw, unit + 1, tubes[i][k], k === topK)
+        }
       }
       // Thick comic outline
       tubePath(x, yy, tw, th)
@@ -336,6 +429,30 @@
       ctx.fillStyle = sel === i ? '#ffd23f' : '#ffe8a3'
       PF.rr(ctx, x - 2, yy - 4, tw + 4, 6, 3)
       ctx.fill()
+    }
+    function drawPourStream() {
+      if (!pourAnim) return
+      const p = Math.min(1, pourAnim.t / pourAnim.dur)
+      // Soft envelope — no hard pop at start/end
+      const alpha = Math.sin(p * Math.PI) * 0.45
+      if (alpha < 0.03) return
+      const a = tubeXY(pourAnim.from)
+      const b = tubeXY(pourAnim.to)
+      const x0 = a.x + tw * 0.5
+      const y0 = a.y + 2
+      const x1 = b.x + tw * 0.5
+      const y1 = b.y + 2
+      const mx = (x0 + x1) * 0.5
+      const my = Math.min(y0, y1) - 20 - Math.abs(x1 - x0) * 0.08
+      ctx.lineCap = 'round'
+      ctx.strokeStyle = COLORS[pourAnim.color]
+      ctx.globalAlpha = alpha
+      ctx.lineWidth = 3.5
+      ctx.beginPath()
+      ctx.moveTo(x0, y0)
+      ctx.quadraticCurveTo(mx, my, x1, y1)
+      ctx.stroke()
+      ctx.globalAlpha = 1
     }
     function drawBadge() {
       const label = 'LV ' + level
@@ -401,10 +518,7 @@
         const y = oy + r * (th + rowGap)
         drawTube(i, x, y)
       }
-      if (pourFlash > 0) {
-        ctx.fillStyle = 'rgba(255,210,63,' + (pourFlash * 0.25) + ')'
-        ctx.fillRect(0, 0, W, H)
-      }
+      drawPourStream()
       drawBadge()
       drawGiveBtn()
     }
@@ -414,24 +528,14 @@
         die()
         return
       }
+      if (pourAnim) return
       const i = tubeAt(e)
       if (i < 0) { sel = -1; return }
       if (sel < 0) { sel = i; bounce = 1; return }
       if (sel === i) { sel = -1; return }
       if (!canPour(sel, i)) { sel = i; bounce = 1; return }
-      pour(sel, i)
-      pourFlash = 1
-      if (window.Juice) {
-        const cols = Math.min(5, tubes.length)
-        const r = (i / cols) | 0, c = i % cols
-        Juice.burst(ox + c * (tw + gap) + tw * 0.5, oy + r * (th + rowGap) + th * 0.3)
-      }
+      startPour(sel, i)
       sel = -1
-      if (isWon()) {
-        if (window.Juice) Juice.burst(W * 0.5, oy + th * 0.5)
-        level++
-        reset()
-      }
     })
     reset()
 
