@@ -23,6 +23,9 @@ export function readSharedGameId(): string | null {
 /** Absolute link that opens Gamescroll with this game first. */
 export function gameShareUrl(gameId: string): string {
   const url = new URL(window.location.href)
+  // The feed only resolves ?g= at the root route, so never keep the current
+  // pathname (e.g. /create would produce a broken /create?g= link).
+  url.pathname = '/'
   url.hash = ''
   url.search = ''
   url.searchParams.set(PARAM, gameId)

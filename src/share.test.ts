@@ -37,10 +37,11 @@ describe('share deep links', () => {
     expect(readSharedGameParam()).toBe(id)
   })
 
-  it('gameShareUrl builds an absolute ?g= link and clears other query/hash', () => {
-    window.history.replaceState({}, '', '/play?x=1#section')
+  it('gameShareUrl builds a root ?g= link and clears path/query/hash', () => {
+    window.history.replaceState({}, '', '/create?x=1#section')
     const url = gameShareUrl('flappy')
     const parsed = new URL(url)
+    expect(parsed.pathname).toBe('/')
     expect(parsed.searchParams.get('g')).toBe('flappy')
     expect(parsed.searchParams.get('x')).toBeNull()
     expect(parsed.hash).toBe('')
