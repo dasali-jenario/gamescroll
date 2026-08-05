@@ -336,9 +336,18 @@ const { data: row, error } = await admin
   .maybeSingle()
 if (error || !row) throw new Error(error?.message || 'Wordle row not found')
 
+// Plan mirrors the FIXED_BODY layout() rects so the fidelity check passes.
+const FIXED_PLAN = [
+  { id: 'title', x: 0.05, y: 0.08, w: 0.9, h: 0.05, band: 'title' },
+  { id: 'grid', x: 0.14, y: 0.145, w: 0.72, h: 0.4, band: 'focal' },
+  { id: 'hint', x: 0.05, y: 0.56, w: 0.9, h: 0.04, band: 'hint' },
+  { id: 'kb', x: 0.05, y: 0.62, w: 0.9, h: 0.32, band: 'cta' },
+]
+
 const brief = {
   ...(row.brief || {}),
   bodyJs: FIXED_BODY,
+  layoutPlan: FIXED_PLAN,
   bg: (row.brief && row.brief.bg) || '#264653',
 }
 const html = wrapGameHtml({

@@ -11,6 +11,8 @@ export type UgcFailureClass =
   | 'unresponsive_hit'
   | 'playfield_mismatch'
   | 'no_harvest'
+  | 'playability_crash'
+  | 'no_scoring'
   | 'other'
   | 'ok'
 
@@ -77,6 +79,8 @@ const EMPTY_COUNTS = (): Record<UgcFailureClass, number> => ({
   unresponsive_hit: 0,
   playfield_mismatch: 0,
   no_harvest: 0,
+  playability_crash: 0,
+  no_scoring: 0,
   other: 0,
   ok: 0,
 })
@@ -94,7 +98,10 @@ export function classifyGateErrors(errors: string[]): UgcFailureClass[] {
       (e.includes('harvest:') && e.includes('no '))
     ) {
       found.add('no_harvest')
-    } else if (e.includes('overlap')) found.add('overlap')
+    } else if (e.includes('playability')) found.add('playability_crash')
+    else if (e.includes('scoring loop') || e.includes('bump()/setscore'))
+      found.add('no_scoring')
+    else if (e.includes('overlap')) found.add('overlap')
     else if (e.includes('cta') && (e.includes('lower third') || e.includes('band') || e.includes('off')))
       found.add('cta_off_band')
     else if (
@@ -140,7 +147,17 @@ export function buildPathOf(sample: CreatorGameSample): 'arcade' | 'freeform' | 
   if (bp === 'arcade' || bp === 'freeform') return bp
   const mech = sample.brief?.mechanic
   if (typeof mech === 'string') {
-    const arcade = ['reaction', 'timing', 'dodge', 'drag', 'stack']
+    const arcade = [
+      'reaction',
+      'timing',
+      'dodge',
+      'drag',
+      'stack',
+      'merge',
+      'sort',
+      'grid',
+      'word',
+    ]
     return arcade.includes(mech) ? 'arcade' : 'freeform'
   }
   return null

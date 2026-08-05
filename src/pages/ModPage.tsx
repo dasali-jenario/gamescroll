@@ -1,8 +1,108 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { driveGameBody, smokeGameBody } from '../lib/gameSmoke'
+import { checkBodyLayoutFidelity } from '../lib/layoutFidelity'
+import { parseLayoutPlan } from '../lib/layoutPlan'
 import { getSupabase, isSupabaseConfigured, type UgcGameRow } from '../lib/supabase'
 import { usePlayableFrameSrc } from '../lib/usePlayableFrameSrc'
 import { fetchPublishedForModeration, invokeCreator, ugcRowToGame } from '../lib/ugc'
+
+type GateSummary = {
+  buildPath: string
+  mechanic: string
+  editMode: string | null
+  critiqueIssues: string[]
+  errors: string[]
+  warnings: string[]
+  checked: boolean
+}
+
+/** Live gate re-run from the stored brief so mods approve with full context. */
+function summarizeBrief(brief: Record<string, unknown> | null): GateSummary {
+  const buildPath = typeof brief?.buildPath === 'string' ? brief.buildPath : 'unknown'
+  const mechanic = typeof brief?.mechanic === 'string' ? brief.mechanic : 'unknown'
+  const editMode = typeof brief?.editMode === 'string' ? brief.editMode : null
+  const critiqueIssues = Array.isArray(brief?.critiqueIssues)
+    ? (brief?.critiqueIssues as unknown[]).filter(
+        (i): i is string => typeof i === 'string',
+      )
+    : []
+  const bodyJs = typeof brief?.bodyJs === 'string' ? brief.bodyJs : ''
+  const errors: string[] = []
+  const warnings: string[] = []
+  if (!bodyJs.trim()) {
+    return {
+      buildPath,
+      mechanic,
+      editMode,
+      critiqueIssues,
+      errors,
+      warnings: ['no bodyJs stored — legacy draft, judge by preview'],
+      checked: false,
+    }
+  }
+  const smoke = smokeGameBody(bodyJs)
+  if (!smoke.ok) errors.push(...smoke.errors)
+  const play = driveGameBody(bodyJs, { seconds: 4 })
+  if (!play.ok) errors.push(...play.errors)
+  const plan = parseLayoutPlan(brief?.layoutPlan)
+  if (plan.length) {
+    const fidelity = checkBodyLayoutFidelity(bodyJs, plan)
+    if (!fidelity.ok) {
+      if (fidelity.missingHarvest) warnings.push('no layout harvest (legacy soft)')
+      else errors.push(...fidelity.errors)
+    }
+  } else {
+    warnings.push('no layoutPlan stored')
+  }
+  return { buildPath, mechanic, editMode, critiqueIssues, errors, warnings, checked: true }
+}
+
+function ModGateInfo({ brief }: { brief: Record<string, unknown> | null }) {
+  const gate = useMemo(() => summarizeBrief(brief), [brief])
+  const status = !gate.checked
+    ? 'not checked'
+    : gate.errors.length
+      ? `${gate.errors.length} issue${gate.errors.length === 1 ? '' : 's'}`
+      : 'pass'
+  return (
+    <div className="mod-gate">
+      <span
+        className={
+          !gate.checked
+            ? 'mod-gate-badge mod-gate-unknown'
+            : gate.errors.length
+              ? 'mod-gate-badge mod-gate-fail'
+              : 'mod-gate-badge mod-gate-ok'
+        }
+      >
+        gate: {status}
+      </span>
+      <span className="create-hint">
+        {gate.buildPath} · {gate.mechanic}
+        {gate.editMode ? ` · ${gate.editMode} edit` : ''}
+      </span>
+      {gate.errors.map((e) => (
+        <span key={e} className="mod-gate-error">
+          {e}
+        </span>
+      ))}
+      {gate.warnings.map((w) => (
+        <span key={w} className="create-hint">
+          {w}
+        </span>
+      ))}
+      {gate.critiqueIssues.length > 0 && (
+        <details className="mod-gate-critique">
+          <summary>critique notes ({gate.critiqueIssues.length})</summary>
+          {gate.critiqueIssues.map((i) => (
+            <span key={i}>{i}</span>
+          ))}
+        </details>
+      )}
+    </div>
+  )
+}
 
 /** Load iframe only when the card is near the viewport or the mod expands it. */
 function ModPreview({ src, title }: { src: string; title: string }) {
@@ -135,6 +235,7 @@ export function ModPage() {
                 <strong>{row.title}</strong>
                 <span>{row.tip}</span>
                 <span className="create-hint">slug: {row.slug}</span>
+                <ModGateInfo brief={row.brief ?? null} />
               </div>
               <ModPreview src={game.src} title={row.title} />
               <div className="create-action-row">

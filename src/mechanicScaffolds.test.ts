@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { layoutFromPlan } from './lib/layoutPlan'
-import { smokeGameBody } from './lib/gameSmoke'
+import { driveGameBody, smokeGameBody } from './lib/gameSmoke'
 import { checkBodyLayoutFidelity } from './lib/layoutFidelity'
 import {
   applyScaffoldSlots,
@@ -30,7 +30,17 @@ describe('layoutFromPlan', () => {
 })
 
 describe('mechanic scaffolds', () => {
-  for (const family of ['reaction', 'timing', 'dodge', 'drag', 'stack'] as const) {
+  for (const family of [
+    'reaction',
+    'timing',
+    'dodge',
+    'drag',
+    'stack',
+    'merge',
+    'sort',
+    'grid',
+    'word',
+  ] as const) {
     it(`${family} scaffold validates, smokes, and matches layoutPlan`, () => {
       const built = materializeScaffold(family)
       expect(validateGameBody(built.bodyJs)).toEqual({ ok: true })
@@ -42,7 +52,58 @@ describe('mechanic scaffolds', () => {
         expect(fidelity.source).toBe('layoutRects')
       }
     })
+
+    it(`${family} scaffold survives the driven playability run`, () => {
+      const built = materializeScaffold(family)
+      const play = driveGameBody(built.bodyJs, { seconds: 6 })
+      expect(play.ok).toBe(true)
+    })
   }
+
+  it('driveGameBody catches mid-game crashes the idle smoke misses', () => {
+    // Passes idle smoke (first ticks fine) but explodes once the run progresses.
+    const body = `
+let L={}, t=0
+function layoutRects(){ return L }
+function layout(){ L = GS.layoutFromPlan([{id:'focus',x:0.2,y:0.3,w:0.6,h:0.3,band:'focal'}], W, H) }
+function scorePos(){ return [W/2,H/2] }
+function diePos(){ return scorePos() }
+function reset(){ t=0; setScore(0); layout() }
+function onHostStart(){ reset() }
+function onResize(){ layout() }
+function die(){ reset() }
+function tick(dt){ if(GS.paused) return; t+=dt; if(t>1){ null.boom() } }
+function draw(){ PF.sky(ctx,W,H,'#000','#111','#222'); PF.dots(ctx,W,H,'#fff',8,0.5) }
+canvas.addEventListener('pointerdown',()=>{ bump() })
+layout()
+`.trim()
+    expect(smokeGameBody(body)).toEqual({ ok: true })
+    const play = driveGameBody(body, { seconds: 4 })
+    expect(play.ok).toBe(false)
+    if (!play.ok) {
+      expect(play.errors.join(' ')).toContain('playability driven run threw')
+    }
+  })
+
+  it('driveGameBody reports scored for bodies that bump on input', () => {
+    const body = `
+let L={}
+function layoutRects(){ return L }
+function layout(){ L = GS.layoutFromPlan([{id:'focus',x:0.2,y:0.3,w:0.6,h:0.3,band:'focal'}], W, H) }
+function scorePos(){ return [W/2,H/2] }
+function diePos(){ return scorePos() }
+function reset(){ setScore(0); layout() }
+function onHostStart(){ reset() }
+function onResize(){ layout() }
+function die(){ reset() }
+function tick(dt){ if(GS.paused) return }
+function draw(){ PF.sky(ctx,W,H,'#000','#111','#222'); PF.dots(ctx,W,H,'#fff',8,0.5) }
+canvas.addEventListener('pointerdown',()=>{ if(!GS.paused) bump() })
+layout()
+`.trim()
+    const play = driveGameBody(body, { seconds: 2 })
+    expect(play).toEqual({ ok: true, scored: true })
+  })
 
   it('applies slot overrides without breaking harvest', () => {
     const scaffold = getScaffold('reaction')

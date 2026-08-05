@@ -1,7 +1,7 @@
 /** Validate / smoke / repair / critique loop for generated UGC bodies. */
 import { validateLayoutPlan } from './layoutPlan.ts'
 import { checkBodyLayoutFidelity } from './layoutFidelity.ts'
-import { smokeGameBody } from './smoke.ts'
+import { driveGameBody, smokeGameBody } from './smoke.ts'
 import { validateGameBody } from './validate.ts'
 import {
   critiqueAndFix,
@@ -32,6 +32,10 @@ export function checkGame(
     requireHarvest: opts?.requireHarvest !== false,
   })
   if (!fidelity.ok) return { ok: false, errors: fidelity.errors }
+  // Driven playability run: hard fail for new drafts — a draft must survive a
+  // started game, a pointer-tap sweep, and the die()/recovery path.
+  const play = driveGameBody(game.bodyJs, { seconds: 6 })
+  if (!play.ok) return { ok: false, errors: play.errors }
   return { ok: true }
 }
 

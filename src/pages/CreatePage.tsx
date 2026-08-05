@@ -19,7 +19,7 @@ type ChatBubble = { role: 'user' | 'assistant'; content: string }
 type LayoutFixKind = 'fix_overlap' | 'enlarge_cta' | 'move_cta_down'
 
 const WELCOME =
-  "Describe the mini-game you want. I'll ask a few quick questions, then build a single-player HTML5 canvas game for Gamescroll — same style as the official catalog games.\n\nIf it fits a classic arcade format (reaction, timing, dodge, drag, stack), I'll say so and use that locked layout. Otherwise I'll build a custom, layout-checked game — I won't silently turn your idea into a different genre.\n\nAfter the first build, follow-ups edit that game in place (layout, controls, visuals) instead of starting over.\n\nLimits: no multiplayer, no backend, no saved progress."
+  "Describe the mini-game you want. I'll ask a few quick questions, then build a single-player HTML5 canvas game for Gamescroll — same style as the official catalog games.\n\nIf it fits a proven arcade format (reaction, timing, dodge, drag, stack, merge, color sort, memory match, word guess), I'll say so and use that locked layout with your theme. Otherwise I'll build a custom, layout-checked game — I won't silently turn your idea into a different genre.\n\nAfter the first build, follow-ups edit that game in place (layout, controls, visuals) instead of starting over.\n\nLimits: no multiplayer, no backend, no saved progress."
 
 const FIX_CHIPS: { id: LayoutFixKind; label: string }[] = [
   { id: 'fix_overlap', label: 'Fix overlap' },

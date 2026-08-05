@@ -5,9 +5,9 @@ import { getSupabase, type UgcGameRow, type UgcStatus } from './supabase'
 export const UGC_FEED_COLUMNS =
   'id,slug,title,tip,accent,status,source,html_path,html_url,updated_at,approved_at'
 
-/** Moderation queue — no conversation/brief payload. */
+/** Moderation queue — includes brief (buildPath/mechanic/gate context), not conversation. */
 export const UGC_MOD_COLUMNS =
-  'id,slug,title,tip,accent,status,source,html_path,html_url,updated_at,published_at'
+  'id,slug,title,tip,accent,status,source,html_path,html_url,brief,updated_at,published_at'
 
 /** Creator “my games” list — includes chat/brief for resume. */
 export const UGC_MY_COLUMNS =

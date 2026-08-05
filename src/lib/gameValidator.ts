@@ -113,6 +113,11 @@ export function validateGameBody(body: string): ValidationResult {
   if (!/\blayout\s*\(/.test(body)) {
     errors.push('game body must call layout() (from onHostStart / onResize / reset)')
   }
+  if (!/\b(bump|setScore)\s*\(/.test(body)) {
+    errors.push(
+      'game body must score via bump()/setScore() — add a scoring loop like official games',
+    )
+  }
   if (
     !/\.addEventListener\s*\(\s*['"]pointerdown['"]/.test(body) &&
     !/\.addEventListener\s*\(\s*['"]pointerup['"]/.test(body) &&

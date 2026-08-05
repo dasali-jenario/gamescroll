@@ -3,6 +3,7 @@ import {
   ANTI_PATTERNS,
   JUICE_RULES,
   OFFICIAL_STRUCTURE,
+  PROGRESSION_PATTERNS,
 } from './canonExamples.ts'
 import { parseBodyPatches, type BodyPatch } from './patchBody.ts'
 import {
@@ -40,6 +41,27 @@ export function resolveModel(kind: ModelKind): string {
   const strong = Deno.env.get('OPENAI_MODEL') || 'gpt-4.1'
   const fast = Deno.env.get('OPENAI_MODEL_FAST') || strong
   return kind === 'generate' ? strong : fast
+}
+
+/**
+ * GPT-5-class / o-series reasoning models reject `temperature` and require
+ * `max_completion_tokens`; older chat models still use `temperature` + `max_tokens`.
+ * Extra token headroom covers hidden reasoning tokens; low effort keeps latency
+ * within Edge Function limits.
+ */
+export function modelRequestParams(
+  model: string,
+  temperature: number,
+  maxTokens: number,
+): Record<string, unknown> {
+  if (/^(gpt-5|o\d)/.test(model)) {
+    return {
+      model,
+      max_completion_tokens: maxTokens + 4_000,
+      reasoning_effort: 'low',
+    }
+  }
+  return { model, temperature, max_tokens: maxTokens }
 }
 
 export function normalizeGame(raw: Partial<LlmGamePayload> | null | undefined): LlmGamePayload | null {
@@ -101,9 +123,10 @@ Hard product limits (never violate):
 - Portrait-first mobile: design for tall phones in a TikTok-style full-bleed frame (typically W < H). Landscape is secondary — still call layout() from onResize, but primary composition is portrait.
 ${OFFICIAL_STRUCTURE}
 MECHANIC FAMILIES:
-Set game.mechanic to one of: reaction | timing | dodge | drag | stack | custom.
-- Arcade families (reaction/timing/dodge/drag/stack): when a GOLDEN SCAFFOLD seed is provided, follow it.
-- custom: FREEFORM PATH — build the game the user described (Wordle, puzzles, novel rules). Do NOT substitute an arcade loop unless they asked for one.
+Set game.mechanic to one of: reaction | timing | dodge | drag | stack | merge | sort | grid | word | custom.
+- Scaffold families (reaction/timing/dodge/drag/stack/merge/sort/grid/word): when a GOLDEN SCAFFOLD seed is provided, follow it.
+  - merge: physics drop-merge (Suika-style jar). sort: tube-sort color pour puzzle. grid: memory pair-match cards. word: guess-the-word grid + canvas keyboard.
+- custom: FREEFORM PATH — build the game the user described (novel rules, anything without a scaffold). Do NOT substitute an arcade loop unless they asked for one.
 
 GOLDEN SCAFFOLD FIRST BUILDS (when seed says GOLDEN SCAFFOLD PATH):
 - Do NOT invent coordinates or rewrite layout()/LAYOUT_PLAN.
@@ -168,7 +191,7 @@ When generating or iterating, respond with ONLY valid JSON (no markdown fences):
     "tip": "one-line how to play",
     "accent": "#rrggbb",
     "bg": "#rrggbb",
-    "mechanic": "reaction" | "timing" | "dodge" | "drag" | "stack" | "custom",
+    "mechanic": "reaction" | "timing" | "dodge" | "drag" | "stack" | "merge" | "sort" | "grid" | "word" | "custom",
     "layoutPlan": [{"id":"title","x":0.1,"y":0.14,"w":0.8,"h":0.06,"band":"title"}],
     "slots": {"titleText":"REACT","sky0":"#1b1f3b"},
     "bodyJs": "javascript game body",
@@ -199,6 +222,7 @@ CRITICAL host runtime (bodyJs runs inside the same shell as official games — c
 You MUST define tick, draw, die, layout, onHostStart, onResize, scorePos, diePos, and register pointerdown.
 When a CANON EXAMPLE is provided in the conversation, copy its structure (PF draw, layout/onHostStart/tick/draw/pointer mapping) and adapt visuals/mechanics — do not downgrade to flat fillRect stubs.
 ${JUICE_RULES}
+${PROGRESSION_PATTERNS}
 ${ANTI_PATTERNS}
 `
 
@@ -328,9 +352,11 @@ export async function callOpenAi(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: resolveModel(opts?.modelKind || 'generate'),
-      temperature: opts?.temperature ?? 0.7,
-      max_tokens: opts?.maxTokens ?? 12_000,
+      ...modelRequestParams(
+        resolveModel(opts?.modelKind || 'generate'),
+        opts?.temperature ?? 0.7,
+        opts?.maxTokens ?? 12_000,
+      ),
       response_format: { type: 'json_object' },
       messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
     }),
@@ -417,9 +443,7 @@ export async function critiqueAndFix(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: resolveModel('fast'),
-      temperature: 0.15,
-      max_tokens: 8_000,
+      ...modelRequestParams(resolveModel('fast'), 0.15, 8_000),
       response_format: { type: 'json_object' },
       messages: [
         {
@@ -436,7 +460,10 @@ Checklist:
 3. tick respects GS.paused; pointer coords via getBoundingClientRect when using clientX/Y
 4. Fail → die(); scoring via bump/setScore — no second score HUD; scorePos+diePos defined
 5. Required fns: tick, draw, die, layout, onHostStart, onResize, scorePos, diePos
-6. draw uses PF.sky (+ PF layers / buddy/block) like official catalog games — not flat fillRect-only`
+6. draw uses PF.sky (+ PF layers / buddy/block) like official catalog games — not flat fillRect-only
+7. Juice: every score event has visible feedback (floating popup, flash, particle burst, or squash) — silent bump() calls fail
+8. Progression: at least one of level loop (level++ & harder rebuild), combo multiplier window, or speed/pressure ramp — a static loop fails
+9. Readable fail state: the player can tell why they died (danger pulse, shake, color change) and the game recovers/resets cleanly after die()`
         },
         {
           role: 'user',

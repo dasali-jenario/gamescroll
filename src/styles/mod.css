@@ -49,3 +49,47 @@
   justify-self: start;
 }
 
+.mod-gate {
+  display: grid;
+  gap: 0.2rem;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.mod-gate-badge {
+  justify-self: start;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.mod-gate-ok {
+  background: rgba(62, 196, 109, 0.18);
+  color: #6fe3a1;
+}
+
+.mod-gate-fail {
+  background: rgba(231, 29, 54, 0.18);
+  color: #ff8fa3;
+}
+
+.mod-gate-unknown {
+  background: rgba(243, 238, 228, 0.1);
+  color: rgba(243, 238, 228, 0.6);
+}
+
+.mod-gate-error {
+  color: #ff8fa3;
+}
+
+.mod-gate-critique {
+  color: rgba(243, 238, 228, 0.72);
+}
+
+.mod-gate-critique span {
+  display: block;
+  padding-left: 0.75rem;
+}
+

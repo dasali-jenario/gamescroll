@@ -85,10 +85,10 @@ describe('UGC select columns', () => {
     expect(UGC_FEED_COLUMNS).not.toContain('brief')
   })
 
-  it('keeps mod selects free of conversation/brief', () => {
+  it('mod selects include brief (gate context) but never conversation', () => {
     expect(UGC_MOD_COLUMNS).toContain('published_at')
+    expect(UGC_MOD_COLUMNS).toContain('brief')
     expect(UGC_MOD_COLUMNS).not.toContain('conversation')
-    expect(UGC_MOD_COLUMNS).not.toContain('brief')
   })
 
   it('includes the playable fields feed mapping needs', () => {

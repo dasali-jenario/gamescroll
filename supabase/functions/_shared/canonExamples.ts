@@ -42,6 +42,22 @@ FEEL / EFFECTS (Juice + PF are already loaded by the host — same as official g
 - Aim for catalog quality: gradient sky + PF layers + a character/block — not flat fillRect walls.
 `
 
+export const PROGRESSION_PATTERNS = `
+PROGRESSION / JUICE PATTERNS (structures lifted from the best official games — every game ships at least ONE):
+- Level loop (Color Pour): win check → level++ → rebuild harder → setScore(level):
+    if (isWon()) { level++; makeLevel(level); layout(); setScore(level) }
+  Per-level difficulty knobs: more colors/pieces, bigger scramble count, fewer empty helpers.
+- Combo multiplier + floating popup (Orb Merge): chained scores inside a short window multiply, with rising fading text:
+    if (now - lastScoreAt < 700) combo++; else combo = 1
+    const mult = combo >= 5 ? 3 : combo >= 3 ? 2 : combo >= 2 ? 1.5 : 1
+    const pts = Math.round(base * mult); bump(pts)
+    popups.push({ x, y, text: '+' + pts + (mult > 1 ? ' x' + mult : ''), life: 0, max: 0.85 })
+  Advance popup.life in tick, draw them rising/fading in draw(), filter by life < max.
+- Speed/pressure ramp (Stack / Dodge): every success → speed = Math.min(cap, speed + step), or spawn interval shrinks.
+- Score feedback is never silent: pair bump() with a popup, flash, particle burst, or squash — plus a readable fail state
+  (danger line pulse, shake, color change) so the player knows why they died.
+`
+
 export const ANTI_PATTERNS = `
 ANTI-PATTERNS — these have shipped broken or low-quality games before. Never do them:
 - A "START" screen that waits for an HTML button or a DOM click listener that the host never sends. Use onHostStart() + canvas hit-testing.

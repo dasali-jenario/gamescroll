@@ -2,7 +2,17 @@
 
 export type CreatorBuildPath = 'arcade' | 'freeform'
 
-const ARCADE = new Set(['reaction', 'timing', 'dodge', 'drag', 'stack'])
+const ARCADE = new Set([
+  'reaction',
+  'timing',
+  'dodge',
+  'drag',
+  'stack',
+  'merge',
+  'sort',
+  'grid',
+  'word',
+])
 
 export function isArcadeMechanic(mechanic: string | undefined | null): boolean {
   return ARCADE.has(String(mechanic || '').toLowerCase())

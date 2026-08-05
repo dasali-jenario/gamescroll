@@ -81,7 +81,7 @@ if (!projectRef || !accessToken) {
 // Load smoke + fidelity via TypeScript strip-types
 const smokeUrl = pathToFileURL(join(root, 'src/lib/gameSmoke.ts')).href
 const fidelityUrl = pathToFileURL(join(root, 'src/lib/layoutFidelity.ts')).href
-const { smokeGameBody } = await import(smokeUrl)
+const { smokeGameBody, driveGameBody } = await import(smokeUrl)
 const { checkBodyLayoutFidelity } = await import(fidelityUrl)
 
 function parsePlan(raw) {
@@ -135,6 +135,7 @@ const supabaseUrl =
 
 let failed = 0
 let missingHarvest = 0
+let playabilityWarn = 0
 for (const row of rows) {
   let body = row.body_js || ''
   if (!body && row.html_path && serviceKey) {
@@ -157,6 +158,15 @@ for (const row of rows) {
     console.error(`FAIL ${row.slug} (${row.title})`)
     for (const e of result.errors) console.error(`     - ${e}`)
     continue
+  }
+
+  // Playability is a hard gate for NEW drafts (Edge checkGame); legacy approved
+  // games only warn here so the rollout mirrors the harvest pattern.
+  const play = driveGameBody(body, { seconds: 6 })
+  if (!play.ok) {
+    playabilityWarn += 1
+    console.log(`WARN ${row.slug} (${row.title}) [playability — legacy soft]`)
+    for (const e of play.errors) console.log(`     - ${e}`)
   }
 
   const plan = parsePlan(row.layout_plan)
@@ -184,6 +194,9 @@ for (const row of rows) {
 
 if (missingHarvest) {
   console.log(`[check-ugc] ${missingHarvest} game(s) without harvest/plan (Phase 0 soft)`)
+}
+if (playabilityWarn) {
+  console.log(`[check-ugc] ${playabilityWarn} game(s) with playability warnings (legacy soft)`)
 }
 if (failed) {
   console.error(`[check-ugc] ${failed} failure(s)`)
