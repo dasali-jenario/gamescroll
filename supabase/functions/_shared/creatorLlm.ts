@@ -207,7 +207,7 @@ When CURRENT GAME CODE was provided and you applied a tweak, phase="iterated" an
 CRITICAL host runtime (bodyJs runs inside the same shell as official games — canvas, ctx, W, H, score, setScore, bump, die wrapper, GS, Juice, PF):
 1. The host posts gamescroll:start after ready. Until then GS.paused === true.
 2. Implement onHostStart() to reset into a playable idle state. Do NOT wait for a fake HTML Start button that never receives host start.
-3. tick(dt) must early-return when GS.paused; draw() always paints the current UI (safe when called before onHostStart after layout()).
+3. tick(dt) must early-return when GS.paused; draw() always paints the current UI (safe when called before onHostStart after layout()). CRITICAL idle-safe rule: if draw reads board/grid/cells/rows like board[r][c], initialize that structure at declaration OR call reset()/clonePuzzle() at end of body — never leave board=[] and then index it in draw before onHostStart (browse preview crashes with "Cannot read properties of undefined (reading '0')").
 4. NEVER create HTML <button>, <input>, or other DOM controls. Draw all UI on canvas #c.
 5. ALWAYS register canvas or window pointer handlers, e.g. canvas.addEventListener('pointerdown', handler).
 6. Map taps with getBoundingClientRect: const r=canvas.getBoundingClientRect(); const x=(e.clientX-r.left)*(W/r.width); const y=(e.clientY-r.top)*(H/r.height)
@@ -401,6 +401,15 @@ export async function repairBody(
           'Return JSON with phase "generated", keep title/tip/accent/bg/mechanic, fixed bodyJs, and a corrected layoutPlan (0–1 fractions, no overlaps).',
           'Follow official catalog structure: layout/onHostStart/onResize/scorePos/diePos, PF.sky + PF helpers, getBoundingClientRect for pointer coords, no overlapping UI.',
           'If the body uses SLOTS / LAYOUT_PLAN / GS.layoutFromPlan / layoutRects(), you MUST keep `const SLOTS = {…}` and `const LAYOUT_PLAN = […]` at the top intact.',
+          errors.some((e) => /idle draw|before start|letterboxed/i.test(e))
+            ? [
+                'IDLE DRAW FIX (required for these errors):',
+                '- Host calls layout() then draw() while GS.paused, BEFORE onHostStart.',
+                '- draw() must not throw when board/grid/cells are empty.',
+                '- Prefer: initialize board via emptyBoard()/clonePuzzle() at load, OR end the body with reset() (not only layout()), OR guard `if (!board.length || !board[0])` before indexing.',
+                '- Classic bug: `let board = []` then `board[r][c]` in draw → TypeError reading \'0\'.',
+              ].join('\n')
+            : '',
           `title: ${meta.title}`,
           `tip: ${meta.tip}`,
           `accent: ${meta.accent}`,
@@ -411,7 +420,9 @@ export async function repairBody(
           '```javascript',
           bodyJs.length > 24_000 ? `${bodyJs.slice(0, 24_000)}\n/* truncated */` : bodyJs,
           '```',
-        ].join('\n'),
+        ]
+          .filter(Boolean)
+          .join('\n'),
       },
     ],
     { temperature: 0.2, modelKind: 'fast', maxTokens: 10_000 },

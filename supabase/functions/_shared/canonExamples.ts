@@ -67,6 +67,7 @@ ANTI-PATTERNS — these have shipped broken or low-quality games before. Never d
 - Using e.clientX/e.clientY straight as canvas coords without getBoundingClientRect mapping.
 - Core gameplay driven only by setTimeout/setInterval instead of state advanced in tick(dt).
 - tick(dt) that keeps simulating while GS.paused, or draw() that paints nothing until the game starts / throws before layout.
+- Leaving board/grid as [] and indexing board[r][c] in draw() before onHostStart/reset — browse idle draw crashes with "Cannot read properties of undefined (reading '0')". Init rows at load or end body with reset().
 - Labels drawn on top of other labels/buttons because layout() reserved no space for them.
 - Tiny tap targets (< 48px) or controls requiring two fingers / precise corner taps.
 - Calling Juice.onScore/onDie/update manually, or reassigning PF.t.

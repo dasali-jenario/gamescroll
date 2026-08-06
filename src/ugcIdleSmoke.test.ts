@@ -68,6 +68,31 @@ function draw(){
 canvas.addEventListener('pointerdown', () => {})
 `
 
+/**
+ * Freeform Sudoku-class idle crash (2026-08-06 creator_run_logs):
+ * board=[] until onHostStart, draw does board[r][c] → reading '0' of undefined.
+ */
+const brokenIdleEmptyBoard = `
+const LAYOUT_PLAN = [{"id":"title","x":0.1,"y":0.14,"w":0.8,"h":0.06,"band":"title"},{"id":"focus","x":0.1,"y":0.28,"w":0.8,"h":0.36,"band":"focal"},{"id":"hint","x":0.1,"y":0.66,"w":0.8,"h":0.05,"band":"hint"},{"id":"cta","x":0.15,"y":0.74,"w":0.7,"h":0.08,"band":"cta"}]
+let L = {}, board = [], cell = 40, gridRect = {x:40,y:200,w:200,h:200}
+function layoutRects(){ return L }
+function layout(){ L = GS.layoutFromPlan(LAYOUT_PLAN, W, H) }
+function scorePos(){ return [W/2,H/2] }
+function diePos(){ return [W/2,H/2] }
+function reset(){ layout(); board = [[1,0],[0,2]]; setScore(0) }
+function onHostStart(){ reset() }
+function onResize(){ layout() }
+function die(){ reset() }
+function tick(){ if (GS.paused) return }
+function draw(){
+  PF.sky(ctx,W,H,'#fff','#eee','#ddd')
+  for (let r=0;r<2;r++) for (let c=0;c<2;c++) {
+    if (board[r][c]) ctx.fillText(String(board[r][c]), 0, 0)
+  }
+}
+layout()
+`
+
 describe('idle / browse smoke (Wordle-class regressions)', () => {
   it('accepts a body that paints before onHostStart', () => {
     expect(validateGameBody(okBody)).toEqual({ ok: true })
@@ -79,6 +104,17 @@ describe('idle / browse smoke (Wordle-class regressions)', () => {
     expect(bad.ok).toBe(false)
     if (!bad.ok) {
       expect(bad.errors.some((e) => e.includes('idle draw'))).toBe(true)
+    }
+  })
+
+  it('fails empty-board grid indexing before onHostStart (Sudoku-class)', () => {
+    const bad = smokeGameBody(brokenIdleEmptyBoard)
+    expect(bad.ok).toBe(false)
+    if (!bad.ok) {
+      expect(bad.errors.some((e) => e.includes('idle draw'))).toBe(true)
+      expect(bad.errors.some((e) => /reading '0'|reading \"0\"/i.test(e))).toBe(true)
+      // Stack snippet must land in creator_run_logs for offline debugging.
+      expect(bad.errors.some((e) => e.includes('::'))).toBe(true)
     }
   })
 })

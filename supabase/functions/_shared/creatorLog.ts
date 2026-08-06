@@ -1,9 +1,11 @@
 /** Persist creator Edge diagnostics to public.creator_run_logs (+ console). */
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
-const MAX_BODY = 14_000
-const MAX_PROMPT = 2_000
-const MAX_ERRORS = 24
+/** Keep enough bodyJs to reproduce idle/smoke crashes offline (no auto-TTL on table). */
+const MAX_BODY = 48_000
+const MAX_PROMPT = 2_500
+const MAX_ERRORS = 32
+const MAX_ERROR_CHARS = 1_200
 
 export type CreatorLogInput = {
   user_id: string
@@ -42,7 +44,9 @@ export async function logCreatorRun(
     mechanic: input.mechanic ? String(input.mechanic).slice(0, 64) : null,
     build_path: input.build_path ? String(input.build_path).slice(0, 32) : null,
     ok: input.ok ?? null,
-    errors: (input.errors || []).slice(0, MAX_ERRORS).map((e) => String(e).slice(0, 500)),
+    errors: (input.errors || [])
+      .slice(0, MAX_ERRORS)
+      .map((e) => String(e).slice(0, MAX_ERROR_CHARS)),
     duration_ms:
       typeof input.duration_ms === 'number' && Number.isFinite(input.duration_ms)
         ? Math.round(input.duration_ms)
@@ -89,4 +93,38 @@ export function lastUserPrompt(messages: Array<{ role?: string; content?: string
     }
   }
   return null
+}
+
+/** Mirror of src/lib/creatorMetrics.classifyGateErrors for Edge props (keep labels aligned). */
+export function classifyCreatorErrors(errors: string[]): string[] {
+  if (!errors.length) return ['ok']
+  const found = new Set<string>()
+  for (const raw of errors) {
+    const e = raw.toLowerCase()
+    if (
+      e.includes('no layoutrects') ||
+      e.includes('missing harvest') ||
+      e.includes('no harvest') ||
+      (e.includes('harvest:') && e.includes('no '))
+    ) {
+      found.add('no_harvest')
+    } else if (e.includes('playability')) found.add('playability_crash')
+    else if (e.includes('scoring loop') || e.includes('bump()/setscore')) found.add('no_scoring')
+    else if (e.includes('overlap')) found.add('overlap')
+    else if (e.includes('cta') && (e.includes('lower third') || e.includes('band') || e.includes('off')))
+      found.add('cta_off_band')
+    else if (
+      e.includes('idle draw') ||
+      e.includes('before start') ||
+      (e.includes('smoke') && e.includes('threw'))
+    )
+      found.add('idle_crash')
+    else if (e.includes('pointer') || e.includes('hit target') || e.includes('unresponsive'))
+      found.add('unresponsive_hit')
+    else if (e.includes('layout fidelity') || e.includes('drifts') || e.includes('playfield'))
+      found.add('playfield_mismatch')
+    else found.add('other')
+  }
+  if (found.size > 1) found.delete('other')
+  return [...found]
 }

@@ -11,6 +11,21 @@ type ApiFns = {
   layout?: () => void
 }
 
+/** Short stack snippet for creator_run_logs — keeps idle-crash debugging actionable. */
+function formatSmokeThrow(label: string, err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err)
+  const stack =
+    err instanceof Error && err.stack
+      ? err.stack
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .slice(0, 4)
+          .join(' | ')
+      : ''
+  return stack ? `${label}: ${msg} :: ${stack}` : `${label}: ${msg}`
+}
+
 function stubCtx() {
   const noop = () => {}
   return new Proxy(
@@ -175,18 +190,9 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
       addEventListener,
     ) as ApiFns
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    const stack =
-      err instanceof Error && err.stack
-        ? err.stack.split('\n').slice(0, 4).join(' | ')
-        : ''
     return {
       ok: false,
-      errors: [
-        stack
-          ? `smoke load failed: ${msg} :: ${stack}`
-          : `smoke load failed: ${msg}`,
-      ],
+      errors: [formatSmokeThrow('smoke load failed', err)],
     }
   }
 
@@ -201,36 +207,31 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
   try {
     api.layout!()
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    errors.push(`smoke host layout() threw: ${msg}`)
+    errors.push(formatSmokeThrow('smoke host layout() threw', err))
   }
 
   // Critical: feed paints while GS.paused — before gamescroll:start / onHostStart.
   try {
     api.draw!(0)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    errors.push(`smoke idle draw (before start) threw: ${msg}`)
+    errors.push(formatSmokeThrow('smoke idle draw (before start) threw', err))
   }
 
   try {
     GS.paused = false
     api.onHostStart!()
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    errors.push(`smoke onHostStart threw: ${msg}`)
+    errors.push(formatSmokeThrow('smoke onHostStart threw', err))
   }
   try {
     api.layout!()
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    errors.push(`smoke layout threw: ${msg}`)
+    errors.push(formatSmokeThrow('smoke layout threw', err))
   }
   try {
     if (api.onResize) api.onResize()
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    errors.push(`smoke onResize threw: ${msg}`)
+    errors.push(formatSmokeThrow('smoke onResize threw', err))
   }
   try {
     api.tick!(0.016)
@@ -238,14 +239,12 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
     api.tick!(0.016)
     GS.paused = false
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    errors.push(`smoke tick threw: ${msg}`)
+    errors.push(formatSmokeThrow('smoke tick threw', err))
   }
   try {
     api.draw!(typeof performance !== 'undefined' ? performance.now() : 16)
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    errors.push(`smoke draw threw: ${msg}`)
+    errors.push(formatSmokeThrow('smoke draw threw', err))
   }
 
   // Fire a synthetic pointerdown if the body registered one on canvas.
@@ -260,8 +259,7 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
       })
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    errors.push(`smoke pointerdown threw: ${msg}`)
+    errors.push(formatSmokeThrow('smoke pointerdown threw', err))
   }
 
   // Letterboxed / short playfields (host chrome insets) must still paint.
@@ -297,8 +295,7 @@ export function smokeGameBody(bodyJs: string): SmokeResult {
       addEventListener,
     )
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    errors.push(`smoke letterboxed playfield threw: ${msg}`)
+    errors.push(formatSmokeThrow('smoke letterboxed playfield threw', err))
   }
 
   return errors.length ? { ok: false, errors } : { ok: true }

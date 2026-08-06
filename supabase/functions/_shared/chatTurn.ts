@@ -36,7 +36,7 @@ import {
   type LlmGamePayload,
 } from './creatorLlm.ts'
 import { ensureGameQuality } from './qualityGate.ts'
-import { lastUserPrompt, logCreatorRun } from './creatorLog.ts'
+import { lastUserPrompt, logCreatorRun, classifyCreatorErrors } from './creatorLog.ts'
 
 function applyScaffoldToGame(
   game: LlmGamePayload,
@@ -314,7 +314,7 @@ export async function handleChatTurn(opts: {
         missingSlotsBinding(quality.game.bodyJs)
       ) {
         game = applyScaffoldToGame(quality.game, family)
-        quality = { ok: true, game, critiqueIssues: quality.critiqueIssues }
+        quality = { ok: true, game, critiqueIssues: quality.critiqueIssues, repairAttempted: quality.repairAttempted }
       }
       if (!quality.ok) {
         const failPath = useArcadeScaffold
@@ -337,6 +337,9 @@ export async function handleChatTurn(opts: {
             edit_mode: editMode,
             use_arcade_scaffold: useArcadeScaffold,
             title: game.title,
+            failure_classes: classifyCreatorErrors(quality.errors),
+            repair_attempted: quality.repairAttempted,
+            body_len: (quality.game?.bodyJs || game.bodyJs || '').length,
           },
         })
         return jsonResponse({
@@ -522,6 +525,7 @@ export async function handleChatTurn(opts: {
           use_arcade_scaffold: useArcadeScaffold,
           critique_issues: quality.critiqueIssues.slice(0, 8),
           title: game.title,
+          repair_attempted: quality.repairAttempted,
         },
       })
   

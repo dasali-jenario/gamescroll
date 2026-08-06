@@ -110,6 +110,7 @@ export function freeformChromeSeedSection(
     '```javascript',
     chromeBoilerplateJs(plan),
     '// … your tick/draw/pointer using L.title, L.focus, L.hint, L.cta …',
+    '// Init puzzle/board state here OR call reset() below — draw runs before onHostStart.',
     'layout()',
     '```',
     'Default layoutPlan JSON:',

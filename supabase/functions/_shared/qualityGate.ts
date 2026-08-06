@@ -53,22 +53,31 @@ export async function ensureGameQuality(
     lockBody?: boolean
   },
 ): Promise<
-  | { ok: true; game: LlmGamePayload; critiqueIssues: string[] }
-  | { ok: false; errors: string[]; game: LlmGamePayload }
+  | { ok: true; game: LlmGamePayload; critiqueIssues: string[]; repairAttempted: boolean }
+  | {
+      ok: false
+      errors: string[]
+      game: LlmGamePayload
+      repairAttempted: boolean
+    }
 > {
   const startedAt = opts?.startedAt ?? Date.now()
   const remaining = () => QUALITY_DEADLINE_MS - (Date.now() - startedAt)
   const requireHarvest = opts?.requireHarvest !== false
   const lockBody = Boolean(opts?.lockBody)
   let current = game
+  let repairAttempted = false
   let check = checkGame(current, { requireHarvest })
   if (!check.ok) {
     if (lockBody || remaining() < 25_000) {
-      return { ok: false, errors: check.errors, game: current }
+      return { ok: false, errors: check.errors, game: current, repairAttempted }
     }
+    repairAttempted = true
     current = await repairBody(current.bodyJs, check.errors, prior, current)
     check = checkGame(current, { requireHarvest })
-    if (!check.ok) return { ok: false, errors: check.errors, game: current }
+    if (!check.ok) {
+      return { ok: false, errors: check.errors, game: current, repairAttempted }
+    }
   }
 
   if (opts?.skipCritique || lockBody || remaining() < 35_000) {
@@ -78,6 +87,7 @@ export async function ensureGameQuality(
       critiqueIssues: opts?.skipCritique || lockBody
         ? ['critique skipped: scaffold/patch path']
         : ['critique skipped: time budget'],
+      repairAttempted,
     }
   }
 
@@ -90,15 +100,23 @@ export async function ensureGameQuality(
         // Prefer shipping the pre-critique body only if it still passes geometry.
         const pre = checkGame(game, { requireHarvest })
         if (pre.ok) {
-          return { ok: true, game, critiqueIssues: [...critique.issues, ...check.errors] }
+          return {
+            ok: true,
+            game,
+            critiqueIssues: [...critique.issues, ...check.errors],
+            repairAttempted,
+          }
         }
-        return { ok: false, errors: check.errors, game: current }
+        return { ok: false, errors: check.errors, game: current, repairAttempted }
       }
+      repairAttempted = true
       current = await repairBody(current.bodyJs, check.errors, prior, current)
       check = checkGame(current, { requireHarvest })
-      if (!check.ok) return { ok: false, errors: check.errors, game: current }
+      if (!check.ok) {
+        return { ok: false, errors: check.errors, game: current, repairAttempted }
+      }
     }
   }
 
-  return { ok: true, game: current, critiqueIssues: critique.issues }
+  return { ok: true, game: current, critiqueIssues: critique.issues, repairAttempted }
 }

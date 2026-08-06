@@ -136,12 +136,13 @@ Stored `brief.editMode` + `brief.critiqueIssues` + `brief.buildPath` / `brief.me
 
 ### Creator run logs (Supabase)
 
-Edge writes diagnostic rows to [`creator_run_logs`](../supabase/migrations/20260730140000_creator_run_logs.sql) on each chat turn (`creator_chat_start`, `creator_quality_fail`, `creator_draft_saved`, `creator_interview`, …). Failures include truncated `body_js`, `user_prompt`, and `errors` (e.g. `smoke load failed: c is not defined`).
+Edge writes diagnostic rows to [`creator_run_logs`](../supabase/migrations/20260730140000_creator_run_logs.sql) on each chat turn (`creator_chat_start`, `creator_quality_fail`, `creator_draft_saved`, `creator_interview`, …). **Rows are retained** (no TTL) so we can improve prompts/scaffolds from production fails. Failures include truncated-but-large `body_js` (up to ~48KB), `user_prompt`, `errors` with short stacks (e.g. idle `board[r][c]` crashes), and `props.failure_classes` / `props.repair_attempted`.
 
 Query recent fails (SQL editor / service role):
 
 ```sql
-select created_at, event, mechanic, build_path, errors, left(user_prompt, 120), left(body_js, 200)
+select created_at, event, mechanic, build_path, errors, props->>'failure_classes' as classes,
+       left(user_prompt, 120), left(body_js, 200)
 from public.creator_run_logs
 where ok = false
 order by created_at desc

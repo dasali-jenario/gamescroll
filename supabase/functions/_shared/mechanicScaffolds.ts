@@ -1880,6 +1880,7 @@ export function customFreeformSeedMessage(): string {
     'Return phase="generated" with title, tip, accent, bg, mechanic:"custom", layoutPlan, and complete bodyJs.',
     freeformChromeSeedSection(DEFAULT_PORTRAIT_CHROME),
     'Same host contract as official games: PF.sky + helpers, scorePos/diePos, pointer via getBoundingClientRect, no DOM controls.',
+    'IDLE-SAFE DRAW: feed paints draw() before onHostStart. If you use a board/grid, initialize it at declaration (or call reset() at end of body) so draw never does board[r][c] on an empty array.',
   ].join('\n')
 }
 
